@@ -1,0 +1,716 @@
+import React, { useState } from 'react';
+import {
+  Plus,
+  Trash2,
+  Copy,
+  Search,
+  Shield,
+  User,
+  Heart,
+  Flame,
+  Brain,
+  Sparkles,
+  Minus,
+  Dices,
+  Info,
+  Check,
+} from 'lucide-react';
+import { CharacterSheet, CharacterType, AttributeItem, ResourceBar } from '../types';
+import { NewCharacterModal } from './NewCharacterModal';
+import { ApplyTemplateModal } from './ApplyTemplateModal';
+
+interface CharacterSheetsViewProps {
+  characters: CharacterSheet[];
+  activeCampaignId: string;
+  campaignTitle: string;
+  campaignSystem?: string;
+  onCreateCharacter: (character: Omit<CharacterSheet, 'createdAt' | 'updatedAt'> & { id?: string }) => void;
+  onUpdateCharacter: (id: string, updated: Partial<CharacterSheet>) => void;
+  onDeleteCharacter: (id: string) => void;
+}
+
+export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
+  characters,
+  activeCampaignId,
+  campaignTitle,
+  campaignSystem,
+  onCreateCharacter,
+  onUpdateCharacter,
+  onDeleteCharacter,
+}) => {
+  // Filter sheets belonging to active campaign
+  const campaignCharacters = characters.filter((c) => c.campaignId === activeCampaignId);
+
+  const [selectedCharId, setSelectedCharId] = useState<string>(
+    campaignCharacters[0]?.id || ''
+  );
+  const [filterType, setFilterType] = useState<'ALL' | 'PJ' | 'NPC'>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [newAttributeKey, setNewAttributeKey] = useState('');
+  const [newAttributeValue, setNewAttributeValue] = useState('');
+  const [isAddingAttr, setIsAddingAttr] = useState(false);
+  const [copiedNotification, setCopiedNotification] = useState(false);
+
+  // Template Modals state
+  const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+  const [newModalType, setNewModalType] = useState<CharacterType>('PJ');
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+
+  // Fallback to first character if current selection is invalid
+  const selectedChar =
+    campaignCharacters.find((c) => c.id === selectedCharId) || campaignCharacters[0];
+
+  // Filter list
+  const filteredList = campaignCharacters.filter((c) => {
+    const matchesType = filterType === 'ALL' || c.type === filterType;
+    const matchesSearch =
+      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.role.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesType && matchesSearch;
+  });
+
+  const handleOpenNewModal = (type: CharacterType = 'PJ') => {
+    setNewModalType(type);
+    setIsNewModalOpen(true);
+  };
+
+  const handleCreatedFromModal = (
+    newCharData: Omit<CharacterSheet, 'id' | 'createdAt' | 'updatedAt'>
+  ) => {
+    const generatedId = `char-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    onCreateCharacter({
+      ...newCharData,
+      id: generatedId,
+    });
+    setSelectedCharId(generatedId);
+  };
+
+  const handleApplyTemplate = (
+    newAttributes: AttributeItem[],
+    newResources?: ResourceBar[],
+    newNotes?: string
+  ) => {
+    if (!selectedChar) return;
+    const updates: Partial<CharacterSheet> = {
+      attributes: newAttributes,
+    };
+    if (newResources) {
+      updates.resources = newResources;
+    }
+    if (newNotes) {
+      updates.notes = newNotes;
+    }
+    onUpdateCharacter(selectedChar.id, updates);
+  };
+
+  const handleDuplicate = (char: CharacterSheet) => {
+    const duplicateId = `char-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    onCreateCharacter({
+      id: duplicateId,
+      campaignId: char.campaignId,
+      name: `${char.name} (Cópia)`,
+      role: char.role,
+      type: char.type,
+      attributes: char.attributes.map((a) => ({ ...a, id: `attr-${Date.now()}-${Math.random()}` })),
+      resources: char.resources.map((r) => ({ ...r, id: `res-${Date.now()}-${Math.random()}` })),
+      notes: char.notes,
+    });
+    setSelectedCharId(duplicateId);
+    setCopiedNotification(true);
+    setTimeout(() => setCopiedNotification(false), 2000);
+  };
+
+  // Resources handlers
+  const updateResourceValue = (resId: string, delta: number) => {
+    if (!selectedChar) return;
+    const updatedResources = selectedChar.resources.map((res) => {
+      if (res.id === resId) {
+        const nextVal = Math.max(0, Math.min(res.max, res.current + delta));
+        return { ...res, current: nextVal };
+      }
+      return res;
+    });
+    onUpdateCharacter(selectedChar.id, { resources: updatedResources });
+  };
+
+  const setResourceExact = (resId: string, current: number, max?: number) => {
+    if (!selectedChar) return;
+    const updatedResources = selectedChar.resources.map((res) => {
+      if (res.id === resId) {
+        return {
+          ...res,
+          current: Math.max(0, current),
+          max: max !== undefined ? Math.max(1, max) : res.max,
+        };
+      }
+      return res;
+    });
+    onUpdateCharacter(selectedChar.id, { resources: updatedResources });
+  };
+
+  const addResource = () => {
+    if (!selectedChar) return;
+    const newRes: ResourceBar = {
+      id: `res-${Date.now()}`,
+      name: 'Mana / Recurso',
+      current: 10,
+      max: 10,
+      color: 'blue',
+    };
+    onUpdateCharacter(selectedChar.id, {
+      resources: [...selectedChar.resources, newRes],
+    });
+  };
+
+  const removeResource = (resId: string) => {
+    if (!selectedChar) return;
+    onUpdateCharacter(selectedChar.id, {
+      resources: selectedChar.resources.filter((r) => r.id !== resId),
+    });
+  };
+
+  // Attributes handlers
+  const addAttribute = () => {
+    if (!selectedChar || !newAttributeKey.trim()) return;
+    const newAttr: AttributeItem = {
+      id: `attr-${Date.now()}`,
+      key: newAttributeKey.trim().toUpperCase(),
+      value: newAttributeValue.trim() || '10',
+    };
+    onUpdateCharacter(selectedChar.id, {
+      attributes: [...selectedChar.attributes, newAttr],
+    });
+    setNewAttributeKey('');
+    setNewAttributeValue('');
+    setIsAddingAttr(false);
+  };
+
+  const updateAttribute = (attrId: string, key: string, value: string | number) => {
+    if (!selectedChar) return;
+    const updated = selectedChar.attributes.map((a) =>
+      a.id === attrId ? { ...a, key, value } : a
+    );
+    onUpdateCharacter(selectedChar.id, { attributes: updated });
+  };
+
+  const removeAttribute = (attrId: string) => {
+    if (!selectedChar) return;
+    onUpdateCharacter(selectedChar.id, {
+      attributes: selectedChar.attributes.filter((a) => a.id !== attrId),
+    });
+  };
+
+  return (
+    <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-zinc-950 text-zinc-100">
+      {/* ========================================================================= */}
+      {/* SIDEBAR: LISTA DE FICHAS (PJs & NPCs)                                     */}
+      {/* ========================================================================= */}
+      <div className="w-full md:w-80 lg:w-96 border-r border-zinc-800/90 flex flex-col h-[40vh] md:h-full bg-zinc-950/90 shrink-0">
+        {/* Sidebar Header */}
+        <div className="p-3.5 border-b border-zinc-800/80 bg-zinc-900/50 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-amber-500" />
+              <h2 className="text-xs font-semibold text-zinc-200">Fichas da Campanha</h2>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                id="create-pj-btn"
+                onClick={() => handleOpenNewModal('PJ')}
+                className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-md text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                title="Novo Personagem de Jogador (PJ) com modelo de sistema"
+              >
+                <Plus className="w-3 h-3" />
+                <span>+ PJ</span>
+              </button>
+              <button
+                id="create-npc-btn"
+                onClick={() => handleOpenNewModal('NPC')}
+                className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/60 rounded-md text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                title="Novo Personagem do Mestre / Monstro (NPC) com modelo de sistema"
+              >
+                <Plus className="w-3 h-3" />
+                <span>+ NPC</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Buscar por nome ou classe..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50"
+            />
+          </div>
+
+          {/* Filters: ALL | PJ | NPC */}
+          <div className="flex items-center gap-1 bg-zinc-950 p-0.5 rounded-lg border border-zinc-800 text-[11px]">
+            <button
+              onClick={() => setFilterType('ALL')}
+              className={`flex-1 py-1 rounded text-center transition-colors ${
+                filterType === 'ALL'
+                  ? 'bg-zinc-800 text-zinc-100 font-semibold'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              Todos ({campaignCharacters.length})
+            </button>
+            <button
+              onClick={() => setFilterType('PJ')}
+              className={`flex-1 py-1 rounded text-center transition-colors ${
+                filterType === 'PJ'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              PJs ({campaignCharacters.filter((c) => c.type === 'PJ').length})
+            </button>
+            <button
+              onClick={() => setFilterType('NPC')}
+              className={`flex-1 py-1 rounded text-center transition-colors ${
+                filterType === 'NPC'
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              NPCs ({campaignCharacters.filter((c) => c.type === 'NPC').length})
+            </button>
+          </div>
+        </div>
+
+        {/* Character List */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+          {filteredList.length === 0 ? (
+            <div className="text-center py-8 text-zinc-500 text-xs px-4">
+              Nenhuma ficha encontrada.{' '}
+              <button
+                onClick={() => handleOpenNewModal('PJ')}
+                className="text-amber-400 underline hover:text-amber-300 ml-1 cursor-pointer font-medium"
+              >
+                Criar a primeira
+              </button>
+            </div>
+          ) : (
+            filteredList.map((char) => {
+              const isSelected = char.id === selectedChar?.id;
+              const hpRes = char.resources.find((r) =>
+                r.name.toLowerCase().includes('vida') || r.name.toLowerCase().includes('pv')
+              );
+              const hpPercent = hpRes ? Math.round((hpRes.current / (hpRes.max || 1)) * 100) : 100;
+
+              return (
+                <div
+                  key={char.id}
+                  onClick={() => setSelectedCharId(char.id)}
+                  className={`p-2.5 rounded-xl border transition-all cursor-pointer group ${
+                    isSelected
+                      ? 'bg-zinc-900 border-amber-500/40 shadow-xs'
+                      : 'bg-zinc-950/60 border-zinc-800/80 hover:bg-zinc-900/50 hover:border-zinc-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="font-semibold text-xs text-zinc-100 truncate flex-1">
+                      {char.name}
+                    </span>
+                    <span
+                      className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-semibold uppercase ${
+                        char.type === 'PJ'
+                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                          : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                      }`}
+                    >
+                      {char.type}
+                    </span>
+                  </div>
+
+                  <div className="text-[11px] text-zinc-400 truncate mb-2">
+                    {char.role || 'Sem classe'}
+                  </div>
+
+                  {/* Mini HP bar if available */}
+                  {hpRes && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono">
+                        <span className="flex items-center gap-1">
+                          <Heart className="w-2.5 h-2.5 text-rose-500" />
+                          <span>PV</span>
+                        </span>
+                        <span>
+                          {hpRes.current}/{hpRes.max}
+                        </span>
+                      </div>
+                      <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-200 ${
+                            hpPercent > 50
+                              ? 'bg-emerald-500'
+                              : hpPercent > 25
+                              ? 'bg-amber-500'
+                              : 'bg-rose-500'
+                          }`}
+                          style={{ width: `${Math.max(0, Math.min(100, hpPercent))}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* PAINEL PRINCIPAL: DETALHES & EDIÇÃO DA FICHA                             */}
+      {/* ========================================================================= */}
+      <div className="flex-1 flex flex-col h-[60vh] md:h-full overflow-y-auto bg-zinc-950">
+        {!selectedChar ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-zinc-500">
+            <User className="w-12 h-12 text-zinc-700 mb-3" />
+            <h3 className="text-sm font-semibold text-zinc-300 mb-1">
+              Nenhuma Ficha Selecionada
+            </h3>
+            <p className="text-xs text-zinc-500 max-w-sm mb-4">
+              Selecione uma ficha na lista lateral ou crie um novo personagem para gerenciar atributos e recursos.
+            </p>
+            <button
+              onClick={() => handleOpenNewModal('PJ')}
+              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-zinc-950 font-bold rounded-lg text-xs cursor-pointer shadow-md shadow-amber-950/30 transition-all"
+            >
+              Criar Nova Ficha com Modelo
+            </button>
+          </div>
+        ) : (
+          <div className="p-5 md:p-8 max-w-4xl w-full mx-auto space-y-6">
+            {/* Header: Name, Role, Type, Delete */}
+            <div className="bg-zinc-900/70 border border-zinc-800 rounded-2xl p-5 space-y-4 shadow-xs">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex-1 w-full space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="character-name-input"
+                      type="text"
+                      value={selectedChar.name}
+                      onChange={(e) => onUpdateCharacter(selectedChar.id, { name: e.target.value })}
+                      placeholder="Nome do Personagem"
+                      className="text-lg md:text-xl font-bold bg-transparent text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-b border-amber-500/60 w-full"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    value={selectedChar.role}
+                    onChange={(e) => onUpdateCharacter(selectedChar.id, { role: e.target.value })}
+                    placeholder="Papel / Classe / Conceito (ex: Ladino Assassino Nv 4)"
+                    className="text-xs md:text-sm text-zinc-400 bg-transparent placeholder:text-zinc-600 focus:outline-none focus:border-b border-amber-500/60 w-full"
+                  />
+                </div>
+
+                {/* Actions & Type Switch */}
+                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  <div className="flex items-center p-0.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs">
+                    <button
+                      onClick={() => onUpdateCharacter(selectedChar.id, { type: 'PJ' })}
+                      className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                        selectedChar.type === 'PJ'
+                          ? 'bg-amber-500 text-zinc-950'
+                          : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      PJ
+                    </button>
+                    <button
+                      onClick={() => onUpdateCharacter(selectedChar.id, { type: 'NPC' })}
+                      className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                        selectedChar.type === 'NPC'
+                          ? 'bg-zinc-800 text-amber-300'
+                          : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      NPC
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => handleDuplicate(selectedChar)}
+                    className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors border border-transparent hover:border-zinc-700"
+                    title="Duplicar Ficha"
+                  >
+                    {copiedNotification ? (
+                      <Check className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (confirm(`Excluir a ficha de "${selectedChar.name}"?`)) {
+                        onDeleteCharacter(selectedChar.id);
+                      }
+                    }}
+                    className="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-colors border border-transparent hover:border-rose-900/40"
+                    title="Excluir Ficha"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 1: Barras de Recursos (HP, Mana, Sanidade, etc.) */}
+            <div className="bg-zinc-900/40 border border-zinc-800/90 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-zinc-800/60">
+                <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200">
+                  <Flame className="w-4 h-4 text-amber-500" />
+                  <span>Barras de Recursos em Tempo Real</span>
+                </div>
+                <button
+                  onClick={addResource}
+                  className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 font-medium"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Adicionar Recurso
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {selectedChar.resources.map((res) => {
+                  const percent = Math.round((res.current / (res.max || 1)) * 100);
+                  const isLow = percent < 30;
+
+                  return (
+                    <div
+                      key={res.id}
+                      className="bg-zinc-950 border border-zinc-800/90 rounded-xl p-3.5 space-y-2.5 relative group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <input
+                          type="text"
+                          value={res.name}
+                          onChange={(e) => {
+                            const updated = selectedChar.resources.map((r) =>
+                              r.id === res.id ? { ...r, name: e.target.value } : r
+                            );
+                            onUpdateCharacter(selectedChar.id, { resources: updated });
+                          }}
+                          className="text-xs font-semibold text-zinc-200 bg-transparent focus:outline-none focus:border-b border-amber-500/50"
+                        />
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            value={res.current}
+                            onChange={(e) =>
+                              setResourceExact(res.id, parseInt(e.target.value) || 0)
+                            }
+                            className="w-12 bg-zinc-900 border border-zinc-800 text-center font-mono font-bold text-xs text-amber-400 rounded py-0.5"
+                          />
+                          <span className="text-zinc-600 text-xs">/</span>
+                          <input
+                            type="number"
+                            value={res.max}
+                            onChange={(e) =>
+                              setResourceExact(res.id, res.current, parseInt(e.target.value) || 1)
+                            }
+                            className="w-12 bg-zinc-900 border border-zinc-800 text-center font-mono text-xs text-zinc-400 rounded py-0.5"
+                          />
+                          <button
+                            onClick={() => removeResource(res.id)}
+                            className="p-1 text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity ml-1"
+                            title="Remover barra"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar Visual */}
+                      <div className="w-full h-2 bg-zinc-900 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-200 ${
+                            res.color === 'blue'
+                              ? 'bg-sky-500'
+                              : res.color === 'purple'
+                              ? 'bg-purple-500'
+                              : res.color === 'amber'
+                              ? 'bg-amber-500'
+                              : isLow
+                              ? 'bg-rose-500'
+                              : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${Math.max(0, Math.min(100, percent))}%` }}
+                        />
+                      </div>
+
+                      {/* Quick Adjust Buttons (-5, -1, +1, +5) for GM */}
+                      <div className="flex items-center justify-end gap-1 text-[10px] font-mono">
+                        <button
+                          onClick={() => updateResourceValue(res.id, -5)}
+                          className="px-2 py-0.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded border border-zinc-800 hover:border-zinc-700"
+                        >
+                          -5
+                        </button>
+                        <button
+                          onClick={() => updateResourceValue(res.id, -1)}
+                          className="px-2 py-0.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded border border-zinc-800 hover:border-zinc-700"
+                        >
+                          -1
+                        </button>
+                        <button
+                          onClick={() => updateResourceValue(res.id, 1)}
+                          className="px-2 py-0.5 bg-zinc-900 hover:bg-zinc-800 text-amber-400 rounded border border-zinc-800 hover:border-zinc-700 font-bold"
+                        >
+                          +1
+                        </button>
+                        <button
+                          onClick={() => updateResourceValue(res.id, 5)}
+                          className="px-2 py-0.5 bg-zinc-900 hover:bg-zinc-800 text-amber-400 rounded border border-zinc-800 hover:border-zinc-700 font-bold"
+                        >
+                          +5
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Section 2: Atributos Rápidos (Flexíveis para Qualquer Sistema) */}
+            <div className="bg-zinc-900/40 border border-zinc-800/90 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-zinc-800/60 flex-wrap gap-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200">
+                  <Brain className="w-4 h-4 text-amber-500" />
+                  <span>Atributos Rápidos & Perícias (Adaptável a qualquer RPG)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    id="apply-template-btn"
+                    onClick={() => setIsApplyModalOpen(true)}
+                    className="text-xs text-zinc-300 hover:text-amber-300 flex items-center gap-1.5 font-medium px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/70 hover:border-amber-500/50 rounded-lg transition-colors cursor-pointer"
+                    title="Reaplicar ou trocar modelo de atributos (D&D, OSR, CoC...)"
+                  >
+                    <Dices className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Reaplicar Modelo</span>
+                  </button>
+                  <button
+                    id="add-attribute-btn"
+                    onClick={() => setIsAddingAttr(!isAddingAttr)}
+                    className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 font-medium px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Novo Atributo
+                  </button>
+                </div>
+              </div>
+
+              {/* Form to add custom attribute */}
+              {isAddingAttr && (
+                <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-xl flex items-center gap-2 animate-in fade-in duration-100">
+                  <input
+                    type="text"
+                    placeholder="Chave (ex: SANIDADE, FOR, AGIL)"
+                    value={newAttributeKey}
+                    onChange={(e) => setNewAttributeKey(e.target.value)}
+                    className="flex-1 bg-zinc-900 border border-zinc-800 rounded px-2.5 py-1 text-xs text-zinc-200 uppercase"
+                    autoFocus
+                  />
+                  <input
+                    type="text"
+                    placeholder="Valor (ex: 16 ou +3 ou 65%)"
+                    value={newAttributeValue}
+                    onChange={(e) => setNewAttributeValue(e.target.value)}
+                    className="w-28 bg-zinc-900 border border-zinc-800 rounded px-2.5 py-1 text-xs text-zinc-200"
+                  />
+                  <button
+                    onClick={addAttribute}
+                    className="px-3 py-1 bg-amber-500 text-zinc-950 font-semibold rounded text-xs hover:bg-amber-600"
+                  >
+                    Salvar
+                  </button>
+                  <button
+                    onClick={() => setIsAddingAttr(false)}
+                    className="px-2 py-1 text-zinc-400 hover:text-zinc-200 text-xs"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+
+              {/* Attributes Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
+                {selectedChar.attributes.map((attr) => (
+                  <div
+                    key={attr.id}
+                    className="bg-zinc-950 border border-zinc-800/90 rounded-xl p-2.5 text-center relative group flex flex-col items-center justify-center hover:border-amber-500/40 transition-colors"
+                  >
+                    <button
+                      onClick={() => removeAttribute(attr.id)}
+                      className="absolute top-1 right-1 p-0.5 text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Excluir atributo"
+                    >
+                      <Trash2 className="w-2.5 h-2.5" />
+                    </button>
+
+                    <input
+                      type="text"
+                      value={attr.key}
+                      onChange={(e) => updateAttribute(attr.id, e.target.value.toUpperCase(), attr.value)}
+                      className="text-[11px] font-bold text-zinc-400 uppercase text-center bg-transparent w-full focus:outline-none"
+                    />
+
+                    <input
+                      type="text"
+                      value={attr.value}
+                      onChange={(e) => updateAttribute(attr.id, attr.key, e.target.value)}
+                      className="text-base font-black font-mono text-amber-400 text-center bg-transparent w-full focus:outline-none mt-0.5"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Section 3: Bloco de Anotações, Equipamentos & Habilidades */}
+            <div className="bg-zinc-900/40 border border-zinc-800/90 rounded-2xl p-5 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-zinc-800/60">
+                <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span>Equipamento, Talentos & Anotações do Mestre</span>
+                </div>
+              </div>
+
+              <textarea
+                value={selectedChar.notes}
+                onChange={(e) => onUpdateCharacter(selectedChar.id, { notes: e.target.value })}
+                rows={6}
+                placeholder="Insira detalhes de armas, itens mágicos, perícias, fraquezas ou segredos que o mestre preparou para este personagem..."
+                className="w-full bg-zinc-950 border border-zinc-800/80 rounded-xl p-3.5 text-xs sm:text-sm text-zinc-200 placeholder:text-zinc-700 leading-relaxed focus:outline-none focus:border-amber-500/50 resize-y"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Modal de Criação de Ficha com Seletor de Modelos de RPG */}
+      <NewCharacterModal
+        isOpen={isNewModalOpen}
+        onClose={() => setIsNewModalOpen(false)}
+        campaignId={activeCampaignId}
+        campaignSystem={campaignSystem}
+        initialType={newModalType}
+        onCreateCharacter={handleCreatedFromModal}
+      />
+
+      {/* Modal para Reaplicar Modelo de Atributos na Ficha Selecionada */}
+      {selectedChar && (
+        <ApplyTemplateModal
+          isOpen={isApplyModalOpen}
+          onClose={() => setIsApplyModalOpen(false)}
+          character={selectedChar}
+          campaignSystem={campaignSystem}
+          onApplyTemplate={handleApplyTemplate}
+        />
+      )}
+    </div>
+  );
+};

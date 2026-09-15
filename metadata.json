@@ -1,0 +1,6 @@
+{
+  "name": "Grimório",
+  "description": "Caderno minimalista e copiloto inteligente para Mestres de RPG com anotações de campanha, chat contextual com Gemini e gerenciamento dinâmico de fichas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
