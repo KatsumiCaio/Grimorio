@@ -89,6 +89,86 @@ async function startServer() {
     }
   });
 
+  // Imagen endpoint for RPG character portraits
+  app.post("/api/generate-portrait", async (req, res) => {
+    const { prompt, name, role, notes, system, artStyle, customApiKey } = req.body;
+    const apiKey = customApiKey || process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      res.status(400).json({
+        error: "Chave da API não configurada. Defina GEMINI_API_KEY nas variáveis de ambiente ou informe sua chave nas configurações do Grimório.",
+      });
+      return;
+    }
+
+    try {
+      // Build an evocative tabletop RPG portrait prompt if a custom one isn't explicitly provided
+      let finalPrompt = prompt?.trim();
+
+      if (!finalPrompt) {
+        const styleDescriptor =
+          artStyle || "High quality fantasy digital painting, highly detailed tabletop RPG character portrait";
+        const systemContext = system ? `setting: ${system}` : "tabletop RPG";
+        const charName = name ? `Character: ${name}` : "";
+        const charRole = role ? `Class/Role: ${role}` : "";
+        const charNotes = notes
+          ? `Visual features, equipment & description: ${notes.slice(0, 300).replace(/\n+/g, " ")}`
+          : "";
+
+        finalPrompt = [
+          `Detailed tabletop RPG character portrait, head and shoulders bust shot.`,
+          charName,
+          charRole,
+          systemContext,
+          charNotes,
+          `Style: ${styleDescriptor}. Intricate lighting, expressive face, crisp atmospheric background, centered composition, digital character art. No text, no watermark, no border.`,
+        ]
+          .filter(Boolean)
+          .join(" ");
+      }
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build",
+          },
+        },
+      });
+
+      const response = await ai.models.generateImages({
+        model: "imagen-3.0-generate-002",
+        prompt: finalPrompt,
+        config: {
+          numberOfImages: 1,
+          outputMimeType: "image/jpeg",
+          aspectRatio: "1:1",
+        },
+      });
+
+      const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
+
+      if (!imageBytes) {
+        const filterReason = response.generatedImages?.[0]?.raiFilteredReason;
+        throw new Error(
+          filterReason
+            ? `A imagem foi bloqueada pelos filtros de segurança do modelo (${filterReason}). Modifique a descrição do personagem.`
+            : "Nenhuma imagem foi gerada pelo modelo Imagen."
+        );
+      }
+
+      res.json({
+        imageUrl: `data:image/jpeg;base64,${imageBytes}`,
+        prompt: finalPrompt,
+      });
+    } catch (err: any) {
+      console.error("Portrait generation error:", err);
+      const errorMessage =
+        err?.message || "Ocorreu um erro ao gerar o retrato do personagem com a ferramenta Imagen.";
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
   // Vite middleware for development vs Static assets for production
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

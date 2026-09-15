@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
   Trash2,
@@ -14,16 +14,22 @@ import {
   Dices,
   Info,
   Check,
+  Wand2,
+  Image as ImageIcon,
 } from 'lucide-react';
-import { CharacterSheet, CharacterType, AttributeItem, ResourceBar } from '../types';
+import { CharacterSheet, CharacterType, AttributeItem, ResourceBar, AppSettings } from '../types';
 import { NewCharacterModal } from './NewCharacterModal';
 import { ApplyTemplateModal } from './ApplyTemplateModal';
+import { GeneratePortraitModal } from './GeneratePortraitModal';
 
 interface CharacterSheetsViewProps {
   characters: CharacterSheet[];
   activeCampaignId: string;
   campaignTitle: string;
   campaignSystem?: string;
+  settings?: AppSettings;
+  selectedCharacterId?: string;
+  onSelectCharacter?: (id: string) => void;
   onCreateCharacter: (character: Omit<CharacterSheet, 'createdAt' | 'updatedAt'> & { id?: string }) => void;
   onUpdateCharacter: (id: string, updated: Partial<CharacterSheet>) => void;
   onDeleteCharacter: (id: string) => void;
@@ -34,6 +40,9 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
   activeCampaignId,
   campaignTitle,
   campaignSystem,
+  settings,
+  selectedCharacterId,
+  onSelectCharacter,
   onCreateCharacter,
   onUpdateCharacter,
   onDeleteCharacter,
@@ -42,8 +51,20 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
   const campaignCharacters = characters.filter((c) => c.campaignId === activeCampaignId);
 
   const [selectedCharId, setSelectedCharId] = useState<string>(
-    campaignCharacters[0]?.id || ''
+    selectedCharacterId || campaignCharacters[0]?.id || ''
   );
+
+  // Sync if external selectedCharacterId changes
+  useEffect(() => {
+    if (selectedCharacterId && campaignCharacters.some((c) => c.id === selectedCharacterId)) {
+      setSelectedCharId(selectedCharacterId);
+    } else if (
+      (!selectedCharId || !campaignCharacters.some((c) => c.id === selectedCharId)) &&
+      campaignCharacters.length > 0
+    ) {
+      setSelectedCharId(campaignCharacters[0].id);
+    }
+  }, [selectedCharacterId, activeCampaignId, campaignCharacters]);
   const [filterType, setFilterType] = useState<'ALL' | 'PJ' | 'NPC'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [newAttributeKey, setNewAttributeKey] = useState('');
@@ -55,6 +76,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [newModalType, setNewModalType] = useState<CharacterType>('PJ');
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const [isPortraitModalOpen, setIsPortraitModalOpen] = useState(false);
 
   // Fallback to first character if current selection is invalid
   const selectedChar =
@@ -305,30 +327,48 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
               return (
                 <div
                   key={char.id}
-                  onClick={() => setSelectedCharId(char.id)}
+                  onClick={() => {
+                    setSelectedCharId(char.id);
+                    onSelectCharacter?.(char.id);
+                  }}
                   className={`p-2.5 rounded-xl border transition-all cursor-pointer group ${
                     isSelected
                       ? 'bg-zinc-900 border-amber-500/40 shadow-xs'
                       : 'bg-zinc-950/60 border-zinc-800/80 hover:bg-zinc-900/50 hover:border-zinc-700'
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-1 mb-1">
-                    <span className="font-semibold text-xs text-zinc-100 truncate flex-1">
-                      {char.name}
-                    </span>
-                    <span
-                      className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-semibold uppercase ${
-                        char.type === 'PJ'
-                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                          : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
-                      }`}
-                    >
-                      {char.type}
-                    </span>
-                  </div>
-
-                  <div className="text-[11px] text-zinc-400 truncate mb-2">
-                    {char.role || 'Sem classe'}
+                  <div className="flex items-center gap-2 mb-1.5">
+                    {char.avatarUrl ? (
+                      <img
+                        src={char.avatarUrl}
+                        alt={char.name}
+                        referrerPolicy="no-referrer"
+                        className="w-7 h-7 rounded-lg object-cover border border-amber-500/30 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-500 shrink-0">
+                        {char.name.slice(0, 2).toUpperCase() || 'P'}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-semibold text-xs text-zinc-100 truncate">
+                          {char.name}
+                        </span>
+                        <span
+                          className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-semibold uppercase ${
+                            char.type === 'PJ'
+                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                              : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                          }`}
+                        >
+                          {char.type}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-zinc-400 truncate">
+                        {char.role || 'Sem classe'}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Mini HP bar if available */}
@@ -386,77 +426,135 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
           </div>
         ) : (
           <div className="p-5 md:p-8 max-w-4xl w-full mx-auto space-y-6">
-            {/* Header: Name, Role, Type, Delete */}
+            {/* Header: Name, Role, Portrait, Type, Delete */}
             <div className="bg-zinc-900/70 border border-zinc-800 rounded-2xl p-5 space-y-4 shadow-xs">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex-1 w-full space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <input
-                      id="character-name-input"
-                      type="text"
-                      value={selectedChar.name}
-                      onChange={(e) => onUpdateCharacter(selectedChar.id, { name: e.target.value })}
-                      placeholder="Nome do Personagem"
-                      className="text-lg md:text-xl font-bold bg-transparent text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-b border-amber-500/60 w-full"
-                    />
-                  </div>
-                  <input
-                    type="text"
-                    value={selectedChar.role}
-                    onChange={(e) => onUpdateCharacter(selectedChar.id, { role: e.target.value })}
-                    placeholder="Papel / Classe / Conceito (ex: Ladino Assassino Nv 4)"
-                    className="text-xs md:text-sm text-zinc-400 bg-transparent placeholder:text-zinc-600 focus:outline-none focus:border-b border-amber-500/60 w-full"
-                  />
+              <div className="flex flex-col sm:flex-row items-start gap-4">
+                {/* Character Portrait Box */}
+                <div className="relative group shrink-0">
+                  {selectedChar.avatarUrl ? (
+                    <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-amber-500/40 shadow-lg shadow-amber-950/20 group">
+                      <img
+                        src={selectedChar.avatarUrl}
+                        alt={`Retrato de ${selectedChar.name}`}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsPortraitModalOpen(true)}
+                          className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold text-[10px] rounded-md transition-colors cursor-pointer"
+                          title="Gerar nova versão com Imagen"
+                        >
+                          Trocar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onUpdateCharacter(selectedChar.id, { avatarUrl: undefined })}
+                          className="text-rose-400 hover:text-rose-300 text-[10px] underline cursor-pointer"
+                          title="Remover retrato da ficha"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsPortraitModalOpen(true)}
+                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-2 border-dashed border-zinc-800 hover:border-amber-500/60 bg-zinc-950/70 hover:bg-zinc-900/70 flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-amber-400 transition-all cursor-pointer group shadow-inner"
+                      title="Gerar Retrato com Imagen"
+                    >
+                      <Sparkles className="w-5 h-5 text-zinc-600 group-hover:text-amber-400 transition-colors" />
+                      <span className="text-[10px] font-bold text-center leading-tight px-1 text-zinc-400 group-hover:text-amber-300">
+                        Gerar Retrato (Imagen)
+                      </span>
+                    </button>
+                  )}
                 </div>
 
-                {/* Actions & Type Switch */}
-                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                  <div className="flex items-center p-0.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs">
-                    <button
-                      onClick={() => onUpdateCharacter(selectedChar.id, { type: 'PJ' })}
-                      className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
-                        selectedChar.type === 'PJ'
-                          ? 'bg-amber-500 text-zinc-950'
-                          : 'text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      PJ
-                    </button>
-                    <button
-                      onClick={() => onUpdateCharacter(selectedChar.id, { type: 'NPC' })}
-                      className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
-                        selectedChar.type === 'NPC'
-                          ? 'bg-zinc-800 text-amber-300'
-                          : 'text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      NPC
-                    </button>
+                <div className="flex-1 w-full space-y-2">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex-1 w-full space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="character-name-input"
+                          type="text"
+                          value={selectedChar.name}
+                          onChange={(e) => onUpdateCharacter(selectedChar.id, { name: e.target.value })}
+                          placeholder="Nome do Personagem"
+                          className="text-lg md:text-xl font-bold bg-transparent text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-b border-amber-500/60 w-full"
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        value={selectedChar.role}
+                        onChange={(e) => onUpdateCharacter(selectedChar.id, { role: e.target.value })}
+                        placeholder="Papel / Classe / Conceito (ex: Ladino Assassino Nv 4)"
+                        className="text-xs md:text-sm text-zinc-400 bg-transparent placeholder:text-zinc-600 focus:outline-none focus:border-b border-amber-500/60 w-full"
+                      />
+                    </div>
+
+                    {/* Actions & Type Switch */}
+                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setIsPortraitModalOpen(true)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:border-amber-500/50 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-xs"
+                        title="Gerar retrato com Imagen baseado nas anotações da ficha"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="hidden md:inline">Retrato IA (Imagen)</span>
+                      </button>
+
+                      <div className="flex items-center p-0.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs">
+                        <button
+                          onClick={() => onUpdateCharacter(selectedChar.id, { type: 'PJ' })}
+                          className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                            selectedChar.type === 'PJ'
+                              ? 'bg-amber-500 text-zinc-950'
+                              : 'text-zinc-400 hover:text-zinc-200'
+                          }`}
+                        >
+                          PJ
+                        </button>
+                        <button
+                          onClick={() => onUpdateCharacter(selectedChar.id, { type: 'NPC' })}
+                          className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                            selectedChar.type === 'NPC'
+                              ? 'bg-zinc-800 text-amber-300'
+                              : 'text-zinc-400 hover:text-zinc-200'
+                          }`}
+                        >
+                          NPC
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => handleDuplicate(selectedChar)}
+                        className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors border border-transparent hover:border-zinc-700"
+                        title="Duplicar Ficha"
+                      >
+                        {copiedNotification ? (
+                          <Check className="w-4 h-4 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (confirm(`Excluir a ficha de "${selectedChar.name}"?`)) {
+                            onDeleteCharacter(selectedChar.id);
+                          }
+                        }}
+                        className="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-colors border border-transparent hover:border-rose-900/40"
+                        title="Excluir Ficha"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-
-                  <button
-                    onClick={() => handleDuplicate(selectedChar)}
-                    className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors border border-transparent hover:border-zinc-700"
-                    title="Duplicar Ficha"
-                  >
-                    {copiedNotification ? (
-                      <Check className="w-4 h-4 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      if (confirm(`Excluir a ficha de "${selectedChar.name}"?`)) {
-                        onDeleteCharacter(selectedChar.id);
-                      }
-                    }}
-                    className="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-colors border border-transparent hover:border-rose-900/40"
-                    title="Excluir Ficha"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
             </div>
@@ -677,6 +775,15 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                   <Sparkles className="w-4 h-4 text-amber-500" />
                   <span>Equipamento, Talentos & Anotações do Mestre</span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPortraitModalOpen(true)}
+                  className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer font-medium"
+                  title="Gerar retrato com Imagen baseado nas anotações desta ficha"
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                  <span>Gerar Retrato com Imagen</span>
+                </button>
               </div>
 
               <textarea
@@ -709,6 +816,20 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
           character={selectedChar}
           campaignSystem={campaignSystem}
           onApplyTemplate={handleApplyTemplate}
+        />
+      )}
+
+      {/* Modal de Geração de Retrato com Imagen */}
+      {selectedChar && (
+        <GeneratePortraitModal
+          isOpen={isPortraitModalOpen}
+          onClose={() => setIsPortraitModalOpen(false)}
+          character={selectedChar}
+          campaignSystem={campaignSystem}
+          settings={settings}
+          onApplyPortrait={(imageUrl) => {
+            onUpdateCharacter(selectedChar.id, { avatarUrl: imageUrl });
+          }}
         />
       )}
     </div>

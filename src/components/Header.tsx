@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Users, Settings, Sparkles, CheckCircle2 } from 'lucide-react';
+import { BookOpen, Users, Settings, Sparkles, CheckCircle2, Search } from 'lucide-react';
 import { FlamingD20Logo } from './FlamingD20Logo';
 import { MainTab } from '../types';
 import { DiceRoller } from './DiceRoller';
@@ -10,6 +10,7 @@ interface HeaderProps {
   characterCount: number;
   isSaved?: boolean;
   onOpenSettings: () => void;
+  onOpenSearch: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   characterCount,
   isSaved = true,
   onOpenSettings,
+  onOpenSearch,
 }) => {
   return (
     <header className="h-14 border-b border-zinc-800/90 bg-zinc-950/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between select-none z-30 shrink-0">
@@ -88,6 +90,20 @@ export const Header: React.FC<HeaderProps> = ({
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500/80" />
           <span>Salvo offline</span>
         </div>
+
+        {/* Global Search Button */}
+        <button
+          id="global-search-btn"
+          onClick={onOpenSearch}
+          className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 text-xs text-zinc-400 hover:text-zinc-100 bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-lg transition-all cursor-pointer"
+          title="Pesquisa Global (Ctrl+K ou ⌘K)"
+        >
+          <Search className="w-3.5 h-3.5 text-amber-500" />
+          <span className="hidden md:inline font-medium">Pesquisar</span>
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.2 text-[10px] font-mono text-zinc-400 bg-zinc-950 border border-zinc-800 rounded">
+            ⌘K
+          </kbd>
+        </button>
 
         {/* Quick Dice Roller */}
         <DiceRoller />

@@ -5,6 +5,7 @@ import { Header } from './components/Header';
 import { CampaignCopilotView } from './components/CampaignCopilotView';
 import { CharacterSheetsView } from './components/CharacterSheetsView';
 import { SettingsModal } from './components/SettingsModal';
+import { GlobalSearchModal } from './components/GlobalSearchModal';
 
 export default function App() {
   const [campaigns, setCampaigns] = useState<Campaign[]>(() => storageService.getCampaigns());
@@ -16,6 +17,33 @@ export default function App() {
   });
   const [currentTab, setCurrentTab] = useState<MainTab>('campaign');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | undefined>(undefined);
+
+  // Global keyboard shortcut for search (Ctrl+K / Cmd+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Quick navigation handlers from Global Search
+  const handleNavigateToCampaign = useCallback((campaignId: string) => {
+    setActiveCampaignId(campaignId);
+    setCurrentTab('campaign');
+  }, []);
+
+  const handleNavigateToCharacter = useCallback((campaignId: string, charId: string) => {
+    setActiveCampaignId(campaignId);
+    setSelectedCharacterId(charId);
+    setCurrentTab('characters');
+  }, []);
 
   // Sync state with storage whenever campaigns change
   const handleUpdateCampaign = useCallback((updated: Partial<Campaign>) => {
@@ -120,6 +148,7 @@ export default function App() {
         onTabChange={setCurrentTab}
         characterCount={activeCampaignCharacterCount}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSearch={() => setIsSearchOpen(true)}
       />
 
       {/* Main App Body */}
@@ -142,6 +171,9 @@ export default function App() {
             activeCampaignId={activeCampaignId}
             campaignTitle={currentCampaign?.title || 'Campanha'}
             campaignSystem={currentCampaign?.system || 'D&D 5e'}
+            settings={settings}
+            selectedCharacterId={selectedCharacterId}
+            onSelectCharacter={setSelectedCharacterId}
             onCreateCharacter={handleCreateCharacter}
             onUpdateCharacter={handleUpdateCharacter}
             onDeleteCharacter={handleDeleteCharacter}
@@ -156,6 +188,16 @@ export default function App() {
         settings={settings}
         onSaveSettings={handleSaveSettings}
         onDataImported={handleDataImported}
+      />
+
+      {/* Global Search Modal (Ctrl+K / ⌘K) */}
+      <GlobalSearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        campaigns={campaigns}
+        characters={characters}
+        onNavigateToCampaign={handleNavigateToCampaign}
+        onNavigateToCharacter={handleNavigateToCharacter}
       />
     </div>
   );
