@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "users": {
+      "title": "User",
+      "description": "User profile and synchronization settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "isAnonymous": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "lastLoginAt": { "type": "number" }
+      },
+      "required": ["id", "createdAt"]
+    },
+    "campaigns": {
+      "title": "Campaign",
+      "description": "Tabletop RPG campaigns containing world notes and rule systems",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "system": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "title", "system", "notes"]
+    },
+    "characters": {
+      "title": "Character",
+      "description": "Player characters and NPCs sheets with attributes and resources",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "campaignId": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "type": { "type": "string" },
+        "attributes": { "type": "array" },
+        "resources": { "type": "array" },
+        "notes": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "campaignId", "name", "role", "type"]
+    }
+  }
+}

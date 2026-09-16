@@ -136,15 +136,36 @@ async function startServer() {
         },
       });
 
-      const response = await ai.models.generateImages({
-        model: "imagen-3.0-generate-002",
-        prompt: finalPrompt,
-        config: {
-          numberOfImages: 1,
-          outputMimeType: "image/jpeg",
-          aspectRatio: "1:1",
-        },
-      });
+      let response;
+      try {
+        response = await ai.models.generateImages({
+          model: "imagen-3.0-generate-002",
+          prompt: finalPrompt,
+          config: {
+            numberOfImages: 1,
+            outputMimeType: "image/jpeg",
+            aspectRatio: "1:1",
+          },
+        });
+      } catch (primaryErr: any) {
+        if (
+          primaryErr?.status === 404 ||
+          primaryErr?.message?.toLowerCase().includes("not found") ||
+          primaryErr?.message?.toLowerCase().includes("unsupported")
+        ) {
+          response = await ai.models.generateImages({
+            model: "imagen-3.0-generate-001",
+            prompt: finalPrompt,
+            config: {
+              numberOfImages: 1,
+              outputMimeType: "image/jpeg",
+              aspectRatio: "1:1",
+            },
+          });
+        } else {
+          throw primaryErr;
+        }
+      }
 
       const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
 

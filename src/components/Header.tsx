@@ -1,14 +1,27 @@
 import React from 'react';
-import { BookOpen, Users, Settings, Sparkles, CheckCircle2, Search } from 'lucide-react';
+import {
+  BookOpen,
+  Users,
+  Settings,
+  Search,
+  CloudCheck,
+  RefreshCw,
+  CloudOff,
+  LogIn,
+  User as UserIcon,
+} from 'lucide-react';
 import { FlamingD20Logo } from './FlamingD20Logo';
 import { MainTab } from '../types';
 import { DiceRoller } from './DiceRoller';
+import type { User } from 'firebase/auth';
 
 interface HeaderProps {
   currentTab: MainTab;
   onTabChange: (tab: MainTab) => void;
   characterCount: number;
-  isSaved?: boolean;
+  syncStatus?: 'synced' | 'syncing' | 'offline' | 'error';
+  user?: User | null;
+  onSignInGoogle?: () => void;
   onOpenSettings: () => void;
   onOpenSearch: () => void;
 }
@@ -17,12 +30,14 @@ export const Header: React.FC<HeaderProps> = ({
   currentTab,
   onTabChange,
   characterCount,
-  isSaved = true,
+  syncStatus = 'synced',
+  user,
+  onSignInGoogle,
   onOpenSettings,
   onOpenSearch,
 }) => {
   return (
-    <header className="h-14 border-b border-zinc-800/90 bg-zinc-950/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between select-none z-30 shrink-0">
+    <header className="h-14 border-b border-zinc-800/90 bg-zinc-950/95 backdrop-blur-md px-3 sm:px-6 flex items-center justify-between select-none z-30 shrink-0">
       {/* Brand & Logo */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2.5">
@@ -43,12 +58,12 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Navigation Tabs (Only 2 Main Tabs as strictly required) */}
+      {/* Navigation Tabs */}
       <nav className="flex items-center p-1 bg-zinc-900/90 border border-zinc-800 rounded-xl">
         <button
           id="tab-campaign-btn"
           onClick={() => onTabChange('campaign')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+          className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
             currentTab === 'campaign'
               ? 'bg-zinc-800 text-amber-400 shadow-xs border border-amber-500/30 font-semibold'
               : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
@@ -61,7 +76,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           id="tab-characters-btn"
           onClick={() => onTabChange('characters')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+          className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
             currentTab === 'characters'
               ? 'bg-zinc-800 text-amber-400 shadow-xs border border-amber-500/30 font-semibold'
               : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
@@ -83,23 +98,81 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
       </nav>
 
-      {/* Quick Tools: Autosave, Dice, Settings */}
-      <div className="flex items-center gap-2">
-        {/* Autosave badge */}
-        <div className="hidden lg:flex items-center gap-1 text-[11px] text-zinc-500 pr-2 border-r border-zinc-800/80">
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500/80" />
-          <span>Salvo offline</span>
+      {/* Quick Tools: Autosave/Cloud, User Auth, Search, Dice, Settings */}
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Firebase Cloud Sync Badge */}
+        <div
+          className="hidden md:flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg bg-zinc-900/60 border border-zinc-800/80 cursor-pointer hover:border-zinc-700 transition-colors"
+          onClick={onOpenSettings}
+          title="Status do Firebase Firestore. Clique para abrir configurações de nuvem."
+        >
+          {syncStatus === 'syncing' ? (
+            <>
+              <RefreshCw className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+              <span className="text-zinc-400">Sincronizando...</span>
+            </>
+          ) : syncStatus === 'offline' ? (
+            <>
+              <CloudOff className="w-3.5 h-3.5 text-zinc-500" />
+              <span className="text-zinc-500">Offline</span>
+            </>
+          ) : syncStatus === 'error' ? (
+            <>
+              <CloudOff className="w-3.5 h-3.5 text-rose-400" />
+              <span className="text-rose-400">Erro Nuvem</span>
+            </>
+          ) : (
+            <>
+              <CloudCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-zinc-300">Firebase Firestore</span>
+            </>
+          )}
         </div>
+
+        {/* User Account / Google Sign-in */}
+        {user && !user.isAnonymous ? (
+          <button
+            onClick={onOpenSettings}
+            className="flex items-center gap-1.5 p-1 sm:px-2 sm:py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs transition-colors"
+            title={`Conectado como ${user.displayName || user.email || 'Usuário Google'}`}
+          >
+            {user.photoURL ? (
+              <img
+                src={user.photoURL}
+                alt="Foto"
+                referrerPolicy="no-referrer"
+                className="w-5 h-5 rounded-full object-cover border border-amber-500/40"
+              />
+            ) : (
+              <UserIcon className="w-3.5 h-3.5 text-amber-400" />
+            )}
+            <span className="hidden lg:inline text-[11px] text-zinc-200 font-medium max-w-[90px] truncate">
+              {user.displayName?.split(' ')[0] || 'Google'}
+            </span>
+          </button>
+        ) : onSignInGoogle ? (
+          <button
+            id="google-signin-btn"
+            onClick={() => {
+              void onSignInGoogle();
+            }}
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-medium transition-colors cursor-pointer"
+            title="Conectar com o Google para sincronizar suas campanhas em qualquer dispositivo"
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Conectar Google</span>
+          </button>
+        ) : null}
 
         {/* Global Search Button */}
         <button
           id="global-search-btn"
           onClick={onOpenSearch}
-          className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 text-xs text-zinc-400 hover:text-zinc-100 bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-lg transition-all cursor-pointer"
+          className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 text-xs text-zinc-400 hover:text-zinc-100 bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-lg transition-all cursor-pointer"
           title="Pesquisa Global (Ctrl+K ou ⌘K)"
         >
           <Search className="w-3.5 h-3.5 text-amber-500" />
-          <span className="hidden md:inline font-medium">Pesquisar</span>
+          <span className="hidden xl:inline font-medium">Pesquisar</span>
           <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.2 text-[10px] font-mono text-zinc-400 bg-zinc-950 border border-zinc-800 rounded">
             ⌘K
           </kbd>
@@ -113,7 +186,7 @@ export const Header: React.FC<HeaderProps> = ({
           id="settings-modal-btn"
           onClick={onOpenSettings}
           className="p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent hover:border-zinc-800 rounded-lg transition-colors"
-          title="Configurações & Backup"
+          title="Configurações, Firebase & Backup"
         >
           <Settings className="w-4 h-4" />
         </button>
