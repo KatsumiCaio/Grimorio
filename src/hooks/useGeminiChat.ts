@@ -101,7 +101,7 @@ DIRETRIZES DE RESPOSTA:
               content: m.content,
             })),
             systemInstruction,
-            model: options.model || 'gemini-2.5-flash',
+            model: options.model && options.model !== 'gemini-2.5-flash' ? options.model : 'gemini-3.6-flash',
             customApiKey: options.customApiKey || undefined,
           }),
         });

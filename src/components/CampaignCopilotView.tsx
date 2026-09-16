@@ -48,7 +48,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   onUpdateCampaign,
   onDeleteCampaign,
   characters,
-  model = 'gemini-2.5-flash',
+  model = 'gemini-3.6-flash',
   customApiKey = '',
   isFullScreen = false,
   onToggleFullScreen,

@@ -302,12 +302,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 Modelo Gemini
               </label>
               <select
-                value={formData.model}
+                value={formData.model === 'gemini-2.5-flash' ? 'gemini-3.6-flash' : formData.model}
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-amber-500/60"
               >
-                <option value="gemini-2.5-flash">gemini-2.5-flash (Recomendado - Ultrarrápido & Contextual)</option>
-                <option value="gemini-3.8-flash">gemini-3.8-flash (Raciocínio Expandido)</option>
+                <option value="gemini-3.6-flash">gemini-3.6-flash (Recomendado - Rápido & Fluido)</option>
+                <option value="gemini-3.8-flash">gemini-3.8-flash (Raciocínio Avançado)</option>
+                <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Ultra Leve & Baixa Latência)</option>
               </select>
               <p className="text-[11px] text-zinc-500 mt-1">
                 Utiliza a SDK oficial @google/genai com suporte a streaming de tokens.

@@ -55,11 +55,19 @@ async function startServer() {
         parts: [{ text: msg.content || "" }],
       }));
 
-      // Model requested: gemini-2.5-flash
-      const selectedModel = model || "gemini-2.5-flash";
+      // Map deprecated or unsupported models to active official models
+      let requestedModel = model || "gemini-3.6-flash";
+      if (
+        requestedModel === "gemini-2.5-flash" ||
+        requestedModel.includes("2.5") ||
+        requestedModel.includes("2.0") ||
+        requestedModel.includes("1.5")
+      ) {
+        requestedModel = "gemini-3.6-flash";
+      }
 
       const streamResult = await ai.models.generateContentStream({
-        model: selectedModel,
+        model: requestedModel,
         contents: formattedContents.length > 0 ? formattedContents : [{ role: "user", parts: [{ text: "Olá" }] }],
         config: systemInstruction
           ? {
@@ -82,14 +90,19 @@ async function startServer() {
       res.end();
     } catch (err: any) {
       console.error("Gemini API stream error:", err);
-      const errorMessage = err?.message || "Erro desconhecido ao consultar a API Gemini.";
+      let errorMessage = err?.message || "Erro desconhecido ao consultar a API Gemini.";
+      if (typeof errorMessage === "string" && errorMessage.includes("exceeded your current quota")) {
+        errorMessage = "Limite de cota temporário atingido na API Gemini. Aguarde alguns segundos ou configure sua chave pessoal no menu de Configurações.";
+      } else if (typeof errorMessage === "string" && errorMessage.includes("API key not valid")) {
+        errorMessage = "A chave de API do Gemini informada é inválida. Verifique a chave nas Configurações.";
+      }
       res.write(`data: ${JSON.stringify({ error: errorMessage })}\n\n`);
       res.write("data: [DONE]\n\n");
       res.end();
     }
   });
 
-  // Imagen endpoint for RPG character portraits
+  // Image endpoint for RPG character portraits using Gemini image models
   app.post("/api/generate-portrait", async (req, res) => {
     const { prompt, name, role, notes, system, artStyle, customApiKey } = req.body;
     const apiKey = customApiKey || process.env.GEMINI_API_KEY;
@@ -136,56 +149,61 @@ async function startServer() {
         },
       });
 
-      let response;
-      try {
-        response = await ai.models.generateImages({
-          model: "imagen-3.0-generate-002",
-          prompt: finalPrompt,
-          config: {
-            numberOfImages: 1,
-            outputMimeType: "image/jpeg",
-            aspectRatio: "1:1",
-          },
-        });
-      } catch (primaryErr: any) {
-        if (
-          primaryErr?.status === 404 ||
-          primaryErr?.message?.toLowerCase().includes("not found") ||
-          primaryErr?.message?.toLowerCase().includes("unsupported")
-        ) {
-          response = await ai.models.generateImages({
-            model: "imagen-3.0-generate-001",
-            prompt: finalPrompt,
+      // Call modern generateContent with image models
+      let imageUrl: string | null = null;
+      const imageModels = ["gemini-3.1-flash-lite-image", "gemini-3.1-flash-image"];
+      let lastImgError: any = null;
+
+      for (const imgModel of imageModels) {
+        try {
+          const response = await ai.models.generateContent({
+            model: imgModel,
+            contents: {
+              parts: [{ text: finalPrompt }],
+            },
             config: {
-              numberOfImages: 1,
-              outputMimeType: "image/jpeg",
-              aspectRatio: "1:1",
+              imageConfig: {
+                aspectRatio: "1:1",
+              },
             },
           });
-        } else {
-          throw primaryErr;
+
+          for (const cand of response.candidates || []) {
+            for (const part of cand.content?.parts || []) {
+              if (part.inlineData?.data) {
+                const mime = part.inlineData.mimeType || "image/jpeg";
+                imageUrl = `data:${mime};base64,${part.inlineData.data}`;
+                break;
+              }
+            }
+            if (imageUrl) break;
+          }
+
+          if (imageUrl) break;
+        } catch (imgErr: any) {
+          lastImgError = imgErr;
+          console.warn(`Tentativa de retrato com ${imgModel} falhou:`, imgErr?.status, imgErr?.message);
         }
       }
 
-      const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
-
-      if (!imageBytes) {
-        const filterReason = response.generatedImages?.[0]?.raiFilteredReason;
-        throw new Error(
-          filterReason
-            ? `A imagem foi bloqueada pelos filtros de segurança do modelo (${filterReason}). Modifique a descrição do personagem.`
-            : "Nenhuma imagem foi gerada pelo modelo Imagen."
-        );
+      if (!imageUrl) {
+        const errMsg = lastImgError?.message || "";
+        if (errMsg.includes("quota") || errMsg.includes("429")) {
+          throw new Error(
+            "Cota de geração de imagens atingida para a chave atual. Você pode adicionar uma chave pessoal do Google AI Studio nas Configurações para continuar gerando retratos."
+          );
+        }
+        throw new Error(errMsg || "Não foi possível gerar o retrato com os modelos de imagem do Gemini.");
       }
 
       res.json({
-        imageUrl: `data:image/jpeg;base64,${imageBytes}`,
+        imageUrl,
         prompt: finalPrompt,
       });
     } catch (err: any) {
       console.error("Portrait generation error:", err);
       const errorMessage =
-        err?.message || "Ocorreu um erro ao gerar o retrato do personagem com a ferramenta Imagen.";
+        err?.message || "Ocorreu um erro ao gerar o retrato do personagem com a ferramenta de imagem do Gemini.";
       res.status(500).json({ error: errorMessage });
     }
   });

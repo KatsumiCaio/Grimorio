@@ -6,7 +6,7 @@ const SETTINGS_STORAGE_KEY = 'grimorio_settings_v1';
 
 const DEFAULT_SETTINGS: AppSettings = {
   customApiKey: '',
-  model: 'gemini-2.5-flash',
+  model: 'gemini-3.6-flash',
   fontSize: 'base',
   editorMode: 'edit',
 };
@@ -206,7 +206,14 @@ export const storageService = {
     try {
       const data = localStorage.getItem(SETTINGS_STORAGE_KEY);
       if (!data) return DEFAULT_SETTINGS;
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+      const parsed = JSON.parse(data);
+      const settings = { ...DEFAULT_SETTINGS, ...parsed };
+      // Migrate legacy/deprecated model
+      if (settings.model === 'gemini-2.5-flash' || !settings.model) {
+        settings.model = 'gemini-3.6-flash';
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      }
+      return settings;
     } catch {
       return DEFAULT_SETTINGS;
     }
