@@ -21,10 +21,21 @@ import {
   RotateCcw,
   Maximize2,
   Minimize2,
+  Dices,
+  ShieldCheck,
+  X,
+  ChevronDown,
+  Info,
 } from 'lucide-react';
 import { Campaign, CharacterSheet } from '../types';
 import { useGeminiChat } from '../hooks/useGeminiChat';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import {
+  RPG_SYSTEMS,
+  POPULAR_SYSTEM_GROUPS,
+  getSystemKnowledge,
+  RpgSystemDefinition,
+} from '../data/rpgSystems';
 
 interface CampaignCopilotViewProps {
   campaigns: Campaign[];
@@ -66,10 +77,16 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [insertedMessageId, setInsertedMessageId] = useState<string | null>(null);
 
+  // System and Active Campaign Knowledge
+  const [isEditingCustomSystem, setIsEditingCustomSystem] = useState(false);
+  const [showSystemRulesInfo, setShowSystemRulesInfo] = useState(false);
+  const activeSystemKnowledge = getSystemKnowledge(system);
+
   // New Campaign Modal / prompt
   const [isNewCampaignOpen, setIsNewCampaignOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [newSystem, setNewSystem] = useState('D&D 5e');
+  const [selectedSystemId, setSelectedSystemId] = useState('dnd5e');
+  const [customSystemText, setCustomSystemText] = useState('');
 
   // Chat input
   const [inputPrompt, setInputPrompt] = useState('');
@@ -126,8 +143,13 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     }
   }, [messages, isStreaming]);
 
-  // Quick prompt suggestions
+  // Quick prompt suggestions adapted to active system
   const quickPrompts = [
+    {
+      label: `Regras (${activeSystemKnowledge.shortName})`,
+      prompt: `Como Mestre de ${activeSystemKnowledge.name}, explique a regra oficial sobre: [ex: agarrar em combate / descanso / teste de resistência / custo de magia / ferimentos]. Especifique os dados (${activeSystemKnowledge.diceConvention}) e as dificuldades/CDs apropriadas.`,
+      icon: BookOpen,
+    },
     {
       label: 'Sugerir gancho',
       prompt: 'Sugira 3 ganchos de aventura dramáticos e imersivos que se conectem com a situação atual das minhas anotações.',
@@ -139,13 +161,8 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
       icon: Scroll,
     },
     {
-      label: 'Consultar regra do sistema',
-      prompt: `Explique sucintamente uma regra comum ou como resolver um teste desafiador no sistema ${system || 'atual'}, dando exemplos práticos.`,
-      icon: BookOpen,
-    },
-    {
       label: 'Criar NPC rápido',
-      prompt: 'Gere um NPC rápido (Nome, Aparência marcante, Peculiaridade, Segredo e Estatísticas rápidas de combate) adequado para este momento.',
+      prompt: `Gere um NPC rápido compatível com as regras de ${activeSystemKnowledge.name} (Nome, Aparência marcante, Peculiaridade, Segredo e Estatísticas rápidas) adequado para este momento.`,
       icon: Wand2,
     },
     {
@@ -295,18 +312,70 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
             )}
           </div>
 
-          {/* Sistema de RPG & Controles de Visualização / Tela Cheia */}
-          <div className="flex items-center gap-2">
+          {/* Sistema de RPG com Seletor de Lista Inteligente & Badge */}
+          <div className="flex items-center gap-1.5">
             <span className="text-[11px] text-zinc-400 hidden sm:inline">Sistema:</span>
-            <input
-              id="campaign-system-input"
-              type="text"
-              value={system}
-              onChange={(e) => setSystem(e.target.value)}
-              placeholder="ex: D&D 5e, Call of Cthulhu"
-              className="w-28 sm:w-36 bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-amber-300 font-medium placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50"
-              title="Sistema de RPG da Campanha"
-            />
+            
+            <div className="flex items-center gap-1">
+              <select
+                id="campaign-system-select"
+                value={
+                  RPG_SYSTEMS.some((s) => s.shortName === system || s.name === system || s.id === system)
+                    ? RPG_SYSTEMS.find((s) => s.shortName === system || s.name === system || s.id === system)?.id
+                    : 'custom'
+                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === 'custom') {
+                    setIsEditingCustomSystem(true);
+                  } else {
+                    setIsEditingCustomSystem(false);
+                    const found = RPG_SYSTEMS.find((s) => s.id === val);
+                    if (found) {
+                      setSystem(found.shortName);
+                    }
+                  }
+                }}
+                className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-lg px-2 py-1 text-xs text-amber-300 font-medium focus:outline-none focus:border-amber-500/50 cursor-pointer max-w-[130px] sm:max-w-[180px] truncate"
+                title={`Sistema ativo: ${activeSystemKnowledge.name}\nMecânica: ${activeSystemKnowledge.diceConvention}`}
+              >
+                {POPULAR_SYSTEM_GROUPS.map((group) => (
+                  <optgroup key={group.group} label={group.group} className="bg-zinc-900 text-zinc-400">
+                    {group.systems.map((sys) => (
+                      <option key={sys.id} value={sys.id} className="bg-zinc-950 text-zinc-200">
+                        {sys.shortName}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+                <option value="custom" className="bg-zinc-950 text-amber-400 font-medium">
+                  Outro / Personalizado...
+                </option>
+              </select>
+
+              {(isEditingCustomSystem || !RPG_SYSTEMS.some((s) => s.shortName === system || s.name === system || s.id === system)) && (
+                <input
+                  type="text"
+                  value={system}
+                  onChange={(e) => setSystem(e.target.value)}
+                  placeholder="Nome do sistema..."
+                  className="w-24 sm:w-32 bg-zinc-950 border border-amber-500/50 rounded-lg px-2 py-1 text-xs text-amber-200 font-medium placeholder:text-zinc-600 focus:outline-none"
+                  title="Digite o nome personalizado do seu sistema"
+                  autoFocus
+                />
+              )}
+
+              {/* Botão de Resumo de Regras do Sistema */}
+              <button
+                type="button"
+                onClick={() => setShowSystemRulesInfo(true)}
+                className="p-1 px-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-amber-400 hover:text-amber-300 text-[10px] flex items-center gap-1 transition-colors"
+                title={`Ver modelo de regras de ${activeSystemKnowledge.shortName}`}
+              >
+                <Dices className="w-3 h-3 text-amber-400" />
+                <span className="hidden md:inline">{activeSystemKnowledge.badge}</span>
+              </button>
+            </div>
 
             {/* Largura do texto em Tela Cheia */}
             {isFullScreen && (
@@ -549,14 +618,22 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
             <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs font-semibold text-zinc-100">Copiloto do Mestre</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-amber-400 font-mono">
-                  gemini-2.5-flash
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 font-mono">
+                  {model || 'gemini-3.6-flash'}
                 </span>
+                <button
+                  onClick={() => setShowSystemRulesInfo(true)}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/50 hover:bg-amber-900/50 text-amber-300 border border-amber-500/20 font-medium flex items-center gap-1 transition-colors"
+                  title={`Modelo de regras: ${activeSystemKnowledge.name}\n${activeSystemKnowledge.diceConvention}\nClique para ver detalhes.`}
+                >
+                  <Dices className="w-3 h-3 text-amber-400" />
+                  <span>{activeSystemKnowledge.shortName}</span>
+                </button>
               </div>
-              <span className="text-[10px] text-zinc-500 truncate max-w-[240px]">
-                Contexto: {title} ({system || 'Sistema'})
+              <span className="text-[10px] text-zinc-500 truncate max-w-[260px]">
+                Contexto: {title} • Regras de {activeSystemKnowledge.shortName}
               </span>
             </div>
           </div>
@@ -580,21 +657,37 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
           className="flex-1 overflow-y-auto p-4 space-y-4 text-xs sm:text-sm selection:bg-amber-500/20"
         >
           {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center px-4 py-8 text-zinc-500">
+            <div className="h-full flex flex-col items-center justify-center text-center px-4 py-6 text-zinc-500">
               <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800/80 flex items-center justify-center mb-3 text-amber-500 shadow-inner">
                 <Sparkles className="w-6 h-6" />
               </div>
               <h3 className="text-sm font-semibold text-zinc-200 mb-1">
-                Copiloto RPG Pronto
+                Copiloto RPG Sintonizado
               </h3>
-              <p className="text-xs text-zinc-400 max-w-xs leading-relaxed mb-4">
-                Pergunte sobre regras, peça ganchos, crie encontros ou descreva cenas. O Copiloto conhece suas anotações atuais de{' '}
-                <span className="text-amber-400 font-medium">"{title}"</span>.
+              <p className="text-xs text-zinc-400 max-w-xs leading-relaxed mb-3">
+                Pergunte sobre regras, combate, perícias ou ganchos. O Copiloto conhece as regras oficiais de{' '}
+                <span className="text-amber-400 font-medium">{activeSystemKnowledge.name}</span> e suas anotações de{' '}
+                <span className="text-zinc-200 font-medium">"{title}"</span>.
               </p>
 
-              <div className="text-[11px] text-zinc-500 flex items-center gap-1.5 bg-zinc-900/80 px-2.5 py-1 rounded-full border border-zinc-800">
-                <Sparkles className="w-3 h-3 text-amber-500" />
-                <span>Contexto das anotações injetado automaticamente</span>
+              {/* Card de sintonia do sistema ativo */}
+              <div className="w-full max-w-xs bg-zinc-900/80 border border-zinc-800/90 rounded-xl p-3 text-left space-y-1.5 mb-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
+                    <Dices className="w-3.5 h-3.5 text-amber-400" />
+                    {activeSystemKnowledge.shortName}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/40 text-amber-300 border border-amber-500/30">
+                    {activeSystemKnowledge.badge}
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-400 leading-snug">
+                  <strong className="text-zinc-300">Rolagens:</strong> {activeSystemKnowledge.diceConvention}
+                </p>
+                <div className="text-[10px] text-emerald-400 flex items-center gap-1 pt-1 border-t border-zinc-800/60">
+                  <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                  <span>Dúvidas de regras respondidas conforme o sistema oficial.</span>
+                </div>
               </div>
             </div>
           ) : (
@@ -747,58 +840,227 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
       </div>
     )}
 
-      {/* Modal: Nova Campanha */}
+      {/* Modal: Nova Campanha com Lista de Sistemas */}
       {isNewCampaignOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-4">
-            <h3 className="text-base font-semibold text-zinc-100">Criar Nova Campanha</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-zinc-100">Criar Nova Campanha</h3>
+                  <p className="text-[11px] text-zinc-400">Escolha o sistema para a IA carregar as regras oficiais</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsNewCampaignOpen(false);
+                  setNewTitle('');
+                  setSelectedSystemId('dnd5e');
+                  setCustomSystemText('');
+                }}
+                className="text-zinc-500 hover:text-zinc-300 p-1 rounded-lg hover:bg-zinc-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Título da Campanha */}
             <div>
               <label className="block text-xs font-medium text-zinc-300 mb-1">
                 Título da Campanha
               </label>
               <input
                 type="text"
-                placeholder="ex: As Areias de Al-Qadim"
+                placeholder="ex: As Areias de Al-Qadim, Sombras de Arton, O Caso Blackwood"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-amber-500/60"
                 autoFocus
               />
             </div>
+
+            {/* Seletor de Sistema como Lista */}
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1">
-                Sistema de RPG
+              <label className="block text-xs font-medium text-zinc-300 mb-1 flex items-center justify-between">
+                <span>Sistema de RPG</span>
+                <span className="text-[10px] text-amber-400/90 font-mono">IA adaptada às regras</span>
               </label>
-              <input
-                type="text"
-                placeholder="ex: D&D 5e, Tormenta 20, Vampiro"
-                value={newSystem}
-                onChange={(e) => setNewSystem(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-amber-500/60"
-              />
+              <select
+                value={selectedSystemId}
+                onChange={(e) => setSelectedSystemId(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-amber-300 font-medium focus:outline-none focus:border-amber-500/60 cursor-pointer"
+              >
+                {POPULAR_SYSTEM_GROUPS.map((group) => (
+                  <optgroup key={group.group} label={group.group} className="bg-zinc-900 text-zinc-300 font-semibold">
+                    {group.systems.map((sys) => (
+                      <option key={sys.id} value={sys.id} className="bg-zinc-950 text-zinc-200 py-1 font-normal">
+                        {sys.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+                <option value="custom" className="bg-zinc-950 text-amber-400 font-semibold">
+                  Outro Sistema / Sistema Próprio...
+                </option>
+              </select>
             </div>
+
+            {/* Campo para Sistema Customizado */}
+            {selectedSystemId === 'custom' && (
+              <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                  Nome do Sistema Personalizado
+                </label>
+                <input
+                  type="text"
+                  placeholder="ex: Alien RPG, Blades in the Dark, Numenera..."
+                  value={customSystemText}
+                  onChange={(e) => setCustomSystemText(e.target.value)}
+                  className="w-full bg-zinc-950 border border-amber-500/40 rounded-lg px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-amber-500"
+                  autoFocus
+                />
+              </div>
+            )}
+
+            {/* Preview do Sistema Selecionado com Diretrizes da IA */}
+            {(() => {
+              const previewKnowledge =
+                selectedSystemId === 'custom'
+                  ? getSystemKnowledge(customSystemText.trim() || 'Sistema Próprio')
+                  : RPG_SYSTEMS.find((s) => s.id === selectedSystemId) || RPG_SYSTEMS[0];
+
+              return (
+                <div className="bg-zinc-950/90 border border-zinc-800/90 rounded-xl p-3 text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-zinc-200 flex items-center gap-1.5">
+                      <Dices className="w-3.5 h-3.5 text-amber-400" />
+                      {previewKnowledge.shortName}
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950/40 border border-amber-500/30 text-amber-300">
+                      {previewKnowledge.badge}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    <strong className="text-zinc-300">Mecânica:</strong> {previewKnowledge.diceConvention}
+                  </p>
+                  <div className="text-[10px] text-emerald-400 flex items-center gap-1.5 pt-1.5 border-t border-zinc-800/70">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>O Copiloto IA responderá dúvidas de regras aplicando as mecânicas canônicas deste sistema.</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 onClick={() => {
                   setIsNewCampaignOpen(false);
                   setNewTitle('');
+                  setSelectedSystemId('dnd5e');
+                  setCustomSystemText('');
                 }}
-                className="px-3 py-1.5 rounded-lg text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                className="px-3.5 py-1.5 rounded-lg text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => {
                   if (newTitle.trim()) {
-                    onCreateCampaign(newTitle.trim(), newSystem.trim() || 'D&D 5e');
+                    const finalSystem =
+                      selectedSystemId === 'custom'
+                        ? customSystemText.trim() || 'Sistema Próprio'
+                        : RPG_SYSTEMS.find((s) => s.id === selectedSystemId)?.shortName || 'D&D 5e';
+
+                    onCreateCampaign(newTitle.trim(), finalSystem);
                     setIsNewCampaignOpen(false);
                     setNewTitle('');
+                    setSelectedSystemId('dnd5e');
+                    setCustomSystemText('');
                   }
                 }}
                 disabled={!newTitle.trim()}
-                className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-zinc-950 font-semibold rounded-lg text-xs"
+                className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-zinc-950 font-bold rounded-lg text-xs transition-colors"
               >
                 Criar Campanha
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Detalhes das Regras e Modelo do Sistema na IA */}
+      {showSystemRulesInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                  <Dices className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-zinc-100">{activeSystemKnowledge.name}</h3>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-950/40 text-amber-300 border border-amber-500/30">
+                    {activeSystemKnowledge.badge}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSystemRulesInfo(false)}
+                className="text-zinc-500 hover:text-zinc-300 p-1 rounded-lg hover:bg-zinc-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800 space-y-1">
+                <div className="font-semibold text-amber-300 text-[11px] uppercase tracking-wider">
+                  Mecânica de Rolagem e Resolução
+                </div>
+                <p className="text-zinc-300 text-xs leading-relaxed">{activeSystemKnowledge.diceConvention}</p>
+              </div>
+
+              <div className="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800 space-y-1">
+                <div className="font-semibold text-amber-300 text-[11px] uppercase tracking-wider">
+                  Mecânicas Chave do Sistema
+                </div>
+                <p className="text-zinc-300 text-xs leading-relaxed">{activeSystemKnowledge.keyMechanics}</p>
+              </div>
+
+              <div className="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800 space-y-1">
+                <div className="font-semibold text-emerald-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Diretrizes Injetadas no Copiloto IA
+                </div>
+                <div className="text-zinc-300 text-[11px] leading-relaxed whitespace-pre-wrap font-sans max-h-40 overflow-y-auto pr-1">
+                  {activeSystemKnowledge.aiSystemDirectives}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-zinc-800/80">
+              <button
+                onClick={() => {
+                  setShowSystemRulesInfo(false);
+                  const prompt = `Como Mestre de ${activeSystemKnowledge.name}, explique detalhadamente como resolver um teste desafiador ou combate no sistema.`;
+                  setInputPrompt(prompt);
+                  if (textareaRef.current) {
+                    textareaRef.current.focus();
+                  }
+                }}
+                className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 hover:underline"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Perguntar sobre regras no chat</span>
+              </button>
+              <button
+                onClick={() => setShowSystemRulesInfo(false)}
+                className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs transition-colors"
+              >
+                Fechar
               </button>
             </div>
           </div>
