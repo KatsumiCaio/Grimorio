@@ -26,10 +26,19 @@ import {
   X,
   ChevronDown,
   Info,
+  Cloud,
+  Database,
 } from 'lucide-react';
 import { Campaign, CharacterSheet } from '../types';
 import { useGeminiChat } from '../hooks/useGeminiChat';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { storageService } from '../services/storage';
+import {
+  subscribeToCampaignChat,
+  saveCampaignChatMessage,
+  clearCampaignChatInFirestore,
+  auth,
+} from '../services/firebase';
 import {
   RPG_SYSTEMS,
   POPULAR_SYSTEM_GROUPS,
@@ -49,6 +58,7 @@ interface CampaignCopilotViewProps {
   customApiKey?: string;
   isFullScreen?: boolean;
   onToggleFullScreen?: () => void;
+  userId?: string;
 }
 
 export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
@@ -63,6 +73,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   customApiKey = '',
   isFullScreen = false,
   onToggleFullScreen,
+  userId,
 }) => {
   const activeCampaign =
     campaigns.find((c) => c.id === activeCampaignId) || campaigns[0];
@@ -92,8 +103,9 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   const [inputPrompt, setInputPrompt] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const [isCloudChatSynced, setIsCloudChatSynced] = useState(false);
 
-  // Gemini Hook
+  // Gemini Hook with Firestore and LocalStorage sync
   const {
     messages,
     isStreaming,
@@ -101,10 +113,100 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     sendMessage,
     clearMessages,
     stopStreaming,
+    setMessages,
   } = useGeminiChat({
     model,
     customApiKey,
+    onUserMessageAdded: (userMsg) => {
+      if (activeCampaign?.id) {
+        const currentUid = userId || auth.currentUser?.uid;
+        // Save to local storage cache immediately
+        const prevMsgs = storageService.getCampaignChatMessages(activeCampaign.id);
+        const nextMsgs = [...prevMsgs, userMsg];
+        storageService.saveCampaignChatMessages(activeCampaign.id, nextMsgs);
+
+        // Persist to Firestore subcollection /campaigns/{campaignId}/messages/{messageId}
+        if (currentUid) {
+          saveCampaignChatMessage(currentUid, activeCampaign.id, userMsg, system).catch((err) => {
+            console.warn('Aviso ao salvar mensagem de usuário no Firestore:', err);
+          });
+        }
+      }
+    },
+    onMessageComplete: (_userMsg, assistantMsg) => {
+      if (activeCampaign?.id) {
+        const currentUid = userId || auth.currentUser?.uid;
+        // Save finalized assistant answer to local storage cache
+        const prevMsgs = storageService.getCampaignChatMessages(activeCampaign.id);
+        const filtered = prevMsgs.filter((m) => m.id !== assistantMsg.id);
+        const nextMsgs = [...filtered, assistantMsg];
+        storageService.saveCampaignChatMessages(activeCampaign.id, nextMsgs);
+
+        // Persist to Firestore subcollection
+        if (currentUid) {
+          saveCampaignChatMessage(currentUid, activeCampaign.id, assistantMsg, system).catch((err) => {
+            console.warn('Aviso ao salvar resposta no Firestore:', err);
+          });
+        }
+      }
+    },
   });
+
+  // Load and subscribe to chat messages for the active campaign
+  useEffect(() => {
+    if (!activeCampaign?.id) return;
+
+    // 1. Immediately load local cached messages for this campaign
+    const localMsgs = storageService.getCampaignChatMessages(activeCampaign.id);
+    setMessages(localMsgs);
+
+    // 2. If authenticated or userId present, listen to real-time updates from Firestore
+    const currentUid = userId || auth.currentUser?.uid;
+    let unsubscribe = () => {};
+
+    if (currentUid) {
+      unsubscribe = subscribeToCampaignChat(
+        activeCampaign.id,
+        (cloudMsgs) => {
+          if (cloudMsgs && cloudMsgs.length > 0) {
+            setMessages(cloudMsgs);
+            storageService.saveCampaignChatMessages(activeCampaign.id, cloudMsgs);
+            setIsCloudChatSynced(true);
+          } else if (localMsgs.length > 0) {
+            // Seed local messages to Firestore if cloud is empty
+            localMsgs.forEach((msg) => {
+              saveCampaignChatMessage(currentUid, activeCampaign.id, msg, activeCampaign.system);
+            });
+            setIsCloudChatSynced(true);
+          }
+        },
+        (err) => {
+          console.warn('Aviso no listener de chat do Firestore:', err);
+          setIsCloudChatSynced(false);
+        }
+      );
+    } else {
+      setIsCloudChatSynced(false);
+    }
+
+    return () => {
+      unsubscribe();
+    };
+  }, [activeCampaign?.id, userId]);
+
+  // Clear chat for current campaign
+  const handleClearChat = () => {
+    clearMessages();
+    if (activeCampaign?.id) {
+      storageService.clearCampaignChatMessages(activeCampaign.id);
+      const currentUid = userId || auth.currentUser?.uid;
+      if (currentUid) {
+        clearCampaignChatInFirestore(activeCampaign.id).catch((err) => {
+          console.warn('Aviso ao limpar chat no Firestore:', err);
+        });
+      }
+    }
+  };
 
   // Sync state when active campaign changes
   useEffect(() => {
@@ -284,6 +386,21 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 ))}
               </select>
             </div>
+
+            {/* Badge de Identificação do Sistema de RPG no Topo */}
+            <button
+              type="button"
+              id="top-campaign-system-badge"
+              onClick={() => setShowSystemRulesInfo(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-300 text-xs font-medium transition-all cursor-pointer shadow-xs group"
+              title={`Sistema de RPG ativo: ${activeSystemKnowledge.name}\nConvenção: ${activeSystemKnowledge.diceConvention}\nClique para ver as regras`}
+            >
+              <Dices className="w-3.5 h-3.5 text-amber-400 shrink-0 group-hover:rotate-12 transition-transform" />
+              <span className="font-semibold">{activeSystemKnowledge.shortName}</span>
+              <span className="text-[10px] text-amber-400/80 font-normal px-1 py-0.2 rounded bg-amber-500/10 hidden xl:inline">
+                {activeSystemKnowledge.badge}
+              </span>
+            </button>
 
             {!isFullScreen && (
               <button
@@ -477,14 +594,31 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 className="bg-zinc-900 border border-amber-500/50 text-sm font-semibold text-zinc-100 rounded px-2 py-0.5 w-full focus:outline-none"
               />
             ) : (
-              <h2
-                onClick={() => setIsEditingTitle(true)}
-                className="text-sm font-semibold text-zinc-200 hover:text-amber-400 cursor-pointer flex items-center gap-1.5 transition-colors group"
-                title="Clique para renomear"
-              >
-                <span>{title}</span>
-                <Edit3 className="w-3 h-3 opacity-0 group-hover:opacity-60 text-zinc-400" />
-              </h2>
+              <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+                <h2
+                  onClick={() => setIsEditingTitle(true)}
+                  className="text-sm font-semibold text-zinc-200 hover:text-amber-400 cursor-pointer flex items-center gap-1.5 transition-colors group truncate"
+                  title="Clique para renomear"
+                >
+                  <span className="truncate">{title}</span>
+                  <Edit3 className="w-3 h-3 opacity-0 group-hover:opacity-60 text-zinc-400 shrink-0" />
+                </h2>
+
+                {/* Badge do Sistema de RPG Ativo */}
+                <button
+                  type="button"
+                  id="campaign-active-system-badge"
+                  onClick={() => setShowSystemRulesInfo(true)}
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-300 text-[11px] font-medium transition-all shadow-xs shrink-0 cursor-pointer group"
+                  title={`Sistema de RPG ativo: ${activeSystemKnowledge.name}\nConvenção de Dados: ${activeSystemKnowledge.diceConvention}\nClique para ver as regras e detalhes do sistema`}
+                >
+                  <Dices className="w-3 h-3 text-amber-400 shrink-0 group-hover:rotate-12 transition-transform" />
+                  <span className="font-semibold">{activeSystemKnowledge.shortName}</span>
+                  <span className="text-[10px] text-amber-400/80 font-normal px-1 py-0.2 rounded bg-amber-500/10 border border-amber-500/20 hidden sm:inline">
+                    {activeSystemKnowledge.badge}
+                  </span>
+                </button>
+              </div>
             )}
           </div>
 
@@ -614,10 +748,10 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
       {!isFullScreen && (
         <div className="w-full md:w-[420px] lg:w-[480px] flex flex-col h-[50vh] md:h-full bg-zinc-950 shrink-0">
         {/* Chat Header: Context indicator & Actions */}
-        <div className="p-3 px-4 bg-zinc-900/70 border-b border-zinc-800/80 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-            <div className="flex flex-col">
+        <div className="p-3 px-4 bg-zinc-900/70 border-b border-zinc-800/80 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+            <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs font-semibold text-zinc-100">Copiloto do Mestre</span>
                 <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 font-mono">
@@ -625,7 +759,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 </span>
                 <button
                   onClick={() => setShowSystemRulesInfo(true)}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/50 hover:bg-amber-900/50 text-amber-300 border border-amber-500/20 font-medium flex items-center gap-1 transition-colors"
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/50 hover:bg-amber-900/50 text-amber-300 border border-amber-500/20 font-medium flex items-center gap-1 transition-colors cursor-pointer"
                   title={`Modelo de regras: ${activeSystemKnowledge.name}\n${activeSystemKnowledge.diceConvention}\nClique para ver detalhes.`}
                 >
                   <Dices className="w-3 h-3 text-amber-400" />
@@ -638,12 +772,31 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Sync status indicator */}
+            {userId || auth.currentUser ? (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-500/20 font-medium"
+                title="Histórico de mensagens sincronizado na nuvem (Firestore)"
+              >
+                <Cloud className="w-3 h-3 text-emerald-400" />
+                <span className="hidden sm:inline">Firestore</span>
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 font-medium"
+                title="Histórico salvo localmente no navegador"
+              >
+                <Database className="w-3 h-3 text-zinc-400" />
+                <span className="hidden sm:inline">Local</span>
+              </span>
+            )}
+
             {messages.length > 0 && (
               <button
-                onClick={clearMessages}
-                className="p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 rounded-lg text-xs transition-colors"
-                title="Limpar Conversa"
+                onClick={handleClearChat}
+                className="p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 rounded-lg text-xs transition-colors cursor-pointer"
+                title="Limpar histórico desta campanha"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>

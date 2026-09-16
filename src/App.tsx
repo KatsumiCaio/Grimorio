@@ -436,6 +436,7 @@ export default function App() {
             customApiKey={settings.customApiKey}
             isFullScreen={isFullScreenNotes}
             onToggleFullScreen={handleToggleFullScreen}
+            userId={currentUser?.uid}
           />
         ) : (
           <CharacterSheetsView

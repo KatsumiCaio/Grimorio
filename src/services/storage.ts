@@ -1,8 +1,9 @@
-import { Campaign, CharacterSheet, AppSettings } from '../types';
+import { Campaign, CharacterSheet, AppSettings, ChatMessage } from '../types';
 
 const CAMPAIGNS_STORAGE_KEY = 'grimorio_campaigns_v1';
 const CHARACTERS_STORAGE_KEY = 'grimorio_characters_v1';
 const SETTINGS_STORAGE_KEY = 'grimorio_settings_v1';
+const CHAT_STORAGE_PREFIX = 'grimorio_chat_';
 
 const DEFAULT_SETTINGS: AppSettings = {
   customApiKey: '',
@@ -199,6 +200,45 @@ export const storageService = {
       localStorage.setItem(CHARACTERS_STORAGE_KEY, JSON.stringify(characters));
     } catch (e) {
       console.error('Falha ao salvar fichas no LocalStorage:', e);
+    }
+  },
+
+  getCampaignChatMessages(campaignId: string): ChatMessage[] {
+    if (!campaignId) return [];
+    try {
+      const raw = localStorage.getItem(`${CHAT_STORAGE_PREFIX}${campaignId}`);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  },
+
+  saveCampaignChatMessages(campaignId: string, messages: ChatMessage[]): void {
+    if (!campaignId) return;
+    try {
+      // Filter out streaming placeholders
+      const cleanMessages = messages
+        .filter((m) => !m.isStreaming || m.content.trim().length > 0)
+        .map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+        }));
+      localStorage.setItem(`${CHAT_STORAGE_PREFIX}${campaignId}`, JSON.stringify(cleanMessages));
+    } catch (e) {
+      console.error('Falha ao salvar mensagens de chat da campanha no LocalStorage:', e);
+    }
+  },
+
+  clearCampaignChatMessages(campaignId: string): void {
+    if (!campaignId) return;
+    try {
+      localStorage.removeItem(`${CHAT_STORAGE_PREFIX}${campaignId}`);
+    } catch (e) {
+      console.error('Falha ao limpar chat da campanha no LocalStorage:', e);
     }
   },
 

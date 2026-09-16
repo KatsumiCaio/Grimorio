@@ -49,6 +49,39 @@
         "updatedAt": { "type": "number" }
       },
       "required": ["id", "userId", "campaignId", "name", "role", "type"]
+    },
+    "chatMessages": {
+      "title": "ChatMessage",
+      "description": "Conversation history messages between the DM and the AI Copilot for a campaign",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "campaignId": { "type": "string" },
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "assistant", "system"] },
+        "content": { "type": "string" },
+        "system": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "campaignId", "userId", "role", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "User profiles and account settings"
+    },
+    "/campaigns/{campaignId}": {
+      "schema": "campaigns",
+      "description": "User campaign notebooks with lore notes and RPG system"
+    },
+    "/campaigns/{campaignId}/messages/{messageId}": {
+      "schema": "chatMessages",
+      "description": "Campaign AI Copilot chat messages history"
+    },
+    "/characters/{characterId}": {
+      "schema": "characters",
+      "description": "Player characters and NPC sheets"
     }
   }
 }

@@ -13,6 +13,8 @@ export interface UseGeminiChatOptions {
   customApiKey?: string;
   model?: string;
   initialMessages?: ChatMessage[];
+  onUserMessageAdded?: (userMsg: ChatMessage) => void;
+  onMessageComplete?: (userMsg: ChatMessage, assistantMsg: ChatMessage) => void;
 }
 
 export function useGeminiChat(options: UseGeminiChatOptions = {}) {
@@ -62,6 +64,9 @@ export function useGeminiChat(options: UseGeminiChatOptions = {}) {
       const updatedHistory = [...messages, userMessage];
       setMessages([...updatedHistory, assistantMessagePlaceholder]);
       setIsStreaming(true);
+
+      // Notify callback of new user message
+      options.onUserMessageAdded?.(userMessage);
 
       // Retrieve deep system knowledge & canonical mechanics
       const systemKnowledge = getSystemKnowledge(context?.system || '');
@@ -114,6 +119,8 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
               content: m.content,
             })),
             systemInstruction,
+            system: context?.system || 'D&D 5e',
+            campaignTitle: context?.campaignTitle || 'Campanha Principal',
             model: options.model && options.model !== 'gemini-2.5-flash' ? options.model : 'gemini-3.6-flash',
             customApiKey: options.customApiKey || undefined,
           }),
@@ -174,13 +181,23 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
         }
 
         // Finalize message state
+        const finalizedAssistantMessage: ChatMessage = {
+          id: assistantMessageId,
+          role: 'assistant',
+          content: accumulatedText,
+          timestamp: Date.now(),
+          isStreaming: false,
+        };
+
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessageId
-              ? { ...msg, content: accumulatedText, isStreaming: false }
+              ? finalizedAssistantMessage
               : msg
           )
         );
+
+        options.onMessageComplete?.(userMessage, finalizedAssistantMessage);
       } catch (err: any) {
         if (err.name === 'AbortError') {
           setMessages((prev) =>

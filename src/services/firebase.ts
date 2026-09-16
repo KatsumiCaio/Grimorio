@@ -19,9 +19,11 @@ import {
   where,
   getDocs,
   writeBatch,
+  orderBy,
+  limit,
   Firestore,
 } from 'firebase/firestore';
-import { Campaign, CharacterSheet } from '../types';
+import { Campaign, CharacterSheet, ChatMessage } from '../types';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Configuration constants
@@ -278,3 +280,79 @@ export const checkAndSeedCloudData = async (
     return false;
   }
 };
+
+// Firestore Realtime Campaign Chat Messages
+export const subscribeToCampaignChat = (
+  campaignId: string,
+  onUpdate: (messages: ChatMessage[]) => void,
+  onError?: (err: Error) => void
+) => {
+  if (!campaignId) return () => {};
+  const messagesCol = collection(db, 'campaigns', campaignId, 'messages');
+  const q = query(messagesCol, orderBy('timestamp', 'asc'), limit(200));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const items: ChatMessage[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        items.push({
+          id: docSnap.id,
+          role: data.role === 'assistant' ? 'assistant' : data.role === 'system' ? 'system' : 'user',
+          content: data.content || '',
+          timestamp: data.timestamp || Date.now(),
+        });
+      });
+      onUpdate(items);
+    },
+    (err) => {
+      console.warn(`Erro ao escutar mensagens do chat da campanha ${campaignId}:`, err);
+      onError?.(err);
+    }
+  );
+};
+
+export const saveCampaignChatMessage = async (
+  userId: string,
+  campaignId: string,
+  message: ChatMessage,
+  systemName?: string
+): Promise<void> => {
+  if (!campaignId || !message.id) return;
+  // Ignore temporary streaming placeholder without content
+  if (message.isStreaming && !message.content) return;
+
+  const docRef = doc(db, 'campaigns', campaignId, 'messages', message.id);
+  await setDoc(
+    docRef,
+    {
+      id: message.id,
+      campaignId,
+      userId,
+      role: message.role,
+      content: message.content,
+      system: systemName || '',
+      timestamp: message.timestamp || Date.now(),
+    },
+    { merge: true }
+  );
+};
+
+export const clearCampaignChatInFirestore = async (campaignId: string): Promise<void> => {
+  if (!campaignId) return;
+  try {
+    const messagesCol = collection(db, 'campaigns', campaignId, 'messages');
+    const snapshot = await getDocs(messagesCol);
+    if (snapshot.empty) return;
+
+    const batch = writeBatch(db);
+    snapshot.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+    await batch.commit();
+  } catch (err) {
+    console.warn(`Erro ao limpar chat da campanha ${campaignId} no Firestore:`, err);
+  }
+};
+

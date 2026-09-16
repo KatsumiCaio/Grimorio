@@ -22,7 +22,7 @@ async function startServer() {
 
   // Streaming chat endpoint with Gemini
   app.post("/api/chat", async (req, res) => {
-    const { messages, systemInstruction, model, customApiKey } = req.body;
+    const { messages, systemInstruction, model, customApiKey, system, campaignTitle } = req.body;
     const apiKey = customApiKey || process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
@@ -66,12 +66,18 @@ async function startServer() {
         requestedModel = "gemini-3.6-flash";
       }
 
+      // Ensure active RPG system context (e.g. D&D 5e, Tormenta 20, Pathfinder 2e) is always enforced in every request
+      let effectiveSystemInstruction = systemInstruction || "";
+      if (system && !effectiveSystemInstruction.includes(`SISTEMA DE RPG ATIVO:`)) {
+        effectiveSystemInstruction = `[SISTEMA DE RPG ATIVO: ${String(system).toUpperCase()}${campaignTitle ? ` | CAMPANHA: ${campaignTitle}` : ''}]\n${effectiveSystemInstruction}`;
+      }
+
       const streamResult = await ai.models.generateContentStream({
         model: requestedModel,
         contents: formattedContents.length > 0 ? formattedContents : [{ role: "user", parts: [{ text: "Olá" }] }],
-        config: systemInstruction
+        config: effectiveSystemInstruction
           ? {
-              systemInstruction,
+              systemInstruction: effectiveSystemInstruction,
               temperature: 0.8,
             }
           : {
