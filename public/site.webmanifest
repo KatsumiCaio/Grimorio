@@ -1,0 +1,23 @@
+{
+  "name": "Grimório — Copiloto para Mestres de RPG",
+  "short_name": "Grimório",
+  "description": "Caderno de campanha minimalista e copiloto inteligente para Mestres de RPG",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#0ea5e9",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -23,6 +23,7 @@ import {
   deleteCharacterFromFirestore,
   deleteAllCharactersFromFirestore,
   checkAndSeedCloudData,
+  AuthErrorInfo,
 } from './services/firebase';
 
 export default function App() {
@@ -45,6 +46,8 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline' | 'error'>('syncing');
   const [isSyncingManual, setIsSyncingManual] = useState(false);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [authErrorInfo, setAuthErrorInfo] = useState<AuthErrorInfo | null>(null);
+  const [isLoggingInGoogle, setIsLoggingInGoogle] = useState(false);
   const isCloudLoadedRef = useRef(false);
 
   // Initialize Firebase Auth & Realtime Subscriptions
@@ -140,18 +143,26 @@ export default function App() {
 
   // Google Login Handler
   const handleSignInGoogle = useCallback(async () => {
+    if (isLoggingInGoogle) return;
+    setIsLoggingInGoogle(true);
     setSyncStatus('syncing');
     setAuthNotice(null);
+    setAuthErrorInfo(null);
+
     const res = await signInWithGoogleAccount();
+    setIsLoggingInGoogle(false);
+
     if (res.error) {
       setSyncStatus('offline');
       setAuthNotice(res.error);
+      setAuthErrorInfo(res.authError || null);
       setIsSettingsOpen(true);
     } else {
       setAuthNotice(null);
+      setAuthErrorInfo(null);
       setSyncStatus('synced');
     }
-  }, []);
+  }, [isLoggingInGoogle]);
 
   // Logout Handler
   const handleSignOut = useCallback(async () => {
@@ -429,6 +440,14 @@ export default function App() {
     storageService.saveSettings(newSettings);
   }, []);
 
+  // Update dynamic favicon whenever customLogoUrl changes
+  useEffect(() => {
+    const favicon = document.getElementById('app-favicon') as HTMLLinkElement | null;
+    if (favicon) {
+      favicon.href = settings.customLogoUrl || '/favicon.svg';
+    }
+  }, [settings.customLogoUrl]);
+
   const handleDataImported = useCallback(() => {
     const freshCampaigns = storageService.getCampaigns();
     const freshCharacters = storageService.getCharacters();
@@ -477,8 +496,10 @@ export default function App() {
           syncStatus={syncStatus}
           user={currentUser}
           onSignInGoogle={handleSignInGoogle}
+          isLoggingIn={isLoggingInGoogle}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenSearch={() => setIsSearchOpen(true)}
+          customLogoUrl={settings.customLogoUrl}
         />
       )}
 
@@ -578,16 +599,19 @@ export default function App() {
         onClose={() => {
           setIsSettingsOpen(false);
           setAuthNotice(null);
+          setAuthErrorInfo(null);
         }}
         settings={settings}
         onSaveSettings={handleSaveSettings}
         onDataImported={handleDataImported}
         user={currentUser}
         onSignInGoogle={handleSignInGoogle}
+        isLoggingIn={isLoggingInGoogle}
         onSignOut={handleSignOut}
         onSyncCloud={handleManualSyncCloud}
         isSyncing={isSyncingManual}
         authNotice={authNotice}
+        authErrorInfo={authErrorInfo}
       />
 
       {/* Global Search Modal (Ctrl+K / ⌘K) */}

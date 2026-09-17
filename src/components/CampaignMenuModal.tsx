@@ -143,12 +143,12 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
       <div
         id="campaign-menu-modal"
-        className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl shadow-amber-950/20 overflow-hidden"
+        className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl shadow-cyan-950/20 overflow-hidden"
       >
         {/* Modal Header */}
         <div className="p-4 sm:p-5 border-b border-zinc-800/90 flex items-center justify-between bg-zinc-900/70 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
               <Scroll className="w-5 h-5" />
             </div>
             <div>
@@ -156,7 +156,7 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                 <h2 className="text-base font-bold text-zinc-100">
                   Menu de Campanhas
                 </h2>
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-amber-400 font-mono font-medium">
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-cyan-400 font-mono font-medium border border-cyan-500/20">
                   {campaigns.length} {campaigns.length === 1 ? 'campanha' : 'campanhas'}
                 </span>
               </div>
@@ -269,7 +269,7 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                   placeholder="Buscar campanha por título ou sistema..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 rounded-xl pl-9 pr-3.5 py-2 text-xs text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-amber-500/50"
+                  className="w-full bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 rounded-xl pl-9 pr-3.5 py-2 text-xs text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-cyan-500/50"
                 />
               </div>
 
@@ -282,7 +282,7 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                   className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                     isCreating
                       ? 'bg-zinc-800 text-zinc-200 border border-zinc-700'
-                      : 'bg-amber-500 hover:bg-amber-400 text-zinc-950 shadow-md shadow-amber-950/20'
+                      : 'bg-cyan-500 hover:bg-cyan-400 text-zinc-950 shadow-md shadow-cyan-950/20'
                   }`}
                 >
                   <Plus className="w-4 h-4" />
@@ -295,10 +295,10 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
             {isCreating && (
               <form
                 onSubmit={handleCreateSubmit}
-                className="p-4 bg-zinc-900/80 border border-amber-500/30 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-150"
+                className="p-4 bg-zinc-900/80 border border-cyan-500/30 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-150"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
+                  <div className="flex items-center gap-2 text-xs font-bold text-cyan-400">
                     <Sparkles className="w-4 h-4" />
                     <span>Criar Nova Campanha</span>
                   </div>
@@ -323,7 +323,7 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                       value={newTitle}
                       onChange={(e) => setNewTitle(e.target.value)}
                       autoFocus
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500"
                     />
                   </div>
 
@@ -335,7 +335,7 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                       id="new-campaign-modal-system"
                       value={newSystem}
                       onChange={(e) => setNewSystem(e.target.value)}
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-amber-300 focus:outline-none focus:border-amber-500 cursor-pointer"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-cyan-300 focus:outline-none focus:border-cyan-500 cursor-pointer"
                     >
                       {POPULAR_SYSTEM_GROUPS.map((group) => (
                         <optgroup key={group.group} label={group.group} className="bg-zinc-900 text-zinc-400">
@@ -346,7 +346,7 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                           ))}
                         </optgroup>
                       ))}
-                      <option value="custom" className="text-amber-400 font-bold">
+                      <option value="custom" className="text-cyan-400 font-bold">
                         Outro / Sistema Próprio...
                       </option>
                     </select>
@@ -363,7 +363,7 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                       placeholder="Ex: Savage Worlds, 3D&T, Gurps..."
                       value={customSystem}
                       onChange={(e) => setCustomSystem(e.target.value)}
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500"
                     />
                   </div>
                 )}
@@ -372,7 +372,7 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                   <button
                     type="submit"
                     id="submit-create-campaign-btn"
-                    className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-zinc-950 font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-md shadow-amber-950/30 cursor-pointer"
+                    className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 text-zinc-950 font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-md shadow-cyan-950/30 cursor-pointer"
                   >
                     <span>Criar e Abrir Campanha</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -433,7 +433,7 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                       onClick={() => !isEditingThisTitle && handleSelect(camp.id)}
                       className={`p-4 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between group relative ${
                         isActive
-                          ? 'bg-amber-500/10 border-amber-500/80 shadow-md shadow-amber-950/20 ring-1 ring-amber-500/40'
+                          ? 'bg-cyan-500/10 border-cyan-500/80 shadow-md shadow-cyan-950/20 ring-1 ring-cyan-500/40'
                           : 'bg-zinc-900/50 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700'
                       }`}
                     >
@@ -447,19 +447,19 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                                 value={editingTitleText}
                                 onChange={(e) => setEditingTitleText(e.target.value)}
                                 autoFocus
-                                className="w-full bg-zinc-950 border border-amber-500 rounded px-2 py-0.5 text-xs text-zinc-100 font-bold"
+                                className="w-full bg-zinc-950 border border-cyan-500 rounded px-2 py-0.5 text-xs text-zinc-100 font-bold"
                               />
                               <button
                                 type="button"
                                 onClick={(e) => handleSaveEdit(camp.id, e)}
-                                className="p-1 bg-amber-500 text-zinc-950 rounded hover:bg-amber-400"
+                                className="p-1 bg-cyan-500 text-zinc-950 rounded hover:bg-cyan-400"
                               >
                                 <Check className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <h3 className="text-sm font-bold text-zinc-100 truncate group-hover:text-amber-300 transition-colors">
+                              <h3 className="text-sm font-bold text-zinc-100 truncate group-hover:text-cyan-300 transition-colors">
                                 {camp.title}
                               </h3>
                               <button
@@ -475,7 +475,7 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
 
                           {/* Active badge */}
                           {isActive && (
-                            <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-amber-500 text-zinc-950 font-bold flex items-center gap-1 shadow-xs">
+                            <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-cyan-400 text-zinc-950 font-bold flex items-center gap-1 shadow-xs">
                               <Check className="w-3 h-3 stroke-[3]" />
                               <span>Ativa</span>
                             </span>
@@ -484,8 +484,8 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
 
                         {/* System Badge */}
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-amber-300 border border-zinc-700/80 font-mono font-medium flex items-center gap-1">
-                            <Dices className="w-3 h-3 text-amber-400" />
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-cyan-300 border border-zinc-700/80 font-mono font-medium flex items-center gap-1">
+                            <Dices className="w-3 h-3 text-cyan-400" />
                             <span>{camp.system || 'D&D 5e'}</span>
                           </span>
                           <span className="text-[10px] text-zinc-500">
@@ -505,7 +505,7 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                       <div className="mt-3 pt-2.5 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-400">
                         <div className="flex items-center gap-2 text-[11px]">
                           <span className="flex items-center gap-1 text-zinc-300">
-                            <Users className="w-3 h-3 text-amber-500" />
+                            <Users className="w-3 h-3 text-cyan-400" />
                             <span>{campChars.length} fichas</span>
                           </span>
                           {campChars.length > 0 && (
@@ -531,8 +531,8 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                             onClick={() => handleSelect(camp.id)}
                             className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
                               isActive
-                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                : 'bg-zinc-800 text-zinc-200 hover:bg-amber-500 hover:text-zinc-950'
+                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                                : 'bg-zinc-800 text-zinc-200 hover:bg-cyan-500 hover:text-zinc-950'
                             }`}
                           >
                             <span>{isActive ? 'Aberta' : 'Abrir'}</span>

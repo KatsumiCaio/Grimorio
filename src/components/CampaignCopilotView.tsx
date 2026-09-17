@@ -90,15 +90,70 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   const activeCampaign =
     campaigns.find((c) => c.id === activeCampaignId) || campaigns[0];
 
-  // Editor states
-  const [editorMode, setEditorMode] = useState<'edit' | 'preview' | 'split'>('edit');
+  // Editor & Reader states
+  const [editorMode, setEditorMode] = useState<'edit' | 'read' | 'split'>('edit');
   const [isWideText, setIsWideText] = useState(false);
+  const [readerFont, setReaderFont] = useState<'sans' | 'serif'>('sans');
+  const [readerFontSize, setReaderFontSize] = useState<'sm' | 'base' | 'lg'>('base');
+  const [readerNarrow, setReaderNarrow] = useState(true);
+  const [diceRollResult, setDiceRollResult] = useState<{
+    expression: string;
+    label: string;
+    total: number;
+    detail: string;
+    isCrit?: boolean;
+    isFumble?: boolean;
+  } | null>(null);
+
   const [notes, setNotes] = useState(activeCampaign?.notes || '');
   const [system, setSystem] = useState(activeCampaign?.system || 'D&D 5e');
   const [title, setTitle] = useState(activeCampaign?.title || 'Campanha');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [insertedMessageId, setInsertedMessageId] = useState<string | null>(null);
+
+  // Dice roll handler for interactive cards in reading mode
+  const handleRollDice = (diceExpression: string, label: string) => {
+    const clean = diceExpression.replace(/\s+/g, '');
+    const match = clean.match(/^(\d*)d(\d+)([+-]\d+)?$/i);
+    let total = 0;
+    let detail = '';
+    let isCrit = false;
+    let isFumble = false;
+
+    if (match) {
+      const count = match[1] ? parseInt(match[1]) : 1;
+      const sides = parseInt(match[2]);
+      const mod = match[3] ? parseInt(match[3]) : 0;
+      const rolls: number[] = [];
+      for (let i = 0; i < Math.min(count, 50); i++) {
+        rolls.push(Math.floor(Math.random() * sides) + 1);
+      }
+      const sum = rolls.reduce((a, b) => a + b, 0);
+      total = sum + mod;
+      const modStr = mod !== 0 ? (mod > 0 ? ` + ${mod}` : ` - ${Math.abs(mod)}`) : '';
+      detail = `${count}d${sides} [${rolls.join(', ')}]${modStr} = ${total}`;
+      if (count === 1 && sides === 20) {
+        if (rolls[0] === 20) isCrit = true;
+        if (rolls[0] === 1) isFumble = true;
+      }
+    } else {
+      const d20 = Math.floor(Math.random() * 20) + 1;
+      total = d20;
+      detail = `d20 (${d20}) = ${d20}`;
+      isCrit = d20 === 20;
+      isFumble = d20 === 1;
+    }
+
+    setDiceRollResult({
+      expression: diceExpression,
+      label,
+      total,
+      detail,
+      isCrit,
+      isFumble,
+    });
+  };
 
   // Sheet & Bestiary insertion and editing states
   const [isInsertSheetModalOpen, setIsInsertSheetModalOpen] = useState(false);
@@ -107,23 +162,49 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
 
   // Scan notes for embedded ficha tags and resolve their characters
   const embeddedFichaCards = useMemo(() => {
-    const regex = /\{\{(?:ficha|sheet):([a-zA-Z0-9_\-]+)\}\}/g;
+    const regex = /(?:\{\{|\{\s*|\[\[)\s*(?:ficha|sheet|monstro|monster|personagem|character)\s*[:=]\s*([^}\]\n\r]+?)\s*(?:\}\}|\s*\}|\]\])/gi;
     const list: CharacterSheet[] = [];
     const stored = storageService.getCharacters();
     const allAvailable = [...characters, ...stored];
     let m;
     while ((m = regex.exec(notes)) !== null) {
-      const rawId = m[1].toLowerCase().trim();
+      let rawQuery = m[1].replace(/^['"]|['"]$/g, '').trim().toLowerCase();
+      rawQuery = rawQuery.replace(/^[{\[\('"<]+|[}\]\)'">]+$/g, '').trim().toLowerCase();
+      if (!rawQuery) continue;
+
       let char = allAvailable.find(
-        (c) => c.id.toLowerCase() === rawId || c.name.toLowerCase() === rawId
+        (c) => c.id.toLowerCase() === rawQuery || c.name.toLowerCase() === rawQuery
       );
       if (!char) {
-        const bestiary = RPG_BESTIARY.find(
-          (b) => b.id.toLowerCase() === rawId || b.name.toLowerCase() === rawId
+        char = allAvailable.find(
+          (c) =>
+            c.name.toLowerCase().includes(rawQuery) ||
+            rawQuery.includes(c.name.toLowerCase())
         );
+      }
+      if (!char) {
+        let bestiary = RPG_BESTIARY.find(
+          (b) =>
+            b.id.toLowerCase() === rawQuery ||
+            b.name.toLowerCase() === rawQuery
+        );
+        if (!bestiary) {
+          bestiary = RPG_BESTIARY.find((b) => {
+            const idWithoutPrefix = b.id.replace(/^[a-z0-9]+_/, '').toLowerCase();
+            return idWithoutPrefix === rawQuery;
+          });
+        }
+        if (!bestiary) {
+          bestiary = RPG_BESTIARY.find(
+            (b) =>
+              b.name.toLowerCase().includes(rawQuery) ||
+              rawQuery.includes(b.name.toLowerCase())
+          );
+        }
+
         if (bestiary) {
           char = {
-            id: m[1],
+            id: `bestiary-${bestiary.id}`,
             campaignId: activeCampaign?.id || '',
             name: bestiary.name,
             role: bestiary.role,
@@ -425,11 +506,11 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
       onUpdateCampaign({ notes: newText, updatedAt: Date.now() });
     }
 
-    // Automatically switch to split or preview mode so the user immediately sees the rendered interactive card!
+    // Automatically switch to split or read mode so the user immediately sees the rendered interactive card!
     if (window.innerWidth >= 850) {
       setEditorMode('split');
     } else {
-      setEditorMode('preview');
+      setEditorMode('read');
     }
 
     const nameLabel = charName ? ` de "${charName}"` : '';
@@ -439,7 +520,14 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
 
   // Remove ficha embed tag from notes
   const handleRemoveEmbedFromNotes = (charId: string) => {
-    const regex = new RegExp(`\\n?\\n?\\{\\{(?:ficha|sheet):${charId}\\}\\}\\n?\\n?`, 'g');
+    // Remove any prefix like "bestiary-" if matching original tags
+    const cleanId = charId.replace(/^bestiary-/, '');
+    const escaped1 = charId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escaped2 = cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(
+      `\\n?\\n?(?:\\{\\{|\\{|\\s*\\[\\[)\\s*(?:ficha|sheet|monstro|monster|personagem|character)\\s*[:=]\\s*["']?(?:${escaped1}|${escaped2})["']?\\s*(?:\\}\\}|\\}|\\s*\\]\\])\\n?\\n?`,
+      'gi'
+    );
     const newText = notes.replace(regex, '\n\n').trim();
     setNotes(newText);
     onUpdateCampaign({ notes: newText, updatedAt: Date.now() });
@@ -792,7 +880,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               </button>
             )}
 
-            {/* Mode switches (Edit / Preview / Split) */}
+            {/* Mode switches (Edit / Reading / Split) */}
             <div className="flex items-center p-0.5 bg-zinc-950 border border-zinc-800 rounded-lg ml-1">
               <button
                 type="button"
@@ -802,23 +890,23 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                     ? 'bg-zinc-800 text-amber-400 font-semibold'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
-                title="Modo Editor"
+                title="Modo Editor de Texto"
               >
                 <Edit3 className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Editor</span>
               </button>
               <button
                 type="button"
-                onClick={() => setEditorMode('preview')}
-                className={`px-2 py-1 rounded-md text-xs transition-colors flex items-center gap-1.5 cursor-pointer ${
-                  editorMode === 'preview'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold'
+                onClick={() => setEditorMode('read')}
+                className={`px-2.5 py-1 rounded-md text-xs transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  editorMode === 'read'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold shadow-xs'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
-                title="Modo Visualização (exibe fichas interativas renderizadas no texto)"
+                title="Modo Leitura: exibe o texto limpo com fichas e monstros renderizados como cartões interativos estilizados, sem códigos crus"
               >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Visualizar</span>
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Leitura</span>
                 {embeddedFichaCards.length > 0 && (
                   <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/25 text-amber-300 font-bold border border-amber-500/40">
                     {embeddedFichaCards.length}
@@ -833,7 +921,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                     ? 'bg-zinc-800 text-amber-400 font-semibold'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
-                title="Modo Dividido (Editor à esquerda e Fichas/Preview interativo à direita)"
+                title="Modo Dividido: Editor à esquerda e Modo Leitura com Fichas à direita"
               >
                 <Columns className="w-3.5 h-3.5" />
                 <span className="hidden lg:inline">Dividido</span>
@@ -922,7 +1010,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
         </div>
 
         {/* Markdown Toolbar */}
-        {editorMode !== 'preview' && (
+        {editorMode !== 'read' && (
           <div className={`px-4 py-1.5 bg-zinc-950/90 border-b border-zinc-800/40 flex items-center gap-1 overflow-x-auto text-xs text-zinc-400 ${isFullScreen && !isWideText ? 'max-w-4xl w-full mx-auto' : ''}`}>
             <button
               onClick={() => insertFormatting('## ')}
@@ -1061,12 +1149,12 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               <div className="flex items-center gap-1.5 shrink-0 ml-auto">
                 <button
                   type="button"
-                  onClick={() => setEditorMode('preview')}
-                  className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-md font-bold text-xs flex items-center gap-1 transition-all shadow-xs cursor-pointer"
-                  title="Ver fichas renderizadas com barras de vida interativas diretamente no texto"
+                  onClick={() => setEditorMode('read')}
+                  className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-md font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  title="Abrir no Modo Leitura com fichas renderizadas interativamente e texto limpo"
                 >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Ver no Texto</span>
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>Modo Leitura</span>
                 </button>
                 <button
                   type="button"
@@ -1102,30 +1190,240 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               </div>
             )}
 
-          {/* Preview Mode */}
-          {(editorMode === 'preview' || editorMode === 'split') && (
-            <div className={`h-full flex-1 overflow-y-auto ${isFullScreen ? 'bg-zinc-950' : 'bg-zinc-950/80'} ${isFullScreen && !isWideText ? 'flex justify-center' : ''}`}>
-              <div className={`p-6 ${isFullScreen && !isWideText ? 'max-w-4xl w-full px-6 sm:px-12 py-8' : 'w-full'}`}>
-                {notes.trim() ? (
-                  <MarkdownRenderer
-                    content={notes}
-                    characters={characters}
-                    onUpdateCharacter={handleUpdateCharacterSheet}
-                    onEditCharacter={(char) => setEditingCharacter(char)}
-                  />
-                ) : (
-                  <div className="text-zinc-600 italic text-sm text-center pt-10 space-y-2">
-                    <p>Nenhuma anotação ainda. Escreva no modo editor para visualizar aqui.</p>
+          {/* Reading Mode / Split Reading Pane */}
+          {(editorMode === 'read' || editorMode === 'split') && (
+            <div className={`h-full flex-1 flex flex-col overflow-hidden ${isFullScreen ? 'bg-zinc-950' : 'bg-zinc-950/90'}`}>
+              {/* Reading Mode Dedicated Controls Bar */}
+              <div className="px-4 py-2 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 border-b border-zinc-800/80 flex items-center justify-between gap-3 text-xs shrink-0 flex-wrap">
+                {/* Left: Mode Badge, Reading Stats & Quick Sheet Links */}
+                <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold text-xs shadow-xs select-none">
+                    <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Modo Leitura</span>
+                  </div>
+
+                  <span className="text-zinc-500 hidden sm:inline">•</span>
+
+                  <div className="text-zinc-400 text-[11px] font-medium hidden md:flex items-center gap-2 select-none">
+                    <span>~{Math.max(1, Math.ceil(wordCount / 180))} min de leitura</span>
+                    <span className="text-zinc-600">•</span>
+                    <span>{wordCount} palavras</span>
+                  </div>
+
+                  {/* Quick Character/Monster Jump Anchors in text */}
+                  {embeddedFichaCards.length > 0 && (
+                    <div className="hidden lg:flex items-center gap-1.5 pl-2 border-l border-zinc-800">
+                      <span className="text-[11px] text-zinc-500 font-medium">Fichas no texto:</span>
+                      <div className="flex items-center gap-1 max-w-[280px] overflow-x-auto py-0.5">
+                        {embeddedFichaCards.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              const el = document.getElementById(`embedded-card-${c.id}`);
+                              if (el) {
+                                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              }
+                            }}
+                            className="px-2 py-0.5 rounded-md bg-zinc-900 hover:bg-amber-500/20 text-zinc-300 hover:text-amber-200 border border-zinc-800 text-[10px] font-semibold flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+                            title={`Rolar para a ficha de ${c.name}`}
+                          >
+                            <span>{c.type === 'Monstro' ? '💀' : '👤'}</span>
+                            <span className="max-w-[70px] truncate">{c.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: Typography Customization & Return to Editor */}
+                <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                  {/* Font Family (Serif / Sans) */}
+                  <div className="flex items-center p-0.5 bg-zinc-900 border border-zinc-800 rounded-md">
                     <button
                       type="button"
-                      onClick={() => setIsInsertSheetModalOpen(true)}
-                      className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-amber-400 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                      onClick={() => setReaderFont('sans')}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-sans transition-colors cursor-pointer ${
+                        readerFont === 'sans' ? 'bg-zinc-800 text-amber-300 font-bold' : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                      title="Fonte Sem Serifa (Moderna)"
                     >
-                      <Skull className="w-3.5 h-3.5 text-rose-400" />
-                      <span>Inserir Ficha ou Monstro do Bestiário</span>
+                      Sans
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReaderFont('serif')}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-serif transition-colors cursor-pointer ${
+                        readerFont === 'serif' ? 'bg-zinc-800 text-amber-300 font-bold' : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                      title="Fonte Serifada (Tomo / Grimório Antigo)"
+                    >
+                      Serifa
                     </button>
                   </div>
-                )}
+
+                  {/* Font Size (sm / base / lg) */}
+                  <div className="flex items-center p-0.5 bg-zinc-900 border border-zinc-800 rounded-md">
+                    <button
+                      type="button"
+                      onClick={() => setReaderFontSize('sm')}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                        readerFontSize === 'sm' ? 'bg-zinc-800 text-amber-300' : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                      title="Texto menor"
+                    >
+                      A-
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReaderFontSize('base')}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                        readerFontSize === 'base' ? 'bg-zinc-800 text-amber-300' : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                      title="Texto padrão"
+                    >
+                      A
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReaderFontSize('lg')}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                        readerFontSize === 'lg' ? 'bg-zinc-800 text-amber-300' : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                      title="Texto expandido"
+                    >
+                      A+
+                    </button>
+                  </div>
+
+                  {/* Focus width toggle when in single reader mode */}
+                  {editorMode === 'read' && (
+                    <button
+                      type="button"
+                      onClick={() => setReaderNarrow((prev) => !prev)}
+                      className={`hidden sm:inline-flex px-2 py-1 rounded-md text-[11px] border transition-colors cursor-pointer ${
+                        readerNarrow
+                          ? 'bg-zinc-900 text-amber-300 border-zinc-700 font-medium'
+                          : 'bg-zinc-950 text-zinc-500 hover:text-zinc-300 border-zinc-800'
+                      }`}
+                      title={readerNarrow ? 'Alternar para largura total' : 'Alternar para coluna confortável de leitura'}
+                    >
+                      {readerNarrow ? 'Coluna de Foco' : 'Largura Total'}
+                    </button>
+                  )}
+
+                  {/* Return to edit button */}
+                  {editorMode === 'read' && (
+                    <button
+                      type="button"
+                      onClick={() => setEditorMode('edit')}
+                      className="px-2.5 py-1 bg-zinc-850 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-md font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                      title="Voltar a editar o texto das notas"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="hidden sm:inline">Editar</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Toast de Rolagem de Dados de Fichas Incorporadas */}
+              {diceRollResult && (
+                <div className="mx-4 mt-3 p-3 bg-gradient-to-r from-amber-950/90 via-zinc-900/90 to-zinc-950/90 border-2 border-amber-500/70 rounded-xl flex items-center justify-between text-amber-200 text-xs sm:text-sm font-bold shadow-xl shadow-amber-950/40 animate-fadeIn shrink-0">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-1.5 rounded-lg shrink-0 ${diceRollResult.isCrit ? 'bg-amber-500/30 text-amber-300' : diceRollResult.isFumble ? 'bg-rose-500/30 text-rose-300' : 'bg-zinc-800 text-amber-400'}`}>
+                      <Dices className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-zinc-200">{diceRollResult.label}:</span>
+                        <span className="font-mono text-amber-300 text-sm">{diceRollResult.total}</span>
+                        {diceRollResult.isCrit && <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-300 font-extrabold border border-amber-400/50">CRÍTICO!</span>}
+                        {diceRollResult.isFumble && <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-500/30 text-rose-300 font-extrabold border border-rose-500/50">FALHA CRÍTICA!</span>}
+                      </div>
+                      <div className="text-[11px] font-mono text-zinc-400 font-normal">
+                        {diceRollResult.detail}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDiceRollResult(null)}
+                    className="text-zinc-500 hover:text-zinc-200 p-1 cursor-pointer"
+                    title="Fechar notificação"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Reader Body Canvas */}
+              <div className={`flex-1 overflow-y-auto ${readerNarrow && editorMode === 'read' ? 'flex justify-center' : ''}`}>
+                <div className={`p-6 sm:p-10 ${readerNarrow && editorMode === 'read' ? 'max-w-3xl w-full' : 'w-full'}`}>
+                  {notes.trim() ? (
+                    <MarkdownRenderer
+                      content={notes}
+                      characters={characters}
+                      onUpdateCharacter={handleUpdateCharacterSheet}
+                      onEditCharacter={(char) => setEditingCharacter(char)}
+                      onRollDice={handleRollDice}
+                      onCreateCharacterWithName={(name) => {
+                        const newChar: CharacterSheet = {
+                          id: `char-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                          campaignId: activeCampaign?.id || '',
+                          name,
+                          role: 'NPC / Criatura',
+                          type: 'NPC',
+                          attributes: [
+                            { id: '1', key: 'FOR', value: 10 },
+                            { id: '2', key: 'DES', value: 10 },
+                            { id: '3', key: 'CON', value: 10 },
+                            { id: '4', key: 'INT', value: 10 },
+                            { id: '5', key: 'SAB', value: 10 },
+                            { id: '6', key: 'CAR', value: 10 },
+                          ],
+                          resources: [{ id: '1', name: 'Pontos de Vida', current: 20, max: 20, color: 'emerald' }],
+                          notes: `Ficha criada a partir das notas da campanha "${title}".`,
+                          createdAt: Date.now(),
+                          updatedAt: Date.now(),
+                        };
+                        onCreateCharacter?.(newChar);
+                      }}
+                      fontFamily={readerFont}
+                      fontSize={readerFontSize}
+                      isReadingMode={editorMode === 'read'}
+                    />
+                  ) : (
+                    <div className="text-zinc-600 italic text-sm text-center pt-16 space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mx-auto">
+                        <BookOpen className="w-6 h-6" />
+                      </div>
+                      <p className="text-zinc-400">Nenhuma anotação registrada ainda nesta campanha.</p>
+                      <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+                        Clique em <strong className="text-amber-400">Editor</strong> para redigir sua sessão ou insira uma ficha de monstro para começar.
+                      </p>
+                      <div className="pt-2 flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditorMode('edit')}
+                          className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Ir para o Editor</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsInsertSheetModalOpen(true)}
+                          className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Skull className="w-3.5 h-3.5 text-rose-400" />
+                          <span>Inserir Ficha / Bestiário</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

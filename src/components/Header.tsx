@@ -12,11 +12,13 @@ import {
   ChevronDown,
   Scroll,
   Skull,
+  ExternalLink,
 } from 'lucide-react';
 import { FlamingD20Logo } from './FlamingD20Logo';
 import { MainTab, Campaign } from '../types';
 import { DiceRoller } from './DiceRoller';
 import type { User } from 'firebase/auth';
+import { isInsideIframe } from '../services/firebase';
 
 interface HeaderProps {
   currentTab: MainTab;
@@ -28,8 +30,10 @@ interface HeaderProps {
   syncStatus?: 'synced' | 'syncing' | 'offline' | 'error';
   user?: User | null;
   onSignInGoogle?: () => void;
+  isLoggingIn?: boolean;
   onOpenSettings: () => void;
   onOpenSearch: () => void;
+  customLogoUrl?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -42,21 +46,23 @@ export const Header: React.FC<HeaderProps> = ({
   syncStatus = 'synced',
   user,
   onSignInGoogle,
+  isLoggingIn = false,
   onOpenSettings,
   onOpenSearch,
+  customLogoUrl,
 }) => {
   return (
     <header className="h-14 border-b border-zinc-800/90 bg-zinc-950/95 backdrop-blur-md px-3 sm:px-6 flex items-center justify-between select-none z-30 shrink-0">
       {/* Brand & Logo + Campaign Menu Trigger */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2.5">
-          <FlamingD20Logo size={32} showGlow={true} />
+          <FlamingD20Logo size={32} showGlow={true} customLogoUrl={customLogoUrl} />
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-base tracking-tight text-zinc-100 font-mono">
                 Grimório
               </span>
-              <span className="hidden sm:inline-block text-[10px] px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">
+              <span className="hidden sm:inline-block text-[10px] px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/25 font-medium">
                 RPG Copilot
               </span>
             </div>
@@ -72,19 +78,19 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             id="header-campaign-menu-btn"
             onClick={onOpenCampaignMenu}
-            className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/50 text-xs text-zinc-200 transition-all cursor-pointer group shadow-xs max-w-[170px] sm:max-w-[240px]"
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-cyan-500/50 text-xs text-zinc-200 transition-all cursor-pointer group shadow-xs max-w-[170px] sm:max-w-[240px]"
             title="Abrir Menu de Campanhas (Escolher, criar ou apagar campanhas)"
           >
-            <Scroll className="w-3.5 h-3.5 text-amber-500 group-hover:rotate-6 transition-transform shrink-0" />
+            <Scroll className="w-3.5 h-3.5 text-cyan-400 group-hover:rotate-6 transition-transform shrink-0" />
             <div className="flex flex-col text-left min-w-0 flex-1">
               <span className="font-semibold text-zinc-100 truncate text-[11px] leading-tight">
                 {activeCampaign ? activeCampaign.title : 'Escolher Campanha'}
               </span>
-              <span className="text-[9px] text-amber-400/80 font-mono truncate leading-none">
+              <span className="text-[9px] text-cyan-400/80 font-mono truncate leading-none">
                 {activeCampaign?.system || `${campaignsCount} campanhas`}
               </span>
             </div>
-            <ChevronDown className="w-3 h-3 text-zinc-500 group-hover:text-amber-400 shrink-0" />
+            <ChevronDown className="w-3 h-3 text-zinc-500 group-hover:text-cyan-400 shrink-0" />
           </button>
         )}
       </div>
@@ -96,11 +102,11 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={() => onTabChange('campaign')}
           className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
             currentTab === 'campaign'
-              ? 'bg-zinc-800 text-amber-400 shadow-xs border border-amber-500/30 font-semibold'
+              ? 'bg-zinc-800 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.2)] border border-cyan-500/40 font-semibold'
               : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
           }`}
         >
-          <BookOpen className={`w-3.5 h-3.5 ${currentTab === 'campaign' ? 'text-amber-400' : 'text-zinc-400'}`} />
+          <BookOpen className={`w-3.5 h-3.5 ${currentTab === 'campaign' ? 'text-cyan-400' : 'text-zinc-400'}`} />
           <span>Campanha & Copiloto</span>
         </button>
 
@@ -109,17 +115,17 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={() => onTabChange('characters')}
           className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
             currentTab === 'characters'
-              ? 'bg-zinc-800 text-amber-400 shadow-xs border border-amber-500/30 font-semibold'
+              ? 'bg-zinc-800 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.2)] border border-cyan-500/40 font-semibold'
               : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
           }`}
         >
-          <Users className={`w-3.5 h-3.5 ${currentTab === 'characters' ? 'text-amber-400' : 'text-zinc-400'}`} />
+          <Users className={`w-3.5 h-3.5 ${currentTab === 'characters' ? 'text-cyan-400' : 'text-zinc-400'}`} />
           <span>Fichas</span>
           {characterCount > 0 && (
             <span
               className={`px-1.5 py-0.2 text-[10px] font-mono rounded-full ${
                 currentTab === 'characters'
-                  ? 'bg-amber-500/20 text-amber-300'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                   : 'bg-zinc-800 text-zinc-400'
               }`}
             >
@@ -186,27 +192,55 @@ export const Header: React.FC<HeaderProps> = ({
                 src={user.photoURL}
                 alt="Foto"
                 referrerPolicy="no-referrer"
-                className="w-5 h-5 rounded-full object-cover border border-amber-500/40"
+                className="w-5 h-5 rounded-full object-cover border border-cyan-500/40"
               />
             ) : (
-              <UserIcon className="w-3.5 h-3.5 text-amber-400" />
+              <UserIcon className="w-3.5 h-3.5 text-cyan-400" />
             )}
             <span className="hidden lg:inline text-[11px] text-zinc-200 font-medium max-w-[90px] truncate">
               {user.displayName?.split(' ')[0] || 'Google'}
             </span>
           </button>
         ) : onSignInGoogle ? (
-          <button
-            id="google-signin-btn"
-            onClick={() => {
-              void onSignInGoogle();
-            }}
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-medium transition-colors cursor-pointer"
-            title="Conectar com o Google para sincronizar suas campanhas em qualquer dispositivo"
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">Conectar Google</span>
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              id="google-signin-btn"
+              disabled={isLoggingIn}
+              onClick={() => {
+                void onSignInGoogle();
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-medium transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+              title={
+                isInsideIframe()
+                  ? 'Conectar com o Google (Caso o visualizador embutido bloqueie o pop-up, utilize o botão ao lado para abrir em nova aba)'
+                  : 'Conectar com o Google para sincronizar suas campanhas em qualquer dispositivo'
+              }
+            >
+              {isLoggingIn ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                  <span className="text-cyan-300 font-medium">Conectando...</span>
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-3.5 h-3.5 text-cyan-400" />
+                  <span className="hidden sm:inline">Conectar Google</span>
+                </>
+              )}
+            </button>
+
+            {/* In iframe preview, provide a fast 1-click escape to an unrestricted browser tab */}
+            {isInsideIframe() && (
+              <button
+                type="button"
+                onClick={() => window.open(window.location.href, '_blank')}
+                className="p-1.5 text-zinc-400 hover:text-cyan-300 hover:bg-zinc-800 rounded-lg border border-transparent hover:border-zinc-700 transition-colors cursor-pointer"
+                title="Abrir Grimório em Nova Aba (Permite login Google sem restrições de iframe do navegador)"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-cyan-400/80" />
+              </button>
+            )}
+          </div>
         ) : null}
 
         {/* Global Search Button */}
@@ -216,7 +250,7 @@ export const Header: React.FC<HeaderProps> = ({
           className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 text-xs text-zinc-400 hover:text-zinc-100 bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-lg transition-all cursor-pointer"
           title="Pesquisa Global (Ctrl+K ou ⌘K)"
         >
-          <Search className="w-3.5 h-3.5 text-amber-500" />
+          <Search className="w-3.5 h-3.5 text-cyan-400" />
           <span className="hidden xl:inline font-medium">Pesquisar</span>
           <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.2 text-[10px] font-mono text-zinc-400 bg-zinc-950 border border-zinc-800 rounded">
             ⌘K

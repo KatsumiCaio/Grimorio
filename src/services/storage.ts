@@ -10,6 +10,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   model: 'gemini-3.6-flash',
   fontSize: 'base',
   editorMode: 'edit',
+  customLogoUrl: '',
+  themeTone: 'cyan',
 };
 
 const DEFAULT_CAMPAIGNS: Campaign[] = [
@@ -31,6 +33,13 @@ Lá se encontra a relíquia conhecida como **O Olho de Quartzo**, capaz de rompe
 
 ---
 
+## 👥 Heróis & Aliados em Campo
+> O grupo avança com passos firmes pelo desfiladeiro rochoso. Valerius mantém a guarda erguida com seu escudo brasonado:
+
+{{ficha:char-1}}
+
+---
+
 ## ⚔️ Ganchos de Enredo Ativos
 1. **O Mensageiro Ferido**: Encontraram um corvo de ferro com um pergaminho manchado de sangue. O emissário prometeu 200 PO para quem impedisse o ritual no topo da torre.
 2. **A Maldição de Lyra**: As mãos da ladina começaram a escurecer desde que tocou o baú na masmorra anterior. Um teste de Sanidade/Sabedoria será exigido se entrar em áreas consagradas.
@@ -42,9 +51,10 @@ Lá se encontra a relíquia conhecida como **O Olho de Quartzo**, capaz de rompe
 - **Ponte das Cordas Podres**: Suspensa sobre um abismo de 40 metros. Teste de Destreza (Acrobacia) CD 13 para atravessar sob a ventania forte.
 - **Santuário dos Sentinelas**: Ruína com estátuas decapitadas. Descansar aqui recupera 1 Dado de Vida extra, mas atrai sombras espectrais na 3ª hora.
 
-## 🎲 Encontros Rápidos
-- **Furtivo**: 3 Espectros das Rochas espreitam sob o nevoeiro.
-- **Social**: Encontro com o eremita *Barnabé*, que troca informações valiosas por rações ou água purificada.
+## 🎲 Encontros Rápidos & Ameaças
+> Entre os escombros do santuário, criaturas espreitam nas frestas de pedra:
+
+{{monstro: Goblin}}
 `,
   },
   {
@@ -168,7 +178,14 @@ export const storageService = {
         this.saveCampaigns(DEFAULT_CAMPAIGNS);
         return DEFAULT_CAMPAIGNS;
       }
-      return JSON.parse(data);
+      const parsed: Campaign[] = JSON.parse(data);
+      // If default campaign exists and doesn't have the embed demo, update it seamlessly
+      const defaultCamp = parsed.find((c) => c.id === 'camp-default-1');
+      if (defaultCamp && !defaultCamp.notes.includes('{{ficha:')) {
+        defaultCamp.notes = DEFAULT_CAMPAIGNS[0].notes;
+        this.saveCampaigns(parsed);
+      }
+      return parsed;
     } catch {
       return DEFAULT_CAMPAIGNS;
     }

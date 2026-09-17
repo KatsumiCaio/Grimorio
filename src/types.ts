@@ -66,6 +66,8 @@ export interface AppSettings {
   model: string;
   fontSize: 'sm' | 'base' | 'lg';
   editorMode: 'edit' | 'preview' | 'split';
+  customLogoUrl?: string;
+  themeTone?: 'amber' | 'crimson' | 'emerald' | 'purple' | 'cyan';
 }
 
 export type MainTab = 'campaign' | 'characters' | 'bestiary';

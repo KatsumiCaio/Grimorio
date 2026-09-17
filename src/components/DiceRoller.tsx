@@ -44,15 +44,15 @@ export const DiceRoller: React.FC = () => {
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
           isOpen
-            ? 'bg-amber-500/10 text-amber-400 border-amber-500/40'
+            ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
             : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:text-zinc-100 hover:border-zinc-700'
         }`}
         title="Rolador de Dados Rápido"
       >
-        <Dices className="w-3.5 h-3.5 text-amber-500" />
+        <Dices className="w-3.5 h-3.5 text-cyan-400" />
         <span className="hidden sm:inline">Dados</span>
         {lastRoll && (
-          <span className="ml-1 px-1.5 py-0.2 bg-zinc-800 text-amber-300 rounded font-mono font-bold text-[11px]">
+          <span className="ml-1 px-1.5 py-0.2 bg-zinc-800 text-cyan-300 border border-cyan-500/30 rounded font-mono font-bold text-[11px]">
             {lastRoll.total}
           </span>
         )}
@@ -67,7 +67,7 @@ export const DiceRoller: React.FC = () => {
           <div className="absolute right-0 top-full mt-2 w-72 bg-zinc-900 border border-zinc-800 rounded-xl p-3.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-2 border-b border-zinc-800 mb-3">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
-                <Dices className="w-4 h-4 text-amber-500" />
+                <Dices className="w-4 h-4 text-cyan-400" />
                 <span>Rolar Dados</span>
               </div>
               {logs.length > 0 && (
@@ -119,16 +119,16 @@ export const DiceRoller: React.FC = () => {
                 <button
                   key={die}
                   onClick={() => rollDie(die)}
-                  className="px-2 py-2 bg-zinc-950 hover:bg-amber-950/30 hover:border-amber-500/50 border border-zinc-800 rounded-lg text-xs font-mono font-medium text-zinc-200 transition-all active:scale-95 flex flex-col items-center justify-center"
+                  className="px-2 py-2 bg-zinc-950 hover:bg-cyan-950/30 hover:border-cyan-500/50 border border-zinc-800 rounded-lg text-xs font-mono font-medium text-zinc-200 transition-all active:scale-95 flex flex-col items-center justify-center"
                 >
-                  <span className="text-amber-500 font-bold">d{die}</span>
+                  <span className="text-cyan-400 font-bold">d{die}</span>
                 </button>
               ))}
             </div>
 
             {/* Last Roll Highlight */}
             {lastRoll && (
-              <div className="bg-gradient-to-r from-amber-500/10 via-zinc-950 to-zinc-950 border border-amber-500/30 rounded-lg p-2.5 mb-2 flex items-center justify-between">
+              <div className="bg-gradient-to-r from-cyan-500/15 via-zinc-950 to-zinc-950 border border-cyan-500/40 rounded-lg p-2.5 mb-2 flex items-center justify-between shadow-[0_0_15px_rgba(6,182,212,0.15)]">
                 <div>
                   <div className="text-[11px] text-zinc-400">
                     d{lastRoll.die} {lastRoll.modifier !== 0 && (lastRoll.modifier > 0 ? `+ ${lastRoll.modifier}` : `- ${Math.abs(lastRoll.modifier)}`)}
@@ -137,7 +137,7 @@ export const DiceRoller: React.FC = () => {
                     (Rolou {lastRoll.roll})
                   </div>
                 </div>
-                <div className="text-2xl font-black font-mono text-amber-400">
+                <div className="text-2xl font-black font-mono text-cyan-300">
                   {lastRoll.total}
                 </div>
               </div>

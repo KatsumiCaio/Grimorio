@@ -33,6 +33,7 @@ export const FIRESTORE_DATABASE_ID =
     ? firebaseConfig.firestoreDatabaseId
     : '(default)';
 export const FIREBASE_CONSOLE_AUTH_URL = `https://console.firebase.google.com/project/${FIREBASE_PROJECT_ID}/authentication/providers`;
+export const FIREBASE_CONSOLE_AUTH_SETTINGS_URL = `https://console.firebase.google.com/project/${FIREBASE_PROJECT_ID}/authentication/settings`;
 
 // Initialize Firebase App
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
@@ -54,31 +55,118 @@ export interface FirebaseSyncStatus {
   user: User | null;
 }
 
-// User-friendly error translator for Firebase Auth issues
-export const formatFirebaseAuthError = (err: any): string => {
-  if (!err) return 'Erro desconhecido na autenticação.';
+export interface AuthErrorInfo {
+  code: string;
+  title: string;
+  message: string;
+  type: 'iframe' | 'unauthorized-domain' | 'provider-disabled' | 'popup-blocked' | 'user-cancelled' | 'generic';
+  domain?: string;
+  consoleUrl?: string;
+}
+
+// Check if running inside an iframe (such as AI Studio preview)
+export const isInsideIframe = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.self !== window.top;
+  } catch (e) {
+    return true;
+  }
+};
+
+// User-friendly error parser for Firebase Auth issues
+export const parseFirebaseAuthError = (err: any): AuthErrorInfo => {
+  if (!err) {
+    return {
+      code: 'unknown',
+      title: 'Erro de Autenticação',
+      message: 'Erro desconhecido na autenticação.',
+      type: 'generic',
+    };
+  }
+
   const code = err.code || '';
   const msg = err.message || '';
+  const currentDomain = typeof window !== 'undefined' ? window.location.hostname : '';
 
-  if (code === 'auth/configuration-not-found' || msg.includes('configuration-not-found')) {
-    return `O serviço de Autenticação ou o provedor Google ainda não foi ativado no Firebase Console do projeto "${FIREBASE_PROJECT_ID}". Ative em Authentication > Métodos de login (Sign-in method).`;
+  if (code === 'auth/iframe-timeout') {
+    return {
+      code,
+      title: 'Bloqueio de Pop-up no Visualizador (iFrame)',
+      message: 'A janela de autenticação do Google não respondeu ou foi impedida pelas políticas de segurança do visualizador embutido (iframe). Abra o Grimório em uma nova aba para fazer login com o Google.',
+      type: 'iframe',
+    };
   }
-  if (code === 'auth/operation-not-allowed' || msg.includes('operation-not-allowed')) {
-    return `O método de login Google não está habilitado no Console do Firebase para o projeto "${FIREBASE_PROJECT_ID}".`;
-  }
-  if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
-    return 'O domínio desta aplicação não está na lista de "Domínios autorizados" nas configurações do Firebase Authentication.';
-  }
-  if (code === 'auth/popup-closed-by-user') {
-    return 'A janela de autenticação foi fechada antes de concluir o login.';
-  }
-  if (code === 'auth/cancelled-popup-request') {
-    return 'Solicitação de autenticação anterior cancelada.';
-  }
+
   if (code === 'auth/popup-blocked') {
-    return 'O navegador bloqueou a janela pop-up do Google. Por favor, permita pop-ups para este site.';
+    return {
+      code,
+      title: 'Pop-up Bloqueado pelo Navegador',
+      message: isInsideIframe()
+        ? 'O navegador bloqueou a janela pop-up do Google porque o Grimório está sendo exibido dentro de um iframe. Abra em uma nova aba para conectar com o Google.'
+        : 'O navegador bloqueou a janela pop-up do Google. Por favor, permita pop-ups para este site e tente novamente.',
+      type: 'popup-blocked',
+    };
   }
-  return msg || 'Falha ao autenticar com o Firebase.';
+
+  if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
+    return {
+      code: 'auth/unauthorized-domain',
+      title: 'Domínio Não Autorizado no Firebase',
+      message: `O domínio atual ("${currentDomain}") precisa ser adicionado à lista de "Domínios autorizados" nas configurações do Firebase Authentication para permitir o login Google.`,
+      type: 'unauthorized-domain',
+      domain: currentDomain,
+      consoleUrl: FIREBASE_CONSOLE_AUTH_SETTINGS_URL,
+    };
+  }
+
+  if (code === 'auth/configuration-not-found' || msg.includes('configuration-not-found') || code === 'auth/operation-not-allowed' || msg.includes('operation-not-allowed')) {
+    return {
+      code: code || 'auth/operation-not-allowed',
+      title: 'Provedor Google Não Habilitado no Firebase',
+      message: `O método de login com o Google precisa ser ativado no Firebase Console do projeto "${FIREBASE_PROJECT_ID}". Acesse Authentication > Sign-in method e habilite o provedor Google.`,
+      type: 'provider-disabled',
+      consoleUrl: FIREBASE_CONSOLE_AUTH_URL,
+    };
+  }
+
+  if (code === 'auth/popup-closed-by-user') {
+    return {
+      code,
+      title: 'Login Cancelado',
+      message: 'A janela de autenticação do Google foi fechada antes de concluir o login.',
+      type: 'user-cancelled',
+    };
+  }
+
+  if (code === 'auth/cancelled-popup-request') {
+    return {
+      code,
+      title: 'Solicitação Cancelada',
+      message: 'Uma solicitação de autenticação anterior foi cancelada para iniciar uma nova.',
+      type: 'user-cancelled',
+    };
+  }
+
+  if (code === 'auth/timeout') {
+    return {
+      code,
+      title: 'Tempo Limite Excedido',
+      message: 'A solicitação de login demorou muito para responder. Verifique sua conexão ou se janelas pop-up estão bloqueadas.',
+      type: 'generic',
+    };
+  }
+
+  return {
+    code,
+    title: 'Falha na Autenticação',
+    message: msg || 'Falha ao autenticar com o Firebase.',
+    type: 'generic',
+  };
+};
+
+export const formatFirebaseAuthError = (err: any): string => {
+  return parseFirebaseAuthError(err).message;
 };
 
 // Authentication Helpers
@@ -96,21 +184,46 @@ export const signInAnonymousUser = async (): Promise<User | null> => {
 export const signInWithGoogleAccount = async (): Promise<{
   user: User | null;
   error: string | null;
+  authError?: AuthErrorInfo;
   isConfigurationError?: boolean;
 }> => {
+  const inIframe = isInsideIframe();
+
   try {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    const res = await signInWithPopup(auth, provider);
+
+    // Set a safety timeout race so clicking never hangs indefinitely (e.g. inside sandboxed iframes)
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        if (inIframe) {
+          reject({
+            code: 'auth/iframe-timeout',
+            message: 'A janela de autenticação do Google não respondeu ou foi bloqueada pelo navegador no visualizador embutido (iframe).',
+          });
+        } else {
+          reject({
+            code: 'auth/timeout',
+            message: 'A solicitação de autenticação demorou para responder.',
+          });
+        }
+      }, 16000);
+    });
+
+    const res = await Promise.race([signInWithPopup(auth, provider), timeoutPromise]);
     return { user: res.user, error: null };
   } catch (err: any) {
-    const formatted = formatFirebaseAuthError(err);
+    const structured = parseFirebaseAuthError(err);
     const isConfigErr =
-      err?.code === 'auth/configuration-not-found' ||
-      err?.code === 'auth/operation-not-allowed' ||
-      err?.message?.includes('configuration-not-found');
-    console.warn('Firebase autenticação aviso:', formatted);
-    return { user: null, error: formatted, isConfigurationError: isConfigErr };
+      structured.type === 'provider-disabled' ||
+      structured.type === 'unauthorized-domain';
+    console.warn('Firebase autenticação aviso:', structured.message);
+    return {
+      user: null,
+      error: structured.message,
+      authError: structured,
+      isConfigurationError: isConfigErr,
+    };
   }
 };
 
