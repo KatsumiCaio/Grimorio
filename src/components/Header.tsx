@@ -9,9 +9,11 @@ import {
   CloudOff,
   LogIn,
   User as UserIcon,
+  ChevronDown,
+  Scroll,
 } from 'lucide-react';
 import { FlamingD20Logo } from './FlamingD20Logo';
-import { MainTab } from '../types';
+import { MainTab, Campaign } from '../types';
 import { DiceRoller } from './DiceRoller';
 import type { User } from 'firebase/auth';
 
@@ -19,6 +21,9 @@ interface HeaderProps {
   currentTab: MainTab;
   onTabChange: (tab: MainTab) => void;
   characterCount: number;
+  activeCampaign?: Campaign;
+  campaignsCount?: number;
+  onOpenCampaignMenu?: () => void;
   syncStatus?: 'synced' | 'syncing' | 'offline' | 'error';
   user?: User | null;
   onSignInGoogle?: () => void;
@@ -30,6 +35,9 @@ export const Header: React.FC<HeaderProps> = ({
   currentTab,
   onTabChange,
   characterCount,
+  activeCampaign,
+  campaignsCount = 0,
+  onOpenCampaignMenu,
   syncStatus = 'synced',
   user,
   onSignInGoogle,
@@ -38,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   return (
     <header className="h-14 border-b border-zinc-800/90 bg-zinc-950/95 backdrop-blur-md px-3 sm:px-6 flex items-center justify-between select-none z-30 shrink-0">
-      {/* Brand & Logo */}
+      {/* Brand & Logo + Campaign Menu Trigger */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2.5">
           <FlamingD20Logo size={32} showGlow={true} />
@@ -56,6 +64,28 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
         </div>
+
+        {/* Campaign Menu Quick Trigger Pill */}
+        {onOpenCampaignMenu && (
+          <button
+            type="button"
+            id="header-campaign-menu-btn"
+            onClick={onOpenCampaignMenu}
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/50 text-xs text-zinc-200 transition-all cursor-pointer group shadow-xs max-w-[170px] sm:max-w-[240px]"
+            title="Abrir Menu de Campanhas (Escolher, criar ou apagar campanhas)"
+          >
+            <Scroll className="w-3.5 h-3.5 text-amber-500 group-hover:rotate-6 transition-transform shrink-0" />
+            <div className="flex flex-col text-left min-w-0 flex-1">
+              <span className="font-semibold text-zinc-100 truncate text-[11px] leading-tight">
+                {activeCampaign ? activeCampaign.title : 'Escolher Campanha'}
+              </span>
+              <span className="text-[9px] text-amber-400/80 font-mono truncate leading-none">
+                {activeCampaign?.system || `${campaignsCount} campanhas`}
+              </span>
+            </div>
+            <ChevronDown className="w-3 h-3 text-zinc-500 group-hover:text-amber-400 shrink-0" />
+          </button>
+        )}
       </div>
 
       {/* Navigation Tabs */}

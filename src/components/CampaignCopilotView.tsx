@@ -53,6 +53,7 @@ interface CampaignCopilotViewProps {
   onCreateCampaign: (title: string, system: string) => void;
   onUpdateCampaign: (updated: Partial<Campaign>) => void;
   onDeleteCampaign: (id: string) => void;
+  onOpenCampaignMenu?: () => void;
   characters: CharacterSheet[];
   model?: string;
   customApiKey?: string;
@@ -68,6 +69,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   onCreateCampaign,
   onUpdateCampaign,
   onDeleteCampaign,
+  onOpenCampaignMenu,
   characters,
   model = 'gemini-3.6-flash',
   customApiKey = '',
@@ -351,6 +353,139 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   const wordCount = notes.trim() ? notes.trim().split(/\s+/).length : 0;
   const charCount = notes.length;
 
+  // Zero-state if all campaigns were deleted
+  if (campaigns.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-zinc-950 text-zinc-100 space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-lg shadow-amber-950/20">
+          <BookOpen className="w-8 h-8" />
+        </div>
+        <div className="max-w-md space-y-2">
+          <h2 className="text-xl font-bold text-zinc-100">Nenhuma Campanha Cadastrada</h2>
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            Você não possui campanhas ativas no momento. Crie uma nova aventura ou abra o Menu de Campanhas para começar a mestrar, registrar anotações de sessão e usar o Copiloto IA.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          {onOpenCampaignMenu && (
+            <button
+              type="button"
+              id="empty-state-open-menu-btn"
+              onClick={onOpenCampaignMenu}
+              className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-amber-950/30 cursor-pointer transition-all"
+            >
+              <Scroll className="w-4 h-4" />
+              <span>Abrir Menu de Campanhas</span>
+            </button>
+          )}
+          <button
+            type="button"
+            id="empty-state-new-camp-btn"
+            onClick={() => setIsNewCampaignOpen(true)}
+            className="px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-xl text-xs flex items-center gap-2 cursor-pointer transition-all"
+          >
+            <Plus className="w-4 h-4 text-amber-400" />
+            <span>Criar Campanha Rápida</span>
+          </button>
+        </div>
+
+        {/* Modal de Criação Rápida */}
+        {isNewCampaignOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl space-y-4 text-left">
+              <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+                <h3 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span>Nova Campanha</span>
+                </h3>
+                <button
+                  onClick={() => setIsNewCampaignOpen(false)}
+                  className="text-zinc-500 hover:text-zinc-300 p-1 rounded-lg hover:bg-zinc-800 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div>
+                <label className="text-xs text-zinc-400 block mb-1.5 font-medium">Nome da Campanha</label>
+                <input
+                  type="text"
+                  placeholder="Ex: A Maldição de Strahd"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-zinc-400 block mb-1.5 font-medium">Sistema de RPG</label>
+                <select
+                  value={selectedSystemId}
+                  onChange={(e) => setSelectedSystemId(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-amber-500 cursor-pointer"
+                >
+                  {POPULAR_SYSTEM_GROUPS.map((group) => (
+                    <optgroup key={group.group} label={group.group} className="bg-zinc-900 text-zinc-400">
+                      {group.systems.map((sys) => (
+                        <option key={sys.id} value={sys.id}>
+                          {sys.name} ({sys.diceConvention})
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                  <option value="custom">Outro (Personalizado)...</option>
+                </select>
+              </div>
+
+              {selectedSystemId === 'custom' && (
+                <div>
+                  <label className="text-xs text-zinc-400 block mb-1.5 font-medium">Nome do Sistema Customizado</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 3D&T Alpha, Gurps 4e, Cyberpunk RED..."
+                    value={customSystemText}
+                    onChange={(e) => setCustomSystemText(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800/80">
+                <button
+                  onClick={() => setIsNewCampaignOpen(false)}
+                  className="px-3.5 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    if (newTitle.trim()) {
+                      const finalSystem =
+                        selectedSystemId === 'custom'
+                          ? customSystemText.trim() || 'Sistema Próprio'
+                          : RPG_SYSTEMS.find((s) => s.id === selectedSystemId)?.shortName || 'D&D 5e';
+
+                      onCreateCampaign(newTitle.trim(), finalSystem);
+                      setIsNewCampaignOpen(false);
+                      setNewTitle('');
+                      setSelectedSystemId('dnd5e');
+                      setCustomSystemText('');
+                    }
+                  }}
+                  disabled={!newTitle.trim()}
+                  className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-zinc-950 font-bold rounded-lg text-xs transition-colors"
+                >
+                  Criar Campanha
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-zinc-950 text-zinc-100">
       {/* ========================================================================= */}
@@ -372,12 +507,31 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               </div>
             )}
 
+            {/* Menu de Campanhas Button & Selector */}
+            {onOpenCampaignMenu && (
+              <button
+                type="button"
+                id="open-campaign-menu-top-btn"
+                onClick={onOpenCampaignMenu}
+                className="px-2.5 py-1.5 bg-zinc-950 hover:bg-zinc-850 border border-zinc-800 hover:border-amber-500/40 text-xs font-semibold text-amber-300 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs group"
+                title="Abrir Menu de Campanhas (Selecionar, criar ou apagar todas)"
+              >
+                <Scroll className="w-3.5 h-3.5 text-amber-400 group-hover:rotate-6 transition-transform shrink-0" />
+                <span className="hidden sm:inline">Campanhas</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+                  {campaigns.length}
+                </span>
+                <ChevronDown className="w-3 h-3 text-zinc-500 group-hover:text-amber-400" />
+              </button>
+            )}
+
             <div className="relative">
               <select
                 id="campaign-select"
                 value={activeCampaignId}
                 onChange={(e) => onSelectCampaign(e.target.value)}
-                className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-200 rounded-lg px-2.5 py-1.5 pr-7 focus:outline-none focus:border-amber-500/50 cursor-pointer max-w-[200px] truncate"
+                className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-200 rounded-lg px-2.5 py-1.5 pr-7 focus:outline-none focus:border-amber-500/50 cursor-pointer max-w-[170px] sm:max-w-[200px] truncate"
+                title="Trocar campanha ativa"
               >
                 {campaigns.map((camp) => (
                   <option key={camp.id} value={camp.id}>

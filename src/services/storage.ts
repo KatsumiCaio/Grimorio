@@ -182,6 +182,14 @@ export const storageService = {
     }
   },
 
+  clearCampaigns(): void {
+    try {
+      localStorage.setItem(CAMPAIGNS_STORAGE_KEY, JSON.stringify([]));
+    } catch (e) {
+      console.error('Falha ao limpar campanhas no LocalStorage:', e);
+    }
+  },
+
   getCharacters(): CharacterSheet[] {
     try {
       const data = localStorage.getItem(CHARACTERS_STORAGE_KEY);

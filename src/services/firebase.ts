@@ -217,6 +217,13 @@ export const deleteCampaignFromFirestore = async (campaignId: string): Promise<v
   await deleteDoc(docRef);
 };
 
+export const deleteAllCampaignsFromFirestore = async (userId: string): Promise<void> => {
+  const q = query(collection(db, 'campaigns'), where('userId', '==', userId));
+  const snapshot = await getDocs(q);
+  const deletePromises = snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref));
+  await Promise.all(deletePromises);
+};
+
 export const saveCharacterToFirestore = async (
   userId: string,
   character: CharacterSheet
@@ -236,6 +243,13 @@ export const saveCharacterToFirestore = async (
 export const deleteCharacterFromFirestore = async (characterId: string): Promise<void> => {
   const docRef = doc(db, 'characters', characterId);
   await deleteDoc(docRef);
+};
+
+export const deleteAllCharactersFromFirestore = async (userId: string): Promise<void> => {
+  const q = query(collection(db, 'characters'), where('userId', '==', userId));
+  const snapshot = await getDocs(q);
+  const deletePromises = snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref));
+  await Promise.all(deletePromises);
 };
 
 // Check if user has data in Firestore, if empty, migrate initial local data

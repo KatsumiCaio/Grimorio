@@ -234,4 +234,7 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error("Erro fatal ao iniciar o servidor Grimório:", err);
+  process.exit(1);
+});

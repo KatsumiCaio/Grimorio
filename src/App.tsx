@@ -6,6 +6,7 @@ import { CampaignCopilotView } from './components/CampaignCopilotView';
 import { CharacterSheetsView } from './components/CharacterSheetsView';
 import { SettingsModal } from './components/SettingsModal';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
+import { CampaignMenuModal } from './components/CampaignMenuModal';
 import type { User } from 'firebase/auth';
 import {
   signInAnonymousUser,
@@ -16,8 +17,10 @@ import {
   subscribeToUserCharacters,
   saveCampaignToFirestore,
   deleteCampaignFromFirestore,
+  deleteAllCampaignsFromFirestore,
   saveCharacterToFirestore,
   deleteCharacterFromFirestore,
+  deleteAllCharactersFromFirestore,
   checkAndSeedCloudData,
 } from './services/firebase';
 
@@ -32,6 +35,7 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<MainTab>('campaign');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isCampaignMenuOpen, setIsCampaignMenuOpen] = useState(false);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | undefined>(undefined);
   const [isFullScreenNotes, setIsFullScreenNotes] = useState(false);
 
@@ -77,8 +81,12 @@ export default function App() {
                 storageService.saveCampaigns(cloudCampaigns);
                 setActiveCampaignId((prev) => {
                   if (prev && cloudCampaigns.some((c) => c.id === prev)) return prev;
-                  return cloudCampaigns[0].id;
+                  return cloudCampaigns[0]?.id || '';
                 });
+              } else if (isCloudLoadedRef.current) {
+                setCampaigns([]);
+                storageService.clearCampaigns();
+                setActiveCampaignId('');
               }
               isCloudLoadedRef.current = true;
               setSyncStatus('synced');
@@ -96,6 +104,9 @@ export default function App() {
               if (cloudCharacters.length > 0) {
                 setCharacters(cloudCharacters);
                 storageService.saveCharacters(cloudCharacters);
+              } else if (isCloudLoadedRef.current) {
+                setCharacters([]);
+                storageService.saveCharacters([]);
               }
               setSyncStatus('synced');
             },
@@ -281,12 +292,34 @@ export default function App() {
     }
   }, [currentUser]);
 
+  const handleUpdateCampaignById = useCallback((id: string, updated: Partial<Campaign>) => {
+    setCampaigns((prev) => {
+      const next = prev.map((c) => {
+        if (c.id === id) {
+          return { ...c, ...updated, updatedAt: Date.now() };
+        }
+        return c;
+      });
+      storageService.saveCampaigns(next);
+
+      if (currentUser) {
+        const found = next.find((c) => c.id === id);
+        if (found) {
+          saveCampaignToFirestore(currentUser.uid, found).catch((err) => {
+            console.warn('Erro ao atualizar campanha no Firestore:', err);
+          });
+        }
+      }
+      return next;
+    });
+  }, [currentUser]);
+
   const handleDeleteCampaign = useCallback((idToDelete: string) => {
     setCampaigns((prev) => {
       const next = prev.filter((c) => c.id !== idToDelete);
       storageService.saveCampaigns(next);
-      if (activeCampaignId === idToDelete && next.length > 0) {
-        setActiveCampaignId(next[0].id);
+      if (activeCampaignId === idToDelete) {
+        setActiveCampaignId(next[0]?.id || '');
       }
       return next;
     });
@@ -298,6 +331,30 @@ export default function App() {
       });
     }
   }, [activeCampaignId, currentUser]);
+
+  const handleDeleteAllCampaigns = useCallback(async (options?: { deleteCharacters?: boolean }) => {
+    setCampaigns([]);
+    storageService.clearCampaigns();
+    setActiveCampaignId('');
+
+    if (options?.deleteCharacters) {
+      setCharacters([]);
+      storageService.saveCharacters([]);
+      setSelectedCharacterId(undefined);
+    }
+
+    // Delete from Firestore if authenticated
+    if (currentUser) {
+      try {
+        await deleteAllCampaignsFromFirestore(currentUser.uid);
+        if (options?.deleteCharacters) {
+          await deleteAllCharactersFromFirestore(currentUser.uid);
+        }
+      } catch (err) {
+        console.warn('Erro ao excluir todas as campanhas no Firestore:', err);
+      }
+    }
+  }, [currentUser]);
 
   // Character handlers
   const handleCreateCharacter = useCallback(
@@ -413,6 +470,9 @@ export default function App() {
           currentTab={currentTab}
           onTabChange={handleTabChange}
           characterCount={activeCampaignCharacterCount}
+          activeCampaign={currentCampaign}
+          campaignsCount={campaigns.length}
+          onOpenCampaignMenu={() => setIsCampaignMenuOpen(true)}
           syncStatus={syncStatus}
           user={currentUser}
           onSignInGoogle={handleSignInGoogle}
@@ -431,6 +491,7 @@ export default function App() {
             onCreateCampaign={handleCreateCampaign}
             onUpdateCampaign={handleUpdateCampaign}
             onDeleteCampaign={handleDeleteCampaign}
+            onOpenCampaignMenu={() => setIsCampaignMenuOpen(true)}
             characters={characters}
             model={settings.model}
             customApiKey={settings.customApiKey}
@@ -450,9 +511,32 @@ export default function App() {
             onCreateCharacter={handleCreateCharacter}
             onUpdateCharacter={handleUpdateCharacter}
             onDeleteCharacter={handleDeleteCharacter}
+            onOpenCampaignMenu={() => setIsCampaignMenuOpen(true)}
           />
         )}
       </main>
+
+      {/* Campaign Menu & Management Modal */}
+      <CampaignMenuModal
+        isOpen={isCampaignMenuOpen}
+        onClose={() => setIsCampaignMenuOpen(false)}
+        campaigns={campaigns}
+        activeCampaignId={activeCampaignId}
+        characters={characters}
+        onSelectCampaign={(id) => {
+          setActiveCampaignId(id);
+          const campChars = characters.filter((c) => c.campaignId === id);
+          if (campChars.length > 0) {
+            setSelectedCharacterId(campChars[0].id);
+          } else {
+            setSelectedCharacterId(undefined);
+          }
+        }}
+        onCreateCampaign={handleCreateCampaign}
+        onUpdateCampaign={handleUpdateCampaignById}
+        onDeleteCampaign={handleDeleteCampaign}
+        onDeleteAllCampaigns={handleDeleteAllCampaigns}
+      />
 
       {/* Settings & Firebase Cloud Modal */}
       <SettingsModal
