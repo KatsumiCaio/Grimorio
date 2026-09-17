@@ -11,6 +11,7 @@ import {
   User as UserIcon,
   ChevronDown,
   Scroll,
+  Skull,
 } from 'lucide-react';
 import { FlamingD20Logo } from './FlamingD20Logo';
 import { MainTab, Campaign } from '../types';
@@ -125,6 +126,20 @@ export const Header: React.FC<HeaderProps> = ({
               {characterCount}
             </span>
           )}
+        </button>
+
+        <button
+          id="tab-bestiary-btn"
+          onClick={() => onTabChange('bestiary')}
+          className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            currentTab === 'bestiary'
+              ? 'bg-zinc-800 text-rose-400 shadow-xs border border-rose-500/30 font-semibold'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+          }`}
+          title="Bestiário com monstros e criaturas por sistema"
+        >
+          <Skull className={`w-3.5 h-3.5 ${currentTab === 'bestiary' ? 'text-rose-400' : 'text-zinc-400'}`} />
+          <span>Bestiário</span>
         </button>
       </nav>
 

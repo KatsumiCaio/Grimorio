@@ -176,11 +176,12 @@ export const subscribeToUserCharacters = (
           campaignId: data.campaignId || '',
           name: data.name || 'Personagem',
           role: data.role || 'Aventureiro',
-          type: data.type === 'NPC' ? 'NPC' : 'PJ',
+          type: data.type === 'NPC' ? 'NPC' : data.type === 'Monstro' ? 'Monstro' : 'PJ',
           attributes: Array.isArray(data.attributes) ? data.attributes : [],
           resources: Array.isArray(data.resources) ? data.resources : [],
           notes: data.notes || '',
           avatarUrl: data.avatarUrl || undefined,
+          challengeRating: data.challengeRating || undefined,
           createdAt: data.createdAt || Date.now(),
           updatedAt: data.updatedAt || Date.now(),
         });

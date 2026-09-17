@@ -16,6 +16,9 @@ import {
   Check,
   Wand2,
   Image as ImageIcon,
+  Skull,
+  Crown,
+  Sword,
 } from 'lucide-react';
 import { CharacterSheet, CharacterType, AttributeItem, ResourceBar, AppSettings } from '../types';
 import { NewCharacterModal } from './NewCharacterModal';
@@ -34,6 +37,7 @@ interface CharacterSheetsViewProps {
   onUpdateCharacter: (id: string, updated: Partial<CharacterSheet>) => void;
   onDeleteCharacter: (id: string) => void;
   onOpenCampaignMenu?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
@@ -48,6 +52,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
   onUpdateCharacter,
   onDeleteCharacter,
   onOpenCampaignMenu,
+  onOpenSettings,
 }) => {
   // Filter sheets belonging to active campaign
   const campaignCharacters = characters.filter((c) => c.campaignId === activeCampaignId);
@@ -67,12 +72,28 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
       setSelectedCharId(campaignCharacters[0].id);
     }
   }, [selectedCharacterId, activeCampaignId, campaignCharacters]);
-  const [filterType, setFilterType] = useState<'ALL' | 'PJ' | 'NPC'>('ALL');
+  const [filterType, setFilterType] = useState<'ALL' | 'PJ' | 'NPC' | 'Monstro'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [newAttributeKey, setNewAttributeKey] = useState('');
   const [newAttributeValue, setNewAttributeValue] = useState('');
   const [isAddingAttr, setIsAddingAttr] = useState(false);
   const [copiedNotification, setCopiedNotification] = useState(false);
+  const [rollNotification, setRollNotification] = useState<string | null>(null);
+
+  const handleRollAttribute = (attrKey: string, attrVal: string | number) => {
+    const d20 = Math.floor(Math.random() * 20) + 1;
+    const num = typeof attrVal === 'number' ? attrVal : parseInt(String(attrVal).match(/\d+/)?.[0] || '10');
+    const mod = !isNaN(num) && num >= 1 && num <= 30 ? Math.floor((num - 10) / 2) : 0;
+    const total = d20 + mod;
+    const modStr = mod >= 0 ? `+${mod}` : `${mod}`;
+    const isCrit = d20 === 20;
+    const isFumble = d20 === 1;
+
+    setRollNotification(
+      `🎲 Teste de ${attrKey}: d20 (${d20}) ${modStr} = ${total}${isCrit ? ' 🌟 Sucesso Crítico!' : isFumble ? ' 💀 Falha Crítica!' : ''}`
+    );
+    setTimeout(() => setRollNotification(null), 3500);
+  };
 
   // Template Modals state
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -279,10 +300,19 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                 id="create-npc-btn"
                 onClick={() => handleOpenNewModal('NPC')}
                 className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/60 rounded-md text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
-                title="Novo NPC / Monstro com campos de sistema"
+                title="Novo NPC com campos de sistema"
               >
                 <Plus className="w-3 h-3" />
                 <span>+ NPC</span>
+              </button>
+              <button
+                id="create-monstro-btn"
+                onClick={() => handleOpenNewModal('Monstro')}
+                className="px-2 py-1 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 rounded-md text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                title="Novo Monstro ou Criatura com campos de sistema"
+              >
+                <Skull className="w-3 h-3 text-rose-400" />
+                <span>+ Monstro</span>
               </button>
               <button
                 id="open-templates-btn"
@@ -307,11 +337,11 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
             />
           </div>
 
-          {/* Filters: ALL | PJ | NPC */}
-          <div className="flex items-center gap-1 bg-zinc-950 p-0.5 rounded-lg border border-zinc-800 text-[11px]">
+          {/* Filters: ALL | PJ | NPC | Monstro */}
+          <div className="grid grid-cols-4 gap-1 bg-zinc-950 p-0.5 rounded-lg border border-zinc-800 text-[11px]">
             <button
               onClick={() => setFilterType('ALL')}
-              className={`flex-1 py-1 rounded text-center transition-colors ${
+              className={`py-1 rounded text-center transition-colors truncate ${
                 filterType === 'ALL'
                   ? 'bg-zinc-800 text-zinc-100 font-semibold'
                   : 'text-zinc-400 hover:text-zinc-200'
@@ -321,7 +351,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
             </button>
             <button
               onClick={() => setFilterType('PJ')}
-              className={`flex-1 py-1 rounded text-center transition-colors ${
+              className={`py-1 rounded text-center transition-colors truncate ${
                 filterType === 'PJ'
                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold'
                   : 'text-zinc-400 hover:text-zinc-200'
@@ -331,13 +361,23 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
             </button>
             <button
               onClick={() => setFilterType('NPC')}
-              className={`flex-1 py-1 rounded text-center transition-colors ${
+              className={`py-1 rounded text-center transition-colors truncate ${
                 filterType === 'NPC'
                   ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               NPCs ({campaignCharacters.filter((c) => c.type === 'NPC').length})
+            </button>
+            <button
+              onClick={() => setFilterType('Monstro')}
+              className={`py-1 rounded text-center transition-colors truncate ${
+                filterType === 'Monstro'
+                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              Monstros ({campaignCharacters.filter((c) => c.type === 'Monstro').length})
             </button>
           </div>
         </div>
@@ -464,13 +504,36 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
           </div>
         ) : (
           <div className="p-5 md:p-8 max-w-4xl w-full mx-auto space-y-6">
+            {/* Roll Toast Notification */}
+            {rollNotification && (
+              <div className="p-3 bg-gradient-to-r from-amber-500/20 via-amber-600/30 to-amber-500/20 border-2 border-amber-500/60 rounded-xl flex items-center justify-between text-amber-200 text-xs sm:text-sm font-bold shadow-lg shadow-amber-950/40 animate-fadeIn">
+                <div className="flex items-center gap-2">
+                  <Dices className="w-5 h-5 text-amber-400 shrink-0" />
+                  <span>{rollNotification}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRollNotification(null)}
+                  className="text-amber-400/70 hover:text-amber-200 p-1 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             {/* Header: Name, Role, Portrait, Type, Delete */}
-            <div className="bg-zinc-900/70 border border-zinc-800 rounded-2xl p-5 space-y-4 shadow-xs">
-              <div className="flex flex-col sm:flex-row items-start gap-4">
+            <div className="relative bg-gradient-to-b from-amber-950/20 via-zinc-900 to-zinc-950 border-2 border-amber-500/40 rounded-2xl p-5 md:p-6 space-y-4 shadow-xl shadow-amber-950/15 overflow-hidden">
+              {/* Corner Filigree Ornaments */}
+              <div className="absolute top-2 left-2 text-amber-500/40 pointer-events-none select-none text-xs">⚜</div>
+              <div className="absolute top-2 right-2 text-amber-500/40 pointer-events-none select-none text-xs">⚜</div>
+              <div className="absolute bottom-2 left-2 text-amber-500/40 pointer-events-none select-none text-xs">⚜</div>
+              <div className="absolute bottom-2 right-2 text-amber-500/40 pointer-events-none select-none text-xs">⚜</div>
+
+              <div className="flex flex-col sm:flex-row items-start gap-4 relative z-10">
                 {/* Character Portrait Box */}
                 <div className="relative group shrink-0">
                   {selectedChar.avatarUrl ? (
-                    <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-amber-500/40 shadow-lg shadow-amber-950/20 group">
+                    <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden ring-2 ring-amber-500/60 ring-offset-2 ring-offset-zinc-950 border border-amber-500/50 shadow-lg shadow-amber-950/30 group">
                       <img
                         src={selectedChar.avatarUrl}
                         alt={`Retrato de ${selectedChar.name}`}
@@ -482,7 +545,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                           type="button"
                           onClick={() => setIsPortraitModalOpen(true)}
                           className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold text-[10px] rounded-md transition-colors cursor-pointer"
-                          title="Gerar nova versão com Imagen"
+                          title="Alterar imagem do personagem"
                         >
                           Trocar
                         </button>
@@ -500,12 +563,12 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsPortraitModalOpen(true)}
-                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-2 border-dashed border-zinc-800 hover:border-amber-500/60 bg-zinc-950/70 hover:bg-zinc-900/70 flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-amber-400 transition-all cursor-pointer group shadow-inner"
-                      title="Gerar Retrato com Imagen"
+                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-2 border-dashed border-zinc-700 hover:border-amber-500/80 bg-zinc-950/80 hover:bg-zinc-900/80 flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-amber-400 transition-all cursor-pointer group shadow-inner"
+                      title="Adicionar Retrato do Personagem"
                     >
-                      <Sparkles className="w-5 h-5 text-zinc-600 group-hover:text-amber-400 transition-colors" />
+                      <ImageIcon className="w-5 h-5 text-zinc-600 group-hover:text-amber-400 transition-colors" />
                       <span className="text-[10px] font-bold text-center leading-tight px-1 text-zinc-400 group-hover:text-amber-300">
-                        Gerar Retrato (Imagen)
+                        Adicionar Retrato
                       </span>
                     </button>
                   )}
@@ -539,10 +602,10 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                         type="button"
                         onClick={() => setIsPortraitModalOpen(true)}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:border-amber-500/50 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-xs"
-                        title="Gerar retrato com Imagen baseado nas anotações da ficha"
+                        title="Adicionar ou alterar imagem do personagem"
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                        <span className="hidden md:inline">Retrato IA (Imagen)</span>
+                        <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="hidden md:inline">Retrato</span>
                       </button>
 
                       <div className="flex items-center p-0.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs">
@@ -773,36 +836,57 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                 </div>
               )}
 
-              {/* Attributes Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
-                {selectedChar.attributes.map((attr) => (
-                  <div
-                    key={attr.id}
-                    className="bg-zinc-950 border border-zinc-800/90 rounded-xl p-2.5 text-center relative group flex flex-col items-center justify-center hover:border-amber-500/40 transition-colors"
-                  >
-                    <button
-                      onClick={() => removeAttribute(attr.id)}
-                      className="absolute top-1 right-1 p-0.5 text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Excluir atributo"
+              {/* Attributes Grid with Ornate Runic Heraldic Styling */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                {selectedChar.attributes.map((attr) => {
+                  const num = typeof attr.value === 'number' ? attr.value : parseInt(String(attr.value).match(/\d+/)?.[0] || '');
+                  const hasValidMod = !isNaN(num) && num >= 1 && num <= 30;
+                  const mod = hasValidMod ? Math.floor((num - 10) / 2) : null;
+                  const modStr = mod !== null ? (mod >= 0 ? `+${mod}` : `${mod}`) : null;
+
+                  return (
+                    <div
+                      key={attr.id}
+                      className="bg-gradient-to-b from-zinc-900 to-zinc-950 border border-amber-500/30 hover:border-amber-500/70 rounded-xl p-2.5 text-center relative group flex flex-col items-center justify-between shadow-sm hover:shadow-[0_0_12px_rgba(245,158,11,0.15)] transition-all"
                     >
-                      <Trash2 className="w-2.5 h-2.5" />
-                    </button>
+                      {/* Top decorative notch */}
+                      <div className="w-4 h-0.5 bg-amber-500/40 group-hover:bg-amber-400 rounded-full mb-1 transition-colors" />
 
-                    <input
-                      type="text"
-                      value={attr.key}
-                      onChange={(e) => updateAttribute(attr.id, e.target.value.toUpperCase(), attr.value)}
-                      className="text-[11px] font-bold text-zinc-400 uppercase text-center bg-transparent w-full focus:outline-none"
-                    />
+                      <button
+                        onClick={() => removeAttribute(attr.id)}
+                        className="absolute top-1 right-1 p-0.5 text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        title="Excluir atributo"
+                      >
+                        <Trash2 className="w-2.5 h-2.5" />
+                      </button>
 
-                    <input
-                      type="text"
-                      value={attr.value}
-                      onChange={(e) => updateAttribute(attr.id, attr.key, e.target.value)}
-                      className="text-base font-black font-mono text-amber-400 text-center bg-transparent w-full focus:outline-none mt-0.5"
-                    />
-                  </div>
-                ))}
+                      <input
+                        type="text"
+                        value={attr.key}
+                        onChange={(e) => updateAttribute(attr.id, e.target.value.toUpperCase(), attr.value)}
+                        className="text-[11px] font-bold text-amber-300 uppercase text-center bg-transparent w-full focus:outline-none font-serif tracking-wider"
+                      />
+
+                      <input
+                        type="text"
+                        value={attr.value}
+                        onChange={(e) => updateAttribute(attr.id, attr.key, e.target.value)}
+                        className="text-base sm:text-lg font-black font-mono text-zinc-100 group-hover:text-amber-200 text-center bg-transparent w-full focus:outline-none my-0.5"
+                      />
+
+                      {/* Modifier Chip and D20 Roll Trigger */}
+                      <button
+                        type="button"
+                        onClick={() => handleRollAttribute(attr.key, attr.value)}
+                        className="w-full mt-1 py-0.5 px-1 rounded-md bg-zinc-900 hover:bg-amber-500/20 border border-zinc-800 hover:border-amber-500/40 text-amber-300 text-[10px] font-mono font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                        title={`Rolar d20 ${modStr || ''} para ${attr.key}`}
+                      >
+                        <Dices className="w-3 h-3 text-amber-400" />
+                        <span>{modStr ? modStr : 'rolar'}</span>
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -817,10 +901,10 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                   type="button"
                   onClick={() => setIsPortraitModalOpen(true)}
                   className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer font-medium"
-                  title="Gerar retrato com Imagen baseado nas anotações desta ficha"
+                  title="Adicionar ou trocar retrato deste personagem"
                 >
-                  <Wand2 className="w-3.5 h-3.5" />
-                  <span>Gerar Retrato com Imagen</span>
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  <span>Definir Retrato</span>
                 </button>
               </div>
 
@@ -857,14 +941,13 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
         />
       )}
 
-      {/* Modal de Geração de Retrato com Imagen */}
+      {/* Modal de Retrato do Personagem (Upload, Galeria, URL) */}
       {selectedChar && (
         <GeneratePortraitModal
           isOpen={isPortraitModalOpen}
           onClose={() => setIsPortraitModalOpen(false)}
           character={selectedChar}
           campaignSystem={campaignSystem}
-          settings={settings}
           onApplyPortrait={(imageUrl) => {
             onUpdateCharacter(selectedChar.id, { avatarUrl: imageUrl });
           }}

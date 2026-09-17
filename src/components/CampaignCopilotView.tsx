@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Plus,
   Trash2,
@@ -28,11 +28,15 @@ import {
   Info,
   Cloud,
   Database,
+  Skull,
 } from 'lucide-react';
-import { Campaign, CharacterSheet } from '../types';
+import { Campaign, CharacterSheet, BestiaryMonster, CharacterType } from '../types';
 import { useGeminiChat } from '../hooks/useGeminiChat';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { EditCharacterModal } from './EditCharacterModal';
+import { InsertSheetModal } from './InsertSheetModal';
 import { storageService } from '../services/storage';
+import { RPG_BESTIARY } from '../data/bestiary';
 import {
   subscribeToCampaignChat,
   saveCampaignChatMessage,
@@ -55,6 +59,9 @@ interface CampaignCopilotViewProps {
   onDeleteCampaign: (id: string) => void;
   onOpenCampaignMenu?: () => void;
   characters: CharacterSheet[];
+  onCreateCharacter?: (character: CharacterSheet) => void;
+  onUpdateCharacter?: (character: CharacterSheet) => void;
+  onOpenBestiaryTab?: () => void;
   model?: string;
   customApiKey?: string;
   isFullScreen?: boolean;
@@ -71,6 +78,9 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   onDeleteCampaign,
   onOpenCampaignMenu,
   characters,
+  onCreateCharacter,
+  onUpdateCharacter,
+  onOpenBestiaryTab,
   model = 'gemini-3.6-flash',
   customApiKey = '',
   isFullScreen = false,
@@ -89,6 +99,51 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [insertedMessageId, setInsertedMessageId] = useState<string | null>(null);
+
+  // Sheet & Bestiary insertion and editing states
+  const [isInsertSheetModalOpen, setIsInsertSheetModalOpen] = useState(false);
+  const [editingCharacter, setEditingCharacter] = useState<CharacterSheet | null>(null);
+  const [sheetInsertedNotice, setSheetInsertedNotice] = useState<string | null>(null);
+
+  // Scan notes for embedded ficha tags and resolve their characters
+  const embeddedFichaCards = useMemo(() => {
+    const regex = /\{\{(?:ficha|sheet):([a-zA-Z0-9_\-]+)\}\}/g;
+    const list: CharacterSheet[] = [];
+    const stored = storageService.getCharacters();
+    const allAvailable = [...characters, ...stored];
+    let m;
+    while ((m = regex.exec(notes)) !== null) {
+      const rawId = m[1].toLowerCase().trim();
+      let char = allAvailable.find(
+        (c) => c.id.toLowerCase() === rawId || c.name.toLowerCase() === rawId
+      );
+      if (!char) {
+        const bestiary = RPG_BESTIARY.find(
+          (b) => b.id.toLowerCase() === rawId || b.name.toLowerCase() === rawId
+        );
+        if (bestiary) {
+          char = {
+            id: m[1],
+            campaignId: activeCampaign?.id || '',
+            name: bestiary.name,
+            role: bestiary.role,
+            type: bestiary.type || 'Monstro',
+            challengeRating: bestiary.challenge,
+            avatarUrl: bestiary.avatarUrl,
+            attributes: [...bestiary.attributes],
+            resources: [...bestiary.resources],
+            notes: bestiary.notes,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          };
+        }
+      }
+      if (char && !list.some((existing) => existing.id === char!.id)) {
+        list.push(char);
+      }
+    }
+    return list;
+  }, [notes, characters, activeCampaign?.id]);
 
   // System and Active Campaign Knowledge
   const [isEditingCustomSystem, setIsEditingCustomSystem] = useState(false);
@@ -347,6 +402,79 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
       textarea.focus();
       textarea.setSelectionRange(start + prefix.length, start + prefix.length + (selected.length || 5));
     }, 0);
+  };
+
+  // Insert character / monster sheet tag into notes at cursor position
+  const handleInsertSheetIntoNotes = (charId: string, charName?: string) => {
+    const textarea = document.getElementById('campaign-notes-textarea') as HTMLTextAreaElement;
+    const embedCode = `\n\n{{ficha:${charId}}}\n\n`;
+    if (textarea) {
+      const start = textarea.selectionStart ?? notes.length;
+      const end = textarea.selectionEnd ?? notes.length;
+      const newText = notes.substring(0, start) + embedCode + notes.substring(end);
+      setNotes(newText);
+      onUpdateCampaign({ notes: newText, updatedAt: Date.now() });
+      setTimeout(() => {
+        textarea.focus();
+        const cursorAfter = start + embedCode.length;
+        textarea.setSelectionRange(cursorAfter, cursorAfter);
+      }, 50);
+    } else {
+      const newText = `${notes.trimEnd()}${embedCode}`;
+      setNotes(newText);
+      onUpdateCampaign({ notes: newText, updatedAt: Date.now() });
+    }
+
+    // Automatically switch to split or preview mode so the user immediately sees the rendered interactive card!
+    if (window.innerWidth >= 850) {
+      setEditorMode('split');
+    } else {
+      setEditorMode('preview');
+    }
+
+    const nameLabel = charName ? ` de "${charName}"` : '';
+    setSheetInsertedNotice(`Ficha${nameLabel} inserida! Ela agora está visível e interativa no texto.`);
+    setTimeout(() => setSheetInsertedNotice(null), 5000);
+  };
+
+  // Remove ficha embed tag from notes
+  const handleRemoveEmbedFromNotes = (charId: string) => {
+    const regex = new RegExp(`\\n?\\n?\\{\\{(?:ficha|sheet):${charId}\\}\\}\\n?\\n?`, 'g');
+    const newText = notes.replace(regex, '\n\n').trim();
+    setNotes(newText);
+    onUpdateCampaign({ notes: newText, updatedAt: Date.now() });
+  };
+
+  // Add monster from Bestiary directly to campaign character sheets, with optional immediate note insertion
+  const handleAddMonsterToCampaign = (
+    monster: BestiaryMonster,
+    insertIntoTextImmediately?: boolean
+  ) => {
+    if (!activeCampaign) return;
+    const newChar: CharacterSheet = {
+      id: `char-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      campaignId: activeCampaign.id,
+      name: monster.name,
+      role: monster.role,
+      type: monster.type || 'Monstro',
+      challengeRating: monster.challenge,
+      avatarUrl: monster.avatarUrl,
+      attributes: [...monster.attributes],
+      resources: [...monster.resources],
+      notes: monster.notes,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    onCreateCharacter?.(newChar);
+
+    if (insertIntoTextImmediately) {
+      handleInsertSheetIntoNotes(newChar.id, newChar.name);
+    }
+  };
+
+  const handleUpdateCharacterSheet = (updatedChar: CharacterSheet) => {
+    onUpdateCharacter?.(updatedChar);
   };
 
   // Word count calculation
@@ -667,37 +795,48 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
             {/* Mode switches (Edit / Preview / Split) */}
             <div className="flex items-center p-0.5 bg-zinc-950 border border-zinc-800 rounded-lg ml-1">
               <button
+                type="button"
                 onClick={() => setEditorMode('edit')}
-                className={`p-1.5 rounded-md text-xs transition-colors ${
+                className={`px-2 py-1 rounded-md text-xs transition-colors flex items-center gap-1 cursor-pointer ${
                   editorMode === 'edit'
-                    ? 'bg-zinc-800 text-amber-400'
+                    ? 'bg-zinc-800 text-amber-400 font-semibold'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
                 title="Modo Editor"
               >
                 <Edit3 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Editor</span>
               </button>
               <button
+                type="button"
                 onClick={() => setEditorMode('preview')}
-                className={`p-1.5 rounded-md text-xs transition-colors ${
+                className={`px-2 py-1 rounded-md text-xs transition-colors flex items-center gap-1.5 cursor-pointer ${
                   editorMode === 'preview'
-                    ? 'bg-zinc-800 text-amber-400'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
-                title="Modo Visualização Markdown"
+                title="Modo Visualização (exibe fichas interativas renderizadas no texto)"
               >
                 <Eye className="w-3.5 h-3.5" />
+                <span>Visualizar</span>
+                {embeddedFichaCards.length > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/25 text-amber-300 font-bold border border-amber-500/40">
+                    {embeddedFichaCards.length}
+                  </span>
+                )}
               </button>
               <button
+                type="button"
                 onClick={() => setEditorMode('split')}
-                className={`hidden lg:block p-1.5 rounded-md text-xs transition-colors ${
+                className={`hidden md:flex px-2 py-1 rounded-md text-xs transition-colors items-center gap-1 cursor-pointer ${
                   editorMode === 'split'
-                    ? 'bg-zinc-800 text-amber-400'
+                    ? 'bg-zinc-800 text-amber-400 font-semibold'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
-                title="Modo Dividido (Lado a Lado)"
+                title="Modo Dividido (Editor à esquerda e Fichas/Preview interativo à direita)"
               >
                 <Columns className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">Dividido</span>
               </button>
 
               {/* Botão de Tela Cheia no grupo de botões */}
@@ -845,40 +984,146 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
             >
               Tabela
             </button>
+
+            <div className="ml-auto flex items-center gap-1.5 shrink-0 pl-2">
+              <button
+                type="button"
+                id="insert-sheet-toolbar-btn"
+                onClick={() => setIsInsertSheetModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-[1.02]"
+                title="Inserir ficha de Personagem, NPC ou Monstro do Bestiário diretamente no texto da campanha"
+              >
+                <Skull className="w-3.5 h-3.5 text-rose-400" />
+                <span>+ Ficha / Bestiário</span>
+              </button>
+            </div>
           </div>
         )}
 
         {/* Editor / Preview Content Area */}
-        <div className="flex-1 overflow-hidden relative flex">
-          {/* Editor Mode */}
-          {(editorMode === 'edit' || editorMode === 'split') && (
-            <div className={`h-full flex-1 flex flex-col ${editorMode === 'split' ? 'border-r border-zinc-800' : ''}`}>
-              <textarea
-                id="campaign-notes-textarea"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="# Anotações da Sessão..."
-                className={`w-full h-full bg-zinc-950 leading-relaxed text-zinc-200 placeholder:text-zinc-700 font-sans focus:outline-none resize-none overflow-y-auto selection:bg-amber-500/20 selection:text-amber-200 ${
-                  isFullScreen
-                    ? isWideText
-                      ? 'p-8 sm:p-12 text-base md:text-lg'
-                      : 'max-w-4xl mx-auto px-6 sm:px-12 py-8 text-base md:text-lg'
-                    : 'p-6 text-sm sm:text-base'
-                }`}
-                spellCheck={false}
-              />
+        <div className="flex-1 overflow-hidden relative flex flex-col">
+          {/* Toast Notification when a sheet was inserted */}
+          {sheetInsertedNotice && (
+            <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between text-xs text-amber-200 z-10 shrink-0">
+              <div className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="font-medium">{sheetInsertedNotice}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSheetInsertedNotice(null)}
+                className="text-zinc-400 hover:text-zinc-200 p-0.5 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
+
+          {/* Embedded Sheets Strip when in pure edit mode */}
+          {editorMode === 'edit' && embeddedFichaCards.length > 0 && (
+            <div className="bg-zinc-900/90 border-b border-zinc-800 px-3 sm:px-4 py-2 flex items-center justify-between gap-2 text-xs shrink-0 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                <span className="font-semibold text-amber-400 flex items-center gap-1 shrink-0 text-xs">
+                  <Skull className="w-3.5 h-3.5 text-rose-400" />
+                  {embeddedFichaCards.length === 1 ? '1 Ficha vinculada:' : `${embeddedFichaCards.length} Fichas vinculadas:`}
+                </span>
+                {embeddedFichaCards.map((char) => (
+                  <div
+                    key={char.id}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 shadow-xs"
+                  >
+                    {char.avatarUrl ? (
+                      <img src={char.avatarUrl} alt={char.name} className="w-4 h-4 rounded object-cover" />
+                    ) : (
+                      <span className="text-[10px]">{char.type === 'Monstro' ? '💀' : '👤'}</span>
+                    )}
+                    <span className="font-semibold text-zinc-100 max-w-[120px] truncate">{char.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setEditingCharacter(char)}
+                      className="text-amber-400 hover:text-amber-300 text-[10px] font-medium underline cursor-pointer"
+                      title="Editar ficha"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveEmbedFromNotes(char.id)}
+                      className="text-zinc-500 hover:text-rose-400 p-0.5 cursor-pointer"
+                      title="Remover tag do texto"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                <button
+                  type="button"
+                  onClick={() => setEditorMode('preview')}
+                  className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-md font-bold text-xs flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+                  title="Ver fichas renderizadas com barras de vida interativas diretamente no texto"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Ver no Texto</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditorMode('split')}
+                  className="hidden md:flex px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-md font-medium text-xs items-center gap-1 transition-colors cursor-pointer"
+                  title="Modo Dividido: Editor e Ficha lado a lado"
+                >
+                  <Columns className="w-3 h-3" />
+                  <span>Dividido</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 overflow-hidden relative flex">
+            {/* Editor Mode */}
+            {(editorMode === 'edit' || editorMode === 'split') && (
+              <div className={`h-full flex-1 flex flex-col ${editorMode === 'split' ? 'border-r border-zinc-800' : ''}`}>
+                <textarea
+                  id="campaign-notes-textarea"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="# Anotações da Sessão... Use '+ Ficha / Bestiário' para incorporar fichas no texto"
+                  className={`w-full h-full bg-zinc-950 leading-relaxed text-zinc-200 placeholder:text-zinc-700 font-sans focus:outline-none resize-none overflow-y-auto selection:bg-amber-500/20 selection:text-amber-200 ${
+                    isFullScreen
+                      ? isWideText
+                        ? 'p-8 sm:p-12 text-base md:text-lg'
+                        : 'max-w-4xl mx-auto px-6 sm:px-12 py-8 text-base md:text-lg'
+                      : 'p-6 text-sm sm:text-base'
+                  }`}
+                  spellCheck={false}
+                />
+              </div>
+            )}
 
           {/* Preview Mode */}
           {(editorMode === 'preview' || editorMode === 'split') && (
             <div className={`h-full flex-1 overflow-y-auto ${isFullScreen ? 'bg-zinc-950' : 'bg-zinc-950/80'} ${isFullScreen && !isWideText ? 'flex justify-center' : ''}`}>
               <div className={`p-6 ${isFullScreen && !isWideText ? 'max-w-4xl w-full px-6 sm:px-12 py-8' : 'w-full'}`}>
                 {notes.trim() ? (
-                  <MarkdownRenderer content={notes} />
+                  <MarkdownRenderer
+                    content={notes}
+                    characters={characters}
+                    onUpdateCharacter={handleUpdateCharacterSheet}
+                    onEditCharacter={(char) => setEditingCharacter(char)}
+                  />
                 ) : (
-                  <div className="text-zinc-600 italic text-sm text-center pt-10">
-                    Nenhuma anotação ainda. Escreva no modo editor para visualizar aqui.
+                  <div className="text-zinc-600 italic text-sm text-center pt-10 space-y-2">
+                    <p>Nenhuma anotação ainda. Escreva no modo editor para visualizar aqui.</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsInsertSheetModalOpen(true)}
+                      className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-amber-400 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Skull className="w-3.5 h-3.5 text-rose-400" />
+                      <span>Inserir Ficha ou Monstro do Bestiário</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -893,6 +1138,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               <span>para sair da tela cheia</span>
             </div>
           )}
+          </div>
         </div>
       </div>
 
@@ -1372,6 +1618,60 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal to Insert Existing Campaign Sheet or 1-Click Bestiary Monster */}
+      {isInsertSheetModalOpen && (
+        <InsertSheetModal
+          isOpen={isInsertSheetModalOpen}
+          activeCampaignId={activeCampaign?.id || ''}
+          activeSystemName={activeCampaign?.system || system}
+          campaignCharacters={characters.filter((c) => c.campaignId === activeCampaign?.id)}
+          onClose={() => setIsInsertSheetModalOpen(false)}
+          onInsertIntoText={handleInsertSheetIntoNotes}
+          onAddMonsterToCampaign={handleAddMonsterToCampaign}
+          onEditCharacter={(char) => setEditingCharacter(char)}
+          onOpenNewCharacterModal={(type) => {
+            const newChar: CharacterSheet = {
+              id: `char-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+              campaignId: activeCampaign?.id || '',
+              name: type === 'Monstro' ? 'Novo Monstro' : type === 'NPC' ? 'Novo NPC' : 'Novo Personagem',
+              role: type === 'Monstro' ? 'Besta / Criatura' : 'Aventureiro',
+              type,
+              challengeRating: type === 'Monstro' ? 'ND 1' : undefined,
+              avatarUrl: '',
+              attributes: [
+                { id: '1', key: 'FOR', value: '10' },
+                { id: '2', key: 'DES', value: '10' },
+                { id: '3', key: 'CON', value: '10' },
+                { id: '4', key: 'INT', value: '10' },
+                { id: '5', key: 'SAB', value: '10' },
+                { id: '6', key: 'CAR', value: '10' },
+              ],
+              resources: [
+                { id: 'hp', name: 'Pontos de Vida', current: 20, max: 20 },
+              ],
+              notes: '',
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            };
+            onCreateCharacter?.(newChar);
+            setEditingCharacter(newChar);
+          }}
+        />
+      )}
+
+      {/* Modal to Edit any Character / NPC / Monster Sheet directly */}
+      {editingCharacter && (
+        <EditCharacterModal
+          isOpen={!!editingCharacter}
+          character={editingCharacter}
+          onClose={() => setEditingCharacter(null)}
+          onSave={(updated) => {
+            handleUpdateCharacterSheet(updated);
+            setEditingCharacter(null);
+          }}
+        />
       )}
     </div>
   );

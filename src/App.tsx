@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Campaign, CharacterSheet, MainTab, AppSettings } from './types';
+import { Campaign, CharacterSheet, MainTab, AppSettings, BestiaryMonster } from './types';
 import { storageService } from './services/storage';
 import { Header } from './components/Header';
 import { CampaignCopilotView } from './components/CampaignCopilotView';
 import { CharacterSheetsView } from './components/CharacterSheetsView';
+import { BestiaryView } from './components/BestiaryView';
 import { SettingsModal } from './components/SettingsModal';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { CampaignMenuModal } from './components/CampaignMenuModal';
@@ -493,11 +494,43 @@ export default function App() {
             onDeleteCampaign={handleDeleteCampaign}
             onOpenCampaignMenu={() => setIsCampaignMenuOpen(true)}
             characters={characters}
+            onCreateCharacter={handleCreateCharacter}
+            onUpdateCharacter={(updated) => handleUpdateCharacter(updated.id, updated)}
+            onOpenBestiaryTab={() => setCurrentTab('bestiary')}
             model={settings.model}
             customApiKey={settings.customApiKey}
             isFullScreen={isFullScreenNotes}
             onToggleFullScreen={handleToggleFullScreen}
             userId={currentUser?.uid}
+          />
+        ) : currentTab === 'bestiary' ? (
+          <BestiaryView
+            activeCampaign={currentCampaign}
+            onAddMonsterToCampaign={(monster: BestiaryMonster, insertInText?: boolean) => {
+              const targetCampaignId = activeCampaignId || currentCampaign?.id || '';
+              const newChar: CharacterSheet = {
+                id: `char-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                campaignId: targetCampaignId,
+                name: monster.name,
+                role: monster.role,
+                type: monster.type || 'Monstro',
+                challengeRating: monster.challenge,
+                avatarUrl: monster.avatarUrl,
+                attributes: [...monster.attributes],
+                resources: [...monster.resources],
+                notes: monster.notes,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+              };
+              handleCreateCharacter(newChar);
+
+              if (insertInText && currentCampaign) {
+                const embedTag = `\n\n{{ficha:${newChar.id}}}\n\n`;
+                const nextNotes = `${currentCampaign.notes || ''}${embedTag}`;
+                handleUpdateCampaign({ notes: nextNotes });
+              }
+            }}
+            onGoToCampaign={() => setCurrentTab('campaign')}
           />
         ) : (
           <CharacterSheetsView
@@ -512,6 +545,7 @@ export default function App() {
             onUpdateCharacter={handleUpdateCharacter}
             onDeleteCharacter={handleDeleteCharacter}
             onOpenCampaignMenu={() => setIsCampaignMenuOpen(true)}
+            onOpenSettings={() => setIsSettingsOpen(true)}
           />
         )}
       </main>
