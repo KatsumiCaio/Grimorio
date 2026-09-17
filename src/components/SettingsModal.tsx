@@ -72,8 +72,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [copiedDomain, setCopiedDomain] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [syncSuccessMessage, setSyncSuccessMessage] = useState<string | null>(null);
+  const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
+  const [copiedFaviconNotice, setCopiedFaviconNotice] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
   const inIframe = isInsideIframe();
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData(settings);
+    }
+  }, [isOpen, settings]);
 
   useEffect(() => {
     if (authNotice) {
@@ -149,10 +159,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     };
     reader.readAsText(file);
   };
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
-  const [copiedFaviconNotice, setCopiedFaviconNotice] = useState(false);
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

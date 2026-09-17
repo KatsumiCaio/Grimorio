@@ -41,13 +41,13 @@ export const InsertSheetModal: React.FC<InsertSheetModalProps> = ({
   onEditCharacter,
   onOpenNewCharacterModal,
 }) => {
-  if (!isOpen) return null;
-
   const [activeTab, setActiveTab] = useState<'campaign' | 'bestiary'>('campaign');
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'PJ' | 'NPC' | 'Monstro'>('ALL');
   const [selectedSystem, setSelectedSystem] = useState<string>('ALL');
   const [insertedNotice, setInsertedNotice] = useState<string | null>(null);
+
+  if (!isOpen) return null;
 
   // Available systems in bestiary
   const systemsInBestiary = Array.from(new Set(RPG_BESTIARY.map((m) => m.system)));

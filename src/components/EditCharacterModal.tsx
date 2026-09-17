@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Save,
@@ -27,16 +27,14 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
   onClose,
   onSave,
 }) => {
-  if (!isOpen || !character) return null;
-
-  const [name, setName] = useState(character.name);
-  const [role, setRole] = useState(character.role);
-  const [type, setType] = useState<CharacterType>(character.type || 'PJ');
-  const [challengeRating, setChallengeRating] = useState(character.challengeRating || '');
-  const [avatarUrl, setAvatarUrl] = useState(character.avatarUrl || '');
-  const [attributes, setAttributes] = useState<AttributeItem[]>([...character.attributes]);
-  const [resources, setResources] = useState<ResourceBar[]>([...character.resources]);
-  const [notes, setNotes] = useState(character.notes || '');
+  const [name, setName] = useState(character?.name || '');
+  const [role, setRole] = useState(character?.role || '');
+  const [type, setType] = useState<CharacterType>(character?.type || 'PJ');
+  const [challengeRating, setChallengeRating] = useState(character?.challengeRating || '');
+  const [avatarUrl, setAvatarUrl] = useState(character?.avatarUrl || '');
+  const [attributes, setAttributes] = useState<AttributeItem[]>(character?.attributes ? [...character.attributes] : []);
+  const [resources, setResources] = useState<ResourceBar[]>(character?.resources ? [...character.resources] : []);
+  const [notes, setNotes] = useState(character?.notes || '');
   const [isPortraitModalOpen, setIsPortraitModalOpen] = useState(false);
 
   // New attribute state
@@ -46,6 +44,26 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
   // New resource state
   const [newResName, setNewResName] = useState('');
   const [newResMax, setNewResMax] = useState(20);
+
+  useEffect(() => {
+    if (character && isOpen) {
+      setName(character.name || '');
+      setRole(character.role || '');
+      setType(character.type || 'PJ');
+      setChallengeRating(character.challengeRating || '');
+      setAvatarUrl(character.avatarUrl || '');
+      setAttributes(character.attributes ? [...character.attributes] : []);
+      setResources(character.resources ? [...character.resources] : []);
+      setNotes(character.notes || '');
+      setIsPortraitModalOpen(false);
+      setNewAttrKey('');
+      setNewAttrVal('');
+      setNewResName('');
+      setNewResMax(20);
+    }
+  }, [character, isOpen]);
+
+  if (!isOpen || !character) return null;
 
   const handleAddAttribute = () => {
     if (!newAttrKey.trim()) return;

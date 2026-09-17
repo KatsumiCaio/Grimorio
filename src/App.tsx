@@ -10,7 +10,6 @@ import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { CampaignMenuModal } from './components/CampaignMenuModal';
 import type { User } from 'firebase/auth';
 import {
-  signInAnonymousUser,
   signInWithGoogleAccount,
   logoutUser,
   onAuthStatusChange,
@@ -125,12 +124,7 @@ export default function App() {
         }
       } else {
         setCurrentUser(null);
-        // Seamlessly attempt anonymous authentication or fallback safely to offline local storage
-        signInAnonymousUser().then((anonUser) => {
-          if (!anonUser) {
-            setSyncStatus('offline');
-          }
-        });
+        setSyncStatus('offline');
       }
     });
 
