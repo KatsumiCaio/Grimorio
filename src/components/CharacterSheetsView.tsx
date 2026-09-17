@@ -249,7 +249,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
   if (!activeCampaignId) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-zinc-950 text-zinc-100 space-y-4">
-        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-lg shadow-amber-950/20">
+        <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-lg shadow-cyan-950/20">
           <Shield className="w-8 h-8" />
         </div>
         <div className="max-w-md space-y-2">
@@ -263,7 +263,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
             type="button"
             id="empty-sheets-open-menu-btn"
             onClick={onOpenCampaignMenu}
-            className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-amber-950/30 cursor-pointer transition-all"
+            className="px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-cyan-950/30 cursor-pointer transition-all"
           >
             <Shield className="w-4 h-4" />
             <span>Abrir Menu de Campanhas</span>
@@ -283,14 +283,14 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
         <div className="p-3.5 border-b border-zinc-800/80 bg-zinc-900/50 space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-amber-500" />
+              <Shield className="w-4 h-4 text-cyan-500" />
               <h2 className="text-xs font-semibold text-zinc-200">Fichas da Campanha</h2>
             </div>
             <div className="flex items-center gap-1">
               <button
                 id="create-pj-btn"
                 onClick={() => handleOpenNewModal('PJ')}
-                className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-md text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                className="px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-md text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
                 title="Novo Personagem de Jogador (PJ) com campos de sistema"
               >
                 <Plus className="w-3 h-3" />
@@ -317,7 +317,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
               <button
                 id="open-templates-btn"
                 onClick={() => handleOpenNewModal('PJ')}
-                className="p-1 bg-zinc-900 hover:bg-zinc-800 text-amber-400 border border-amber-500/20 rounded-md text-[11px] transition-colors cursor-pointer"
+                className="p-1 bg-zinc-900 hover:bg-zinc-800 text-cyan-400 border border-cyan-500/20 rounded-md text-[11px] transition-colors cursor-pointer"
                 title="Escolher Template de Sistema (D&D, Tormenta 20, CoC, etc)"
               >
                 <Dices className="w-3.5 h-3.5" />
@@ -333,7 +333,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
               placeholder="Buscar por nome ou classe..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/50"
             />
           </div>
 
@@ -353,7 +353,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
               onClick={() => setFilterType('PJ')}
               className={`py-1 rounded text-center transition-colors truncate ${
                 filterType === 'PJ'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
@@ -389,7 +389,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
               Nenhuma ficha encontrada.{' '}
               <button
                 onClick={() => handleOpenNewModal('PJ')}
-                className="text-amber-400 underline hover:text-amber-300 ml-1 cursor-pointer font-medium"
+                className="text-cyan-400 underline hover:text-cyan-300 ml-1 cursor-pointer font-medium"
               >
                 Criar a primeira
               </button>
@@ -411,7 +411,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                   }}
                   className={`p-2.5 rounded-xl border transition-all cursor-pointer group ${
                     isSelected
-                      ? 'bg-zinc-900 border-amber-500/40 shadow-xs'
+                      ? 'bg-zinc-900 border-cyan-500/40 shadow-xs'
                       : 'bg-zinc-950/60 border-zinc-800/80 hover:bg-zinc-900/50 hover:border-zinc-700'
                   }`}
                 >
@@ -421,7 +421,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                         src={char.avatarUrl}
                         alt={char.name}
                         referrerPolicy="no-referrer"
-                        className="w-7 h-7 rounded-lg object-cover border border-amber-500/30 shrink-0"
+                        className="w-7 h-7 rounded-lg object-cover border border-cyan-500/30 shrink-0"
                       />
                     ) : (
                       <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-500 shrink-0">
@@ -436,7 +436,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                         <span
                           className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-semibold uppercase ${
                             char.type === 'PJ'
-                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                              ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                               : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
                           }`}
                         >
@@ -467,7 +467,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                             hpPercent > 50
                               ? 'bg-emerald-500'
                               : hpPercent > 25
-                              ? 'bg-amber-500'
+                              ? 'bg-cyan-500'
                               : 'bg-rose-500'
                           }`}
                           style={{ width: `${Math.max(0, Math.min(100, hpPercent))}%` }}
@@ -497,7 +497,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
             </p>
             <button
               onClick={() => handleOpenNewModal('PJ')}
-              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-zinc-950 font-bold rounded-lg text-xs cursor-pointer shadow-md shadow-amber-950/30 transition-all"
+              className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-600 hover:to-sky-600 text-zinc-950 font-bold rounded-lg text-xs cursor-pointer shadow-md shadow-cyan-950/30 transition-all"
             >
               Criar Nova Ficha com Modelo
             </button>
@@ -506,15 +506,15 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
           <div className="p-5 md:p-8 max-w-4xl w-full mx-auto space-y-6">
             {/* Roll Toast Notification */}
             {rollNotification && (
-              <div className="p-3 bg-gradient-to-r from-amber-500/20 via-amber-600/30 to-amber-500/20 border-2 border-amber-500/60 rounded-xl flex items-center justify-between text-amber-200 text-xs sm:text-sm font-bold shadow-lg shadow-amber-950/40 animate-fadeIn">
+              <div className="p-3 bg-gradient-to-r from-cyan-500/20 via-cyan-600/30 to-cyan-500/20 border-2 border-cyan-500/60 rounded-xl flex items-center justify-between text-cyan-200 text-xs sm:text-sm font-bold shadow-lg shadow-cyan-950/40 animate-fadeIn">
                 <div className="flex items-center gap-2">
-                  <Dices className="w-5 h-5 text-amber-400 shrink-0" />
+                  <Dices className="w-5 h-5 text-cyan-400 shrink-0" />
                   <span>{rollNotification}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setRollNotification(null)}
-                  className="text-amber-400/70 hover:text-amber-200 p-1 cursor-pointer"
+                  className="text-cyan-400/70 hover:text-cyan-200 p-1 cursor-pointer"
                 >
                   ✕
                 </button>
@@ -522,18 +522,18 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
             )}
 
             {/* Header: Name, Role, Portrait, Type, Delete */}
-            <div className="relative bg-gradient-to-b from-amber-950/20 via-zinc-900 to-zinc-950 border-2 border-amber-500/40 rounded-2xl p-5 md:p-6 space-y-4 shadow-xl shadow-amber-950/15 overflow-hidden">
+            <div className="relative bg-gradient-to-b from-cyan-950/20 via-zinc-900 to-zinc-950 border-2 border-cyan-500/40 rounded-2xl p-5 md:p-6 space-y-4 shadow-xl shadow-cyan-950/15 overflow-hidden">
               {/* Corner Filigree Ornaments */}
-              <div className="absolute top-2 left-2 text-amber-500/40 pointer-events-none select-none text-xs">⚜</div>
-              <div className="absolute top-2 right-2 text-amber-500/40 pointer-events-none select-none text-xs">⚜</div>
-              <div className="absolute bottom-2 left-2 text-amber-500/40 pointer-events-none select-none text-xs">⚜</div>
-              <div className="absolute bottom-2 right-2 text-amber-500/40 pointer-events-none select-none text-xs">⚜</div>
+              <div className="absolute top-2 left-2 text-cyan-500/40 pointer-events-none select-none text-xs">⚜</div>
+              <div className="absolute top-2 right-2 text-cyan-500/40 pointer-events-none select-none text-xs">⚜</div>
+              <div className="absolute bottom-2 left-2 text-cyan-500/40 pointer-events-none select-none text-xs">⚜</div>
+              <div className="absolute bottom-2 right-2 text-cyan-500/40 pointer-events-none select-none text-xs">⚜</div>
 
               <div className="flex flex-col sm:flex-row items-start gap-4 relative z-10">
                 {/* Character Portrait Box */}
                 <div className="relative group shrink-0">
                   {selectedChar.avatarUrl ? (
-                    <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden ring-2 ring-amber-500/60 ring-offset-2 ring-offset-zinc-950 border border-amber-500/50 shadow-lg shadow-amber-950/30 group">
+                    <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden ring-2 ring-cyan-500/60 ring-offset-2 ring-offset-zinc-950 border border-cyan-500/50 shadow-lg shadow-cyan-950/30 group">
                       <img
                         src={selectedChar.avatarUrl}
                         alt={`Retrato de ${selectedChar.name}`}
@@ -544,7 +544,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsPortraitModalOpen(true)}
-                          className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold text-[10px] rounded-md transition-colors cursor-pointer"
+                          className="px-2 py-1 bg-cyan-500 hover:bg-cyan-600 text-zinc-950 font-bold text-[10px] rounded-md transition-colors cursor-pointer"
                           title="Alterar imagem do personagem"
                         >
                           Trocar
@@ -563,11 +563,11 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsPortraitModalOpen(true)}
-                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-2 border-dashed border-zinc-700 hover:border-amber-500/80 bg-zinc-950/80 hover:bg-zinc-900/80 flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-amber-400 transition-all cursor-pointer group shadow-inner"
+                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-2 border-dashed border-zinc-700 hover:border-cyan-500/80 bg-zinc-950/80 hover:bg-zinc-900/80 flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-cyan-400 transition-all cursor-pointer group shadow-inner"
                       title="Adicionar Retrato do Personagem"
                     >
-                      <ImageIcon className="w-5 h-5 text-zinc-600 group-hover:text-amber-400 transition-colors" />
-                      <span className="text-[10px] font-bold text-center leading-tight px-1 text-zinc-400 group-hover:text-amber-300">
+                      <ImageIcon className="w-5 h-5 text-zinc-600 group-hover:text-cyan-400 transition-colors" />
+                      <span className="text-[10px] font-bold text-center leading-tight px-1 text-zinc-400 group-hover:text-cyan-300">
                         Adicionar Retrato
                       </span>
                     </button>
@@ -584,7 +584,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                           value={selectedChar.name}
                           onChange={(e) => onUpdateCharacter(selectedChar.id, { name: e.target.value })}
                           placeholder="Nome do Personagem"
-                          className="text-lg md:text-xl font-bold bg-transparent text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-b border-amber-500/60 w-full"
+                          className="text-lg md:text-xl font-bold bg-transparent text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-b border-cyan-500/60 w-full"
                         />
                       </div>
                       <input
@@ -592,7 +592,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                         value={selectedChar.role}
                         onChange={(e) => onUpdateCharacter(selectedChar.id, { role: e.target.value })}
                         placeholder="Papel / Classe / Conceito (ex: Ladino Assassino Nv 4)"
-                        className="text-xs md:text-sm text-zinc-400 bg-transparent placeholder:text-zinc-600 focus:outline-none focus:border-b border-amber-500/60 w-full"
+                        className="text-xs md:text-sm text-zinc-400 bg-transparent placeholder:text-zinc-600 focus:outline-none focus:border-b border-cyan-500/60 w-full"
                       />
                     </div>
 
@@ -601,10 +601,10 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsPortraitModalOpen(true)}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:border-amber-500/50 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-xs"
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:border-cyan-500/50 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-xs"
                         title="Adicionar ou alterar imagem do personagem"
                       >
-                        <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+                        <ImageIcon className="w-3.5 h-3.5 text-cyan-400" />
                         <span className="hidden md:inline">Retrato</span>
                       </button>
 
@@ -613,7 +613,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                           onClick={() => onUpdateCharacter(selectedChar.id, { type: 'PJ' })}
                           className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
                             selectedChar.type === 'PJ'
-                              ? 'bg-amber-500 text-zinc-950'
+                              ? 'bg-cyan-500 text-zinc-950'
                               : 'text-zinc-400 hover:text-zinc-200'
                           }`}
                         >
@@ -623,7 +623,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                           onClick={() => onUpdateCharacter(selectedChar.id, { type: 'NPC' })}
                           className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
                             selectedChar.type === 'NPC'
-                              ? 'bg-zinc-800 text-amber-300'
+                              ? 'bg-zinc-800 text-cyan-300'
                               : 'text-zinc-400 hover:text-zinc-200'
                           }`}
                         >
@@ -664,12 +664,12 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
             <div className="bg-zinc-900/40 border border-zinc-800/90 rounded-2xl p-5 space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-zinc-800/60">
                 <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200">
-                  <Flame className="w-4 h-4 text-amber-500" />
+                  <Flame className="w-4 h-4 text-cyan-500" />
                   <span>Barras de Recursos em Tempo Real</span>
                 </div>
                 <button
                   onClick={addResource}
-                  className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 font-medium"
+                  className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium"
                 >
                   <Plus className="w-3.5 h-3.5" /> Adicionar Recurso
                 </button>
@@ -695,7 +695,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                             );
                             onUpdateCharacter(selectedChar.id, { resources: updated });
                           }}
-                          className="text-xs font-semibold text-zinc-200 bg-transparent focus:outline-none focus:border-b border-amber-500/50"
+                          className="text-xs font-semibold text-zinc-200 bg-transparent focus:outline-none focus:border-b border-cyan-500/50"
                         />
                         <div className="flex items-center gap-1">
                           <input
@@ -704,7 +704,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                             onChange={(e) =>
                               setResourceExact(res.id, parseInt(e.target.value) || 0)
                             }
-                            className="w-12 bg-zinc-900 border border-zinc-800 text-center font-mono font-bold text-xs text-amber-400 rounded py-0.5"
+                            className="w-12 bg-zinc-900 border border-zinc-800 text-center font-mono font-bold text-xs text-cyan-400 rounded py-0.5"
                           />
                           <span className="text-zinc-600 text-xs">/</span>
                           <input
@@ -734,7 +734,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                               : res.color === 'purple'
                               ? 'bg-purple-500'
                               : res.color === 'amber'
-                              ? 'bg-amber-500'
+                              ? 'bg-cyan-500'
                               : isLow
                               ? 'bg-rose-500'
                               : 'bg-emerald-500'
@@ -759,13 +759,13 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                         </button>
                         <button
                           onClick={() => updateResourceValue(res.id, 1)}
-                          className="px-2 py-0.5 bg-zinc-900 hover:bg-zinc-800 text-amber-400 rounded border border-zinc-800 hover:border-zinc-700 font-bold"
+                          className="px-2 py-0.5 bg-zinc-900 hover:bg-zinc-800 text-cyan-400 rounded border border-zinc-800 hover:border-zinc-700 font-bold"
                         >
                           +1
                         </button>
                         <button
                           onClick={() => updateResourceValue(res.id, 5)}
-                          className="px-2 py-0.5 bg-zinc-900 hover:bg-zinc-800 text-amber-400 rounded border border-zinc-800 hover:border-zinc-700 font-bold"
+                          className="px-2 py-0.5 bg-zinc-900 hover:bg-zinc-800 text-cyan-400 rounded border border-zinc-800 hover:border-zinc-700 font-bold"
                         >
                           +5
                         </button>
@@ -780,23 +780,23 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
             <div className="bg-zinc-900/40 border border-zinc-800/90 rounded-2xl p-5 space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-zinc-800/60 flex-wrap gap-2">
                 <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200">
-                  <Brain className="w-4 h-4 text-amber-500" />
+                  <Brain className="w-4 h-4 text-cyan-500" />
                   <span>Atributos Rápidos & Perícias (Adaptável a qualquer RPG)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     id="apply-template-btn"
                     onClick={() => setIsApplyModalOpen(true)}
-                    className="text-xs text-zinc-300 hover:text-amber-300 flex items-center gap-1.5 font-medium px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/70 hover:border-amber-500/50 rounded-lg transition-colors cursor-pointer"
+                    className="text-xs text-zinc-300 hover:text-cyan-300 flex items-center gap-1.5 font-medium px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/70 hover:border-cyan-500/50 rounded-lg transition-colors cursor-pointer"
                     title="Reaplicar ou trocar modelo de atributos (D&D, OSR, CoC...)"
                   >
-                    <Dices className="w-3.5 h-3.5 text-amber-500" />
+                    <Dices className="w-3.5 h-3.5 text-cyan-500" />
                     <span>Reaplicar Modelo</span>
                   </button>
                   <button
                     id="add-attribute-btn"
                     onClick={() => setIsAddingAttr(!isAddingAttr)}
-                    className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 font-medium px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-lg transition-colors cursor-pointer"
+                    className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 rounded-lg transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" /> Novo Atributo
                   </button>
@@ -823,7 +823,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                   />
                   <button
                     onClick={addAttribute}
-                    className="px-3 py-1 bg-amber-500 text-zinc-950 font-semibold rounded text-xs hover:bg-amber-600"
+                    className="px-3 py-1 bg-cyan-500 text-zinc-950 font-semibold rounded text-xs hover:bg-cyan-600"
                   >
                     Salvar
                   </button>
@@ -847,10 +847,10 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                   return (
                     <div
                       key={attr.id}
-                      className="bg-gradient-to-b from-zinc-900 to-zinc-950 border border-amber-500/30 hover:border-amber-500/70 rounded-xl p-2.5 text-center relative group flex flex-col items-center justify-between shadow-sm hover:shadow-[0_0_12px_rgba(245,158,11,0.15)] transition-all"
+                      className="bg-gradient-to-b from-zinc-900 to-zinc-950 border border-cyan-500/30 hover:border-cyan-500/70 rounded-xl p-2.5 text-center relative group flex flex-col items-center justify-between shadow-sm hover:shadow-[0_0_12px_rgba(6,182,212,0.2)] transition-all"
                     >
                       {/* Top decorative notch */}
-                      <div className="w-4 h-0.5 bg-amber-500/40 group-hover:bg-amber-400 rounded-full mb-1 transition-colors" />
+                      <div className="w-4 h-0.5 bg-cyan-500/40 group-hover:bg-cyan-400 rounded-full mb-1 transition-colors" />
 
                       <button
                         onClick={() => removeAttribute(attr.id)}
@@ -864,24 +864,24 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                         type="text"
                         value={attr.key}
                         onChange={(e) => updateAttribute(attr.id, e.target.value.toUpperCase(), attr.value)}
-                        className="text-[11px] font-bold text-amber-300 uppercase text-center bg-transparent w-full focus:outline-none font-serif tracking-wider"
+                        className="text-[11px] font-bold text-cyan-300 uppercase text-center bg-transparent w-full focus:outline-none font-serif tracking-wider"
                       />
 
                       <input
                         type="text"
                         value={attr.value}
                         onChange={(e) => updateAttribute(attr.id, attr.key, e.target.value)}
-                        className="text-base sm:text-lg font-black font-mono text-zinc-100 group-hover:text-amber-200 text-center bg-transparent w-full focus:outline-none my-0.5"
+                        className="text-base sm:text-lg font-black font-mono text-zinc-100 group-hover:text-cyan-200 text-center bg-transparent w-full focus:outline-none my-0.5"
                       />
 
                       {/* Modifier Chip and D20 Roll Trigger */}
                       <button
                         type="button"
                         onClick={() => handleRollAttribute(attr.key, attr.value)}
-                        className="w-full mt-1 py-0.5 px-1 rounded-md bg-zinc-900 hover:bg-amber-500/20 border border-zinc-800 hover:border-amber-500/40 text-amber-300 text-[10px] font-mono font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                        className="w-full mt-1 py-0.5 px-1 rounded-md bg-zinc-900 hover:bg-cyan-500/20 border border-zinc-800 hover:border-cyan-500/40 text-cyan-300 text-[10px] font-mono font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
                         title={`Rolar d20 ${modStr || ''} para ${attr.key}`}
                       >
-                        <Dices className="w-3 h-3 text-amber-400" />
+                        <Dices className="w-3 h-3 text-cyan-400" />
                         <span>{modStr ? modStr : 'rolar'}</span>
                       </button>
                     </div>
@@ -894,13 +894,13 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
             <div className="bg-zinc-900/40 border border-zinc-800/90 rounded-2xl p-5 space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-zinc-800/60">
                 <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <Sparkles className="w-4 h-4 text-cyan-500" />
                   <span>Equipamento, Talentos & Anotações do Mestre</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsPortraitModalOpen(true)}
-                  className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer font-medium"
+                  className="flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer font-medium"
                   title="Adicionar ou trocar retrato deste personagem"
                 >
                   <ImageIcon className="w-3.5 h-3.5" />
@@ -913,7 +913,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                 onChange={(e) => onUpdateCharacter(selectedChar.id, { notes: e.target.value })}
                 rows={6}
                 placeholder="Insira detalhes de armas, itens mágicos, perícias, fraquezas ou segredos que o mestre preparou para este personagem..."
-                className="w-full bg-zinc-950 border border-zinc-800/80 rounded-xl p-3.5 text-xs sm:text-sm text-zinc-200 placeholder:text-zinc-700 leading-relaxed focus:outline-none focus:border-amber-500/50 resize-y"
+                className="w-full bg-zinc-950 border border-zinc-800/80 rounded-xl p-3.5 text-xs sm:text-sm text-zinc-200 placeholder:text-zinc-700 leading-relaxed focus:outline-none focus:border-cyan-500/50 resize-y"
               />
             </div>
           </div>

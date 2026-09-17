@@ -86,7 +86,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
           campaignId: camp.id,
           campaignTitle: camp.title,
           badge: 'Campanha',
-          badgeColor: 'border-amber-500/40 bg-amber-500/10 text-amber-300',
+          badgeColor: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300',
         });
       }
     });
@@ -165,7 +165,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
           badge: char.type === 'PJ' ? 'PJ' : 'NPC',
           badgeColor:
             char.type === 'PJ'
-              ? 'border-amber-500/40 bg-amber-500/15 text-amber-300'
+              ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300'
               : 'border-purple-500/40 bg-purple-500/15 text-purple-300',
         });
       }
@@ -243,12 +243,12 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     >
       <div
         id="global-search-dialog"
-        className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl shadow-amber-950/20 overflow-hidden"
+        className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl shadow-cyan-950/20 overflow-hidden"
         onKeyDown={handleKeyDown}
       >
         {/* Top Search Input Box */}
         <div className="p-3 sm:p-4 border-b border-zinc-800/90 flex items-center gap-3 bg-zinc-900/60 shrink-0">
-          <Search className="w-5 h-5 text-amber-500 shrink-0" />
+          <Search className="w-5 h-5 text-cyan-400 shrink-0" />
           <input
             ref={inputRef}
             id="global-search-input"
@@ -293,7 +293,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             onClick={() => setActiveCategory('CAMPAIGNS')}
             className={`px-2.5 py-1 rounded-lg font-medium transition-all whitespace-nowrap cursor-pointer ${
               activeCategory === 'CAMPAIGNS'
-                ? 'bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/40'
+                ? 'bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/40'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
             }`}
           >
@@ -351,7 +351,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                   onMouseEnter={() => setSelectedIndex(index)}
                   className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start justify-between gap-3 ${
                     isSelected
-                      ? 'bg-zinc-900 border-amber-500/50 shadow-xs ring-1 ring-amber-500/20'
+                      ? 'bg-zinc-900 border-cyan-500/50 shadow-xs ring-1 ring-cyan-500/20'
                       : 'bg-zinc-950/60 border-zinc-800/80 hover:bg-zinc-900/50 hover:border-zinc-700'
                   }`}
                 >
@@ -360,7 +360,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                     <div
                       className={`p-2 rounded-lg shrink-0 mt-0.5 ${
                         item.type === 'campaign'
-                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
                           : item.type === 'note'
                           ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
                           : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
@@ -402,7 +402,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                       {item.snippet && (
                         <div className="text-[11px] text-zinc-300 bg-zinc-900/80 border border-zinc-800/80 rounded-md p-2 font-mono mt-1 leading-relaxed">
                           <span className="text-zinc-500 mr-1.5">&quot;</span>
-                          <span className="text-amber-200/90">{item.snippet}</span>
+                          <span className="text-cyan-200/90">{item.snippet}</span>
                           <span className="text-zinc-500 ml-1.5">&quot;</span>
                         </div>
                       )}
@@ -412,7 +412,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                   {/* Enter indicator */}
                   <div className="flex items-center gap-1 shrink-0 text-zinc-500 self-center">
                     {isSelected && (
-                      <span className="hidden sm:flex items-center gap-1 text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
+                      <span className="hidden sm:flex items-center gap-1 text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded border border-cyan-500/20">
                         <span>Abrir</span>
                         <CornerDownLeft className="w-3 h-3" />
                       </span>

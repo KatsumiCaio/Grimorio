@@ -194,16 +194,16 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           return (
             <div
               key={`embed-placeholder-${idx}`}
-              className="my-4 not-prose p-4 rounded-2xl bg-gradient-to-r from-amber-950/25 via-zinc-900/80 to-zinc-900/50 border border-amber-500/30 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
+              className="my-4 not-prose p-4 rounded-2xl bg-gradient-to-r from-cyan-950/25 via-zinc-900/80 to-zinc-900/50 border border-cyan-500/30 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
                   <BookOpen className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-amber-200 text-sm">{cleanName}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">
+                    <span className="font-bold text-cyan-200 text-sm">{cleanName}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-medium">
                       Ficha Vinculada
                     </span>
                   </div>
@@ -217,7 +217,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
                 <button
                   type="button"
                   onClick={() => onCreateCharacterWithName(cleanName)}
-                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 shadow-sm"
+                  className="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 shadow-sm"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
                   <span>Cadastrar Ficha</span>
@@ -243,26 +243,26 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 function createMarkdownComponents(isReadingMode: boolean) {
   return {
     h1: ({ children }: any) => (
-      <div className="pt-4 pb-2 border-b border-amber-500/25 mb-3 first:pt-0">
-        <h1 className="text-xl sm:text-2xl font-black text-amber-100 font-serif tracking-wide flex items-center gap-2">
-          <span className="text-amber-500 text-lg select-none">⚜</span>
+      <div className="pt-4 pb-2 border-b border-cyan-500/25 mb-3 first:pt-0">
+        <h1 className="text-xl sm:text-2xl font-black text-cyan-100 font-serif tracking-wide flex items-center gap-2">
+          <span className="text-cyan-400 text-lg select-none">⚜</span>
           <span>{children}</span>
         </h1>
       </div>
     ),
     h2: ({ children }: any) => (
-      <h2 className="text-lg sm:text-xl font-bold text-amber-300/95 pt-4 pb-1.5 flex items-center gap-2 font-serif border-b border-zinc-800/80">
-        <span className="w-2 h-2 rounded-sm bg-amber-500/80 rotate-45 inline-block shrink-0" />
+      <h2 className="text-lg sm:text-xl font-bold text-cyan-300/95 pt-4 pb-1.5 flex items-center gap-2 font-serif border-b border-zinc-800/80">
+        <span className="w-2 h-2 rounded-sm bg-cyan-400/80 rotate-45 inline-block shrink-0" />
         <span>{children}</span>
       </h2>
     ),
     h3: ({ children }: any) => (
-      <h3 className="text-base sm:text-lg font-semibold text-zinc-100 pt-3 pb-1 font-serif tracking-wide text-amber-200/90">
+      <h3 className="text-base sm:text-lg font-semibold text-zinc-100 pt-3 pb-1 font-serif tracking-wide text-cyan-200/90">
         {children}
       </h3>
     ),
     p: ({ children }: any) => (
-      <p className="mb-3 leading-relaxed text-zinc-200 selection:bg-amber-500/20 selection:text-amber-200">
+      <p className="mb-3 leading-relaxed text-zinc-200 selection:bg-cyan-500/20 selection:text-cyan-200">
         {children}
       </p>
     ),
@@ -272,7 +272,7 @@ function createMarkdownComponents(isReadingMode: boolean) {
           if (!child) return null;
           return (
             <li className="flex items-start gap-2.5 leading-relaxed">
-              <span className="text-amber-400 select-none text-xs mt-1 shrink-0">◆</span>
+              <span className="text-cyan-400 select-none text-xs mt-1 shrink-0">◆</span>
               <div className="flex-1">{child.props?.children || child}</div>
             </li>
           );
@@ -280,27 +280,27 @@ function createMarkdownComponents(isReadingMode: boolean) {
       </ul>
     ),
     ol: ({ children }: any) => (
-      <ol className="list-decimal pl-6 mb-3 space-y-1.5 text-zinc-200 leading-relaxed marker:text-amber-400 marker:font-bold">
+      <ol className="list-decimal pl-6 mb-3 space-y-1.5 text-zinc-200 leading-relaxed marker:text-cyan-400 marker:font-bold">
         {children}
       </ol>
     ),
     li: ({ children }: any) => <li className="leading-relaxed">{children}</li>,
     blockquote: ({ children }: any) => (
-      <div className="my-4 p-4 rounded-xl bg-gradient-to-r from-amber-950/30 via-zinc-900/70 to-zinc-900/40 border-l-4 border-amber-500 shadow-sm relative overflow-hidden group">
-        <div className="absolute top-2 right-2 text-amber-500/20 pointer-events-none select-none text-2xl font-serif">
+      <div className="my-4 p-4 rounded-xl bg-gradient-to-r from-cyan-950/30 via-zinc-900/70 to-zinc-900/40 border-l-4 border-cyan-500 shadow-sm relative overflow-hidden group">
+        <div className="absolute top-2 right-2 text-cyan-500/20 pointer-events-none select-none text-2xl font-serif">
           ❝
         </div>
-        <div className="text-[11px] font-bold uppercase tracking-wider text-amber-400/90 mb-1.5 flex items-center gap-1.5 select-none">
-          <Sparkles className="w-3 h-3 text-amber-400" />
+        <div className="text-[11px] font-bold uppercase tracking-wider text-cyan-400/90 mb-1.5 flex items-center gap-1.5 select-none">
+          <Sparkles className="w-3 h-3 text-cyan-400" />
           <span>Texto Narrativo • Ler aos Jogadores</span>
         </div>
-        <blockquote className="italic font-serif text-amber-100/90 text-sm sm:text-base leading-relaxed pl-1">
+        <blockquote className="italic font-serif text-cyan-100/90 text-sm sm:text-base leading-relaxed pl-1">
           {children}
         </blockquote>
       </div>
     ),
     code: ({ children }: any) => (
-      <code className="bg-zinc-900 text-amber-300 px-1.5 py-0.5 rounded text-xs font-mono border border-zinc-800 selection:bg-amber-500/30">
+      <code className="bg-zinc-900 text-cyan-300 px-1.5 py-0.5 rounded text-xs font-mono border border-zinc-800 selection:bg-cyan-500/30">
         {children}
       </code>
     ),
@@ -310,7 +310,7 @@ function createMarkdownComponents(isReadingMode: boolean) {
       </pre>
     ),
     hr: () => (
-      <div className="flex items-center justify-center gap-3 my-6 text-amber-500/40 select-none">
+      <div className="flex items-center justify-center gap-3 my-6 text-cyan-500/40 select-none">
         <span className="h-px bg-zinc-800 flex-1" />
         <span className="text-xs">⚜ ◈ ⚜</span>
         <span className="h-px bg-zinc-800 flex-1" />
@@ -322,7 +322,7 @@ function createMarkdownComponents(isReadingMode: boolean) {
       </div>
     ),
     thead: ({ children }: any) => (
-      <thead className="bg-gradient-to-r from-zinc-900 via-amber-950/20 to-zinc-900 text-amber-300 font-bold border-b border-amber-500/20">
+      <thead className="bg-gradient-to-r from-zinc-900 via-cyan-950/20 to-zinc-900 text-cyan-300 font-bold border-b border-cyan-500/20">
         {children}
       </thead>
     ),
@@ -330,13 +330,13 @@ function createMarkdownComponents(isReadingMode: boolean) {
       <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/40">{children}</tbody>
     ),
     tr: ({ children }: any) => (
-      <tr className="hover:bg-amber-500/5 transition-colors">{children}</tr>
+      <tr className="hover:bg-cyan-500/5 transition-colors">{children}</tr>
     ),
-    th: ({ children }: any) => <th className="p-3 font-semibold text-amber-300">{children}</th>,
+    th: ({ children }: any) => <th className="p-3 font-semibold text-cyan-300">{children}</th>,
     td: ({ children }: any) => <td className="p-3 text-zinc-200">{children}</td>,
     strong: ({ children }: any) => (
-      <strong className="font-bold text-amber-100">{children}</strong>
+      <strong className="font-bold text-cyan-100">{children}</strong>
     ),
-    em: ({ children }: any) => <em className="italic text-amber-200/90">{children}</em>,
+    em: ({ children }: any) => <em className="italic text-cyan-200/90">{children}</em>,
   };
 }

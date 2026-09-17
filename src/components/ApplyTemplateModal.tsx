@@ -97,18 +97,18 @@ export const ApplyTemplateModal: React.FC<ApplyTemplateModalProps> = ({
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
       <div
         id="apply-template-modal"
-        className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl shadow-amber-950/20 overflow-hidden"
+        className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl shadow-cyan-950/20 overflow-hidden"
       >
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-zinc-800/90 flex items-center justify-between bg-zinc-900/60 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+            <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
               <Dices className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-zinc-100 flex items-center gap-2">
                 Reaplicar Modelo de Atributos & Campos
-                <span className="text-[11px] font-normal text-amber-400">
+                <span className="text-[11px] font-normal text-cyan-400">
                   ({character.name})
                 </span>
               </h2>
@@ -127,8 +127,8 @@ export const ApplyTemplateModal: React.FC<ApplyTemplateModalProps> = ({
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-          <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300">
-            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+          <div className="flex items-center gap-2 p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-xl text-xs text-cyan-300">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-cyan-400" />
             <span>
               Esta ação atualizará os atributos de <strong>{character.name}</strong> para o esquema do sistema escolhido.
             </span>
@@ -146,14 +146,14 @@ export const ApplyTemplateModal: React.FC<ApplyTemplateModalProps> = ({
                     onClick={() => setSelectedTemplateId(tmpl.id)}
                     className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between ${
                       isSelected
-                        ? 'bg-amber-500/10 border-amber-500 ring-1 ring-amber-500/30'
+                        ? 'bg-cyan-500/10 border-cyan-500 ring-1 ring-cyan-500/30'
                         : 'bg-zinc-900/50 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700'
                     }`}
                   >
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-bold text-zinc-100 truncate">{tmpl.name}</span>
-                        {isSelected && <Check className="w-3 h-3 text-amber-400" />}
+                        {isSelected && <Check className="w-3 h-3 text-cyan-400" />}
                       </div>
                       <span className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-zinc-800 text-zinc-400">
                         {tmpl.badge}
@@ -178,7 +178,7 @@ export const ApplyTemplateModal: React.FC<ApplyTemplateModalProps> = ({
                   selectedTemplate.attributes.forEach((a) => (all[a.key] = true));
                   setSelectedAttributes(all);
                 }}
-                className="text-[10px] text-amber-400 hover:text-amber-300 cursor-pointer"
+                className="text-[10px] text-cyan-400 hover:text-cyan-300 cursor-pointer"
               >
                 Selecionar Todos
               </button>
@@ -194,7 +194,7 @@ export const ApplyTemplateModal: React.FC<ApplyTemplateModalProps> = ({
                     onClick={() => toggleAttribute(attr.key)}
                     className={`p-1.5 rounded-lg border text-xs flex items-center gap-1.5 cursor-pointer select-none transition-all ${
                       selectedAttributes[attr.key]
-                        ? 'bg-zinc-950 border-amber-500/40 text-amber-300 font-bold'
+                        ? 'bg-zinc-950 border-cyan-500/40 text-cyan-300 font-bold'
                         : 'bg-zinc-950/40 border-zinc-800 text-zinc-500'
                     }`}
                   >
@@ -202,7 +202,7 @@ export const ApplyTemplateModal: React.FC<ApplyTemplateModalProps> = ({
                       type="checkbox"
                       checked={!!selectedAttributes[attr.key]}
                       onChange={() => toggleAttribute(attr.key)}
-                      className="rounded border-zinc-700 text-amber-500 w-3.5 h-3.5 cursor-pointer"
+                      className="rounded border-zinc-700 text-cyan-500 w-3.5 h-3.5 cursor-pointer"
                     />
                     <span className="truncate">{attr.key} ({String(attr.value)})</span>
                   </label>
@@ -217,7 +217,7 @@ export const ApplyTemplateModal: React.FC<ApplyTemplateModalProps> = ({
                   type="checkbox"
                   checked={includeResources}
                   onChange={(e) => setIncludeResources(e.target.checked)}
-                  className="rounded border-zinc-700 text-amber-500 w-3.5 h-3.5"
+                  className="rounded border-zinc-700 text-cyan-500 w-3.5 h-3.5"
                 />
                 <span>Substituir Barras de Recursos de Combate</span>
               </label>
@@ -239,11 +239,11 @@ export const ApplyTemplateModal: React.FC<ApplyTemplateModalProps> = ({
                           type="checkbox"
                           checked={!!selectedResources[res.name]}
                           onChange={() => toggleResource(res.name)}
-                          className="rounded border-zinc-700 text-amber-500 w-3.5 h-3.5"
+                          className="rounded border-zinc-700 text-cyan-500 w-3.5 h-3.5"
                         />
                         <span className="truncate">{res.name}</span>
                       </div>
-                      <span className="font-mono text-[10px] text-amber-400">
+                      <span className="font-mono text-[10px] text-cyan-400">
                         {res.current}/{res.max}
                       </span>
                     </label>
@@ -259,7 +259,7 @@ export const ApplyTemplateModal: React.FC<ApplyTemplateModalProps> = ({
                   type="checkbox"
                   checked={includeNotes}
                   onChange={(e) => setIncludeNotes(e.target.checked)}
-                  className="rounded border-zinc-700 text-amber-500 w-3.5 h-3.5"
+                  className="rounded border-zinc-700 text-cyan-500 w-3.5 h-3.5"
                 />
                 <span>Substituir bloco de anotações pelo modelo padrão do sistema (atenção: sobrescreve texto atual)</span>
               </label>
@@ -280,7 +280,7 @@ export const ApplyTemplateModal: React.FC<ApplyTemplateModalProps> = ({
             id="confirm-apply-template-btn"
             type="button"
             onClick={handleApply}
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-md shadow-amber-950/30 transition-all cursor-pointer"
+            className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-zinc-950 font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-md shadow-cyan-950/30 transition-all cursor-pointer"
           >
             <Check className="w-3.5 h-3.5" />
             <span>Aplicar Campos ({selectedTemplate.name})</span>

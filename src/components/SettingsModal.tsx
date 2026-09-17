@@ -220,10 +220,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Modal Content */}
         <div className="p-5 space-y-5 overflow-y-auto">
           {/* Firebase Cloud Firestore Section */}
-          <div className="space-y-3 bg-zinc-950/70 border border-amber-500/20 rounded-xl p-4">
+          <div className="space-y-3 bg-zinc-950/70 border border-cyan-500/20 rounded-xl p-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-wider">
-                <Cloud className="w-4 h-4 text-amber-500" />
+              <div className="flex items-center gap-2 text-xs font-semibold text-cyan-400 uppercase tracking-wider">
+                <Cloud className="w-4 h-4 text-cyan-500" />
                 <span>Nuvem Firebase Firestore</span>
               </div>
               <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
@@ -238,9 +238,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
             {/* If in iframe, show tip */}
             {inIframe && (
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-[11px] text-cyan-200">
                 <div className="flex items-start sm:items-center gap-2">
-                  <ExternalLink className="w-3.5 h-3.5 shrink-0 text-amber-400 mt-0.5 sm:mt-0" />
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0 text-cyan-400 mt-0.5 sm:mt-0" />
                   <span>
                     O Grimório está no visualizador embutido (iframe). Caso a janela do Google não abra, abra em nova aba:
                   </span>
@@ -248,7 +248,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={() => window.open(window.location.href, '_blank')}
-                  className="self-start sm:self-auto px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 font-medium whitespace-nowrap cursor-pointer flex items-center gap-1.5 transition-colors"
+                  className="self-start sm:self-auto px-2.5 py-1 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 font-medium whitespace-nowrap cursor-pointer flex items-center gap-1.5 transition-colors"
                 >
                   <span>Abrir em Nova Aba</span>
                   <ExternalLink className="w-3 h-3" />
@@ -265,10 +265,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       src={user.photoURL}
                       alt="Foto de perfil"
                       referrerPolicy="no-referrer"
-                      className="w-7 h-7 rounded-full object-cover border border-amber-500/50"
+                      className="w-7 h-7 rounded-full object-cover border border-cyan-500/50"
                     />
                   ) : (
-                    <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-amber-400">
+                    <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-cyan-400">
                       <Database className="w-3.5 h-3.5" />
                     </div>
                   )}
@@ -298,11 +298,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="button"
                     disabled={isLoggingIn}
                     onClick={handleGoogleAuth}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 border border-cyan-500/30 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait"
                   >
                     {isLoggingIn ? (
                       <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
                         <span>Conectando...</span>
                       </>
                     ) : (
@@ -320,7 +320,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="space-y-0.5">
                   <div className="text-zinc-400">
                     Banco Firestore:{' '}
-                    <code className="text-amber-400 font-mono text-[10px] bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800">
+                    <code className="text-cyan-400 font-mono text-[10px] bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800">
                       {FIRESTORE_DATABASE_ID}
                     </code>
                   </div>
@@ -334,7 +334,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   type="button"
                   onClick={handleManualSync}
                   disabled={isSyncing}
-                  className="self-start sm:self-auto flex items-center gap-1.5 px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-amber-400 hover:text-amber-300 disabled:opacity-50 transition-colors cursor-pointer shrink-0"
+                  className="self-start sm:self-auto flex items-center gap-1.5 px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-cyan-400 hover:text-cyan-300 disabled:opacity-50 transition-colors cursor-pointer shrink-0"
                 >
                   <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
                   <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Agora'}</span>
@@ -350,11 +350,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
 
             {(authError || authErrorInfo) && (
-              <div className="p-3.5 rounded-xl text-xs bg-amber-950/30 border border-amber-500/30 text-zinc-300 space-y-3">
+              <div className="p-3.5 rounded-xl text-xs bg-cyan-950/30 border border-cyan-500/30 text-zinc-300 space-y-3">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <AlertTriangle className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
                   <div className="space-y-1 w-full">
-                    <div className="font-semibold text-amber-300 text-xs">
+                    <div className="font-semibold text-cyan-300 text-xs">
                       {authErrorInfo?.title || 'Diagnóstico de Conexão com Google'}
                     </div>
                     <p className="text-[11px] text-zinc-300 leading-relaxed">
@@ -366,7 +366,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {/* Specific actions depending on error type */}
                 {authErrorInfo?.type === 'iframe' || authErrorInfo?.type === 'popup-blocked' || inIframe ? (
                   <div className="bg-zinc-900/90 p-3 rounded-lg border border-zinc-800 text-[11px] space-y-2">
-                    <div className="font-medium text-amber-300 flex items-center gap-1.5">
+                    <div className="font-medium text-cyan-300 flex items-center gap-1.5">
                       <ExternalLink className="w-3.5 h-3.5" />
                       <span>Solução Recomendada: Abrir em Nova Aba</span>
                     </div>
@@ -377,7 +377,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <button
                         type="button"
                         onClick={() => window.open(window.location.href, '_blank')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-zinc-950 font-semibold text-xs hover:bg-amber-400 transition-colors cursor-pointer shadow-sm"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500 text-zinc-950 font-semibold text-xs hover:bg-cyan-400 transition-colors cursor-pointer shadow-sm"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                         <span>Abrir Grimório em Nova Aba</span>
@@ -391,7 +391,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <div className="font-medium text-zinc-200">Como autorizar este domínio no Firebase:</div>
                     <div className="flex items-center gap-2 bg-zinc-950 px-2 py-1.5 rounded border border-zinc-800">
                       <Globe className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                      <span className="font-mono text-[10px] text-amber-400 flex-1 truncate">
+                      <span className="font-mono text-[10px] text-cyan-400 flex-1 truncate">
                         {currentHostname}
                       </span>
                       <button
@@ -417,7 +417,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         href={FIREBASE_CONSOLE_AUTH_SETTINGS_URL}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-medium transition-colors"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-medium transition-colors"
                       >
                         <span>Abrir Domínios Autorizados no Firebase</span>
                         <ExternalLink className="w-3 h-3" />
@@ -432,14 +432,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <ol className="list-decimal list-inside space-y-1 text-zinc-400 text-[11px]">
                       <li>Acesse o Firebase Console do projeto <strong className="text-zinc-200">{FIREBASE_PROJECT_ID}</strong>.</li>
                       <li>Vá em <strong className="text-zinc-300">Authentication &gt; Sign-in method</strong>.</li>
-                      <li>Ative o provedor <strong className="text-amber-400">Google</strong> e salve.</li>
+                      <li>Ative o provedor <strong className="text-cyan-400">Google</strong> e salve.</li>
                     </ol>
                     <div className="pt-1">
                       <a
                         href={FIREBASE_CONSOLE_AUTH_URL}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-medium transition-colors"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-medium transition-colors"
                       >
                         <span>Abrir Métodos de Login no Firebase</span>
                         <ExternalLink className="w-3 h-3" />
@@ -464,7 +464,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* AI Settings */}
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-wider">
+            <div className="flex items-center gap-2 text-xs font-semibold text-cyan-400 uppercase tracking-wider">
               <Cpu className="w-3.5 h-3.5" />
               <span>Inteligência Artificial (Gemini)</span>
             </div>
@@ -476,7 +476,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <select
                 value={formData.model === 'gemini-2.5-flash' ? 'gemini-3.6-flash' : formData.model}
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-amber-500/60"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500/60"
               >
                 <option value="gemini-3.6-flash">gemini-3.6-flash (Recomendado - Rápido & Fluido)</option>
                 <option value="gemini-3.8-flash">gemini-3.8-flash (Raciocínio Avançado)</option>
@@ -490,7 +490,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div>
               <label className="block text-xs font-medium text-zinc-300 mb-1 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
-                  <Key className="w-3 h-3 text-amber-500" />
+                  <Key className="w-3 h-3 text-cyan-500" />
                   Chave de API Gemini (Opcional)
                 </span>
                 <span className="text-[10px] text-zinc-500">Padrão: Injetada pelo ambiente</span>
@@ -500,7 +500,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 placeholder="Deixe em branco para usar a chave do servidor AI Studio"
                 value={formData.customApiKey}
                 onChange={(e) => setFormData({ ...formData, customApiKey: e.target.value })}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/60 font-mono"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/60 font-mono"
               />
               <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-zinc-400">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
@@ -650,7 +650,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Backup Manual */}
           <div className="border-t border-zinc-800/80 pt-4 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-wider">
+            <div className="flex items-center gap-2 text-xs font-semibold text-cyan-400 uppercase tracking-wider">
               <Download className="w-3.5 h-3.5" />
               <span>Backup Local & Portabilidade JSON</span>
             </div>
@@ -671,14 +671,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </>
                 ) : (
                   <>
-                    <Download className="w-4 h-4 text-amber-500" />
+                    <Download className="w-4 h-4 text-cyan-500" />
                     <span>Exportar Backup JSON</span>
                   </>
                 )}
               </button>
 
               <label className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-lg text-xs font-medium text-zinc-200 transition-colors cursor-pointer">
-                <Upload className="w-4 h-4 text-amber-500" />
+                <Upload className="w-4 h-4 text-cyan-500" />
                 <span>Restaurar Backup JSON</span>
                 <input
                   type="file"
@@ -715,7 +715,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             type="button"
             onClick={handleSave}
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-semibold rounded-lg text-xs transition-colors shadow-sm cursor-pointer"
+            className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-zinc-950 font-semibold rounded-lg text-xs transition-colors shadow-sm cursor-pointer"
           >
             Salvar Preferências
           </button>

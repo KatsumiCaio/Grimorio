@@ -29,7 +29,7 @@ interface EmbeddedCharacterCardProps {
 // Ornate Corner SVG Filigree
 const CornerFlourish: React.FC<{ position: 'tl' | 'tr' | 'bl' | 'br'; colorClass?: string }> = ({
   position,
-  colorClass = 'text-amber-500/50',
+  colorClass = 'text-cyan-500/50',
 }) => {
   const rotation = {
     tl: '',
@@ -196,29 +196,29 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
       ? 'border-rose-600/60 shadow-[0_0_20px_-3px_rgba(225,29,72,0.25)]'
       : isNPC
       ? 'border-purple-500/60 shadow-[0_0_20px_-3px_rgba(168,85,247,0.2)]'
-      : 'border-amber-500/60 shadow-[0_0_20px_-3px_rgba(245,158,11,0.25)]',
+      : 'border-cyan-500/60 shadow-[0_0_20px_-3px_rgba(6,182,212,0.25)]',
     outerGlow: isMonster
       ? 'bg-gradient-to-b from-rose-950/40 via-zinc-950 to-zinc-950'
       : isNPC
       ? 'bg-gradient-to-b from-purple-950/40 via-zinc-950 to-zinc-950'
-      : 'bg-gradient-to-b from-amber-950/40 via-zinc-950 to-zinc-950',
+      : 'bg-gradient-to-b from-cyan-950/40 via-zinc-950 to-zinc-950',
     headerBg: isMonster
       ? 'bg-gradient-to-r from-rose-950/70 via-zinc-900 to-zinc-900'
       : isNPC
       ? 'bg-gradient-to-r from-purple-950/70 via-zinc-900 to-zinc-900'
-      : 'bg-gradient-to-r from-amber-950/70 via-zinc-900 to-zinc-900',
-    flourishColor: isMonster ? 'text-rose-500/60' : isNPC ? 'text-purple-400/60' : 'text-amber-400/60',
-    accentText: isMonster ? 'text-rose-400' : isNPC ? 'text-purple-300' : 'text-amber-400',
+      : 'bg-gradient-to-r from-cyan-950/70 via-zinc-900 to-zinc-900',
+    flourishColor: isMonster ? 'text-rose-500/60' : isNPC ? 'text-purple-400/60' : 'text-cyan-400/60',
+    accentText: isMonster ? 'text-rose-400' : isNPC ? 'text-purple-300' : 'text-cyan-400',
     badgeStyle: isMonster
       ? 'bg-rose-950/80 border-rose-500/50 text-rose-300'
       : isNPC
       ? 'bg-purple-950/80 border-purple-500/50 text-purple-300'
-      : 'bg-amber-950/80 border-amber-500/50 text-amber-300',
+      : 'bg-cyan-950/80 border-cyan-500/50 text-cyan-300',
     portraitRing: isMonster
       ? 'ring-rose-500/70 border-rose-500/40'
       : isNPC
       ? 'ring-purple-500/70 border-purple-500/40'
-      : 'ring-amber-500/80 border-amber-500/50',
+      : 'ring-cyan-500/80 border-cyan-500/50',
   };
 
   const hpPercentage = primaryHealth
@@ -230,7 +230,7 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
     if (!primaryHealth) return null;
     if (primaryHealth.current <= 0) return { label: 'INCAPACITADO', color: 'text-zinc-400 bg-zinc-900 border-zinc-700' };
     if (hpPercentage <= 25) return { label: 'CRÍTICO / FERIDO', color: 'text-rose-400 bg-rose-950/70 border-rose-700/60' };
-    if (hpPercentage <= 60) return { label: 'EM COMBATE', color: 'text-amber-300 bg-amber-950/70 border-amber-700/60' };
+    if (hpPercentage <= 60) return { label: 'EM COMBATE', color: 'text-cyan-300 bg-cyan-950/70 border-cyan-700/60' };
     return { label: 'INTACTO', color: 'text-emerald-300 bg-emerald-950/70 border-emerald-700/60' };
   };
 
@@ -248,7 +248,7 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
       <CornerFlourish position="br" colorClass={themeConfig.flourishColor} />
 
       {/* Decorative Gold Inset Border Outline */}
-      <div className="absolute inset-[3px] rounded-[14px] border border-amber-500/15 pointer-events-none" />
+      <div className="absolute inset-[3px] rounded-[14px] border border-cyan-500/15 pointer-events-none" />
 
       {/* Top Banner & Header */}
       <div className={`p-3.5 sm:p-4 ${themeConfig.headerBg} border-b border-zinc-800/90 relative`}>
@@ -274,7 +274,7 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
                     ) : isNPC ? (
                       <Sparkles className="w-6 h-6 text-purple-400" />
                     ) : (
-                      <Crown className="w-6 h-6 text-amber-400" />
+                      <Crown className="w-6 h-6 text-cyan-400" />
                     )}
                   </div>
                 )}
@@ -283,7 +283,7 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
               {/* Mini jewel badge in the corner */}
               <div
                 className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border border-zinc-950 flex items-center justify-center shadow-xs ${
-                  isMonster ? 'bg-rose-500' : isNPC ? 'bg-purple-500' : 'bg-amber-500'
+                  isMonster ? 'bg-rose-500' : isNPC ? 'bg-purple-500' : 'bg-cyan-500'
                 }`}
               >
                 {isMonster ? (
@@ -299,7 +299,7 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
             {/* Character Name, Type and Role */}
             <div className="min-w-0 space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-serif font-bold text-base sm:text-lg text-amber-100 tracking-wide truncate drop-shadow-xs">
+                <h3 className="font-serif font-bold text-base sm:text-lg text-cyan-100 tracking-wide truncate drop-shadow-xs">
                   {character.name}
                 </h3>
 
@@ -309,14 +309,14 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
                 >
                   {isMonster && <Skull className="w-2.5 h-2.5 text-rose-400" />}
                   {isNPC && <Sparkles className="w-2.5 h-2.5 text-purple-400" />}
-                  {isPJ && <Crown className="w-2.5 h-2.5 text-amber-400" />}
+                  {isPJ && <Crown className="w-2.5 h-2.5 text-cyan-400" />}
                   <span>{character.type}</span>
                 </span>
 
                 {/* Challenge Rating / ND Medallion */}
                 {character.challengeRating && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 border border-amber-500/40 text-amber-300 shadow-xs">
-                    <Flame className="w-2.5 h-2.5 text-amber-400" />
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 shadow-xs">
+                    <Flame className="w-2.5 h-2.5 text-cyan-400" />
                     <span>{character.challengeRating}</span>
                   </span>
                 )}
@@ -332,7 +332,7 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
               </div>
 
               {/* Role / Class / Subtitle */}
-              <div className="flex items-center gap-2 text-xs text-amber-200/70 italic font-serif">
+              <div className="flex items-center gap-2 text-xs text-cyan-200/70 italic font-serif">
                 <span>◈</span>
                 <p className="truncate">{character.role || 'Guerreiro Errante'}</p>
               </div>
@@ -344,12 +344,12 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
             {/* Prominent CA (Armor Class) Shield if available */}
             {armorClassAttr && (
               <div
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-b from-zinc-800 to-zinc-950 border border-amber-500/40 shadow-xs text-xs font-bold text-amber-300"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-b from-zinc-800 to-zinc-950 border border-cyan-500/40 shadow-xs text-xs font-bold text-cyan-300"
                 title={`Classe de Armadura / Defesa: ${armorClassAttr.value}`}
               >
-                <Shield className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
+                <Shield className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400/20" />
                 <span className="text-[10px] text-zinc-400 uppercase font-mono">{armorClassAttr.key}:</span>
-                <span className="font-mono text-xs font-black text-amber-200">{armorClassAttr.value}</span>
+                <span className="font-mono text-xs font-black text-cyan-200">{armorClassAttr.value}</span>
               </div>
             )}
 
@@ -358,10 +358,10 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
               <button
                 type="button"
                 onClick={() => onRollDice('1d20', `Rolagem de Teste: ${character.name}`)}
-                className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-amber-500/40 text-amber-400 hover:text-amber-300 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-cyan-500/40 text-cyan-400 hover:text-cyan-300 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
                 title="Rolar d20 puro para este personagem"
               >
-                <Dices className="w-3.5 h-3.5 text-amber-400" />
+                <Dices className="w-3.5 h-3.5 text-cyan-400" />
                 <span className="hidden sm:inline font-mono text-[11px]">d20</span>
               </button>
             )}
@@ -371,7 +371,7 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
               <button
                 type="button"
                 onClick={() => onEditCharacter(character)}
-                className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 hover:text-amber-200 text-xs font-semibold flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+                className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-cyan-300 hover:text-cyan-200 text-xs font-semibold flex items-center gap-1 transition-all shadow-xs cursor-pointer"
                 title="Editar dados da ficha completa"
               >
                 <Edit3 className="w-3.5 h-3.5" />
@@ -394,9 +394,9 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
 
       {/* Medieval Filigree Divider Line */}
       <div className="flex items-center justify-center gap-2 px-6 py-0.5 opacity-40">
-        <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-amber-500/60 to-amber-500" />
-        <span className="text-[10px] text-amber-400 select-none tracking-widest">⚜ ◈ ⚜</span>
-        <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent via-amber-500/60 to-amber-500" />
+        <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-cyan-500/60 to-cyan-500" />
+        <span className="text-[10px] text-cyan-400 select-none tracking-widest">⚜ ◈ ⚜</span>
+        <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent via-cyan-500/60 to-cyan-500" />
       </div>
 
       {/* Ornate Health & Vitality Gauge (Recipiente de Vida) */}
@@ -426,7 +426,7 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
                     hpPercentage > 50
                       ? 'bg-gradient-to-r from-emerald-600 via-emerald-500 to-green-400'
                       : hpPercentage > 25
-                      ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-400'
+                      ? 'bg-gradient-to-r from-cyan-600 via-cyan-500 to-yellow-400'
                       : 'bg-gradient-to-r from-rose-700 via-rose-600 to-red-500'
                   }`}
                   style={{ width: `${hpPercentage}%` }}
@@ -437,7 +437,7 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
               </div>
 
               {/* Numeric fraction */}
-              <span className="font-mono text-xs font-black text-amber-100 tracking-wider shrink-0 bg-zinc-900/90 px-2 py-0.5 rounded border border-zinc-800">
+              <span className="font-mono text-xs font-black text-cyan-100 tracking-wider shrink-0 bg-zinc-900/90 px-2 py-0.5 rounded border border-zinc-800">
                 {primaryHealth.current} <span className="text-zinc-500 font-normal">/</span> {primaryHealth.max}
               </span>
 
@@ -493,7 +493,7 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowCustomHealthInput((prev) => !prev)}
-                  className="px-1.5 py-0.5 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-amber-300 text-[10px] font-mono transition-colors cursor-pointer"
+                  className="px-1.5 py-0.5 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-cyan-300 text-[10px] font-mono transition-colors cursor-pointer"
                   title="Ajuste de PV Personalizado"
                 >
                   ±
@@ -514,12 +514,12 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
                 value={customHealthDelta}
                 onChange={(e) => setCustomHealthDelta(e.target.value)}
                 placeholder="Ex: -12 ou +8"
-                className="w-24 px-2 py-0.5 bg-zinc-900 border border-zinc-700 rounded text-xs text-amber-200 text-center font-mono focus:outline-none focus:border-amber-500"
+                className="w-24 px-2 py-0.5 bg-zinc-900 border border-zinc-700 rounded text-xs text-cyan-200 text-center font-mono focus:outline-none focus:border-cyan-500"
                 autoFocus
               />
               <button
                 type="submit"
-                className="px-2.5 py-0.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded font-bold text-xs cursor-pointer shadow-xs"
+                className="px-2.5 py-0.5 bg-cyan-500 hover:bg-cyan-400 text-zinc-950 rounded font-bold text-xs cursor-pointer shadow-xs"
               >
                 Aplicar
               </button>
@@ -539,12 +539,12 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
       {displayAttributes.length > 0 && (
         <div className="p-3 bg-zinc-950/60 border-b border-zinc-800/60">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400/80 font-serif flex items-center gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-400/80 font-serif flex items-center gap-1.5">
               <span>✦</span> Atributos Rúnicos (Clique para rolar teste com d20)
             </span>
             {onRollDice && (
               <span className="text-[10px] text-zinc-500 font-mono flex items-center gap-1">
-                <Dices className="w-3 h-3 text-amber-500" />
+                <Dices className="w-3 h-3 text-cyan-500" />
                 <span>d20 + mod</span>
               </span>
             )}
@@ -561,30 +561,30 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
                     key={attr.id}
                     type="button"
                     onClick={() => handleRollAttribute(attr)}
-                    className="relative group p-1.5 rounded-xl bg-gradient-to-b from-zinc-900 to-zinc-950 border border-amber-500/30 hover:border-amber-400/80 hover:shadow-[0_0_12px_rgba(245,158,11,0.2)] transition-all cursor-pointer flex flex-col items-center justify-center text-center overflow-hidden"
+                    className="relative group p-1.5 rounded-xl bg-gradient-to-b from-zinc-900 to-zinc-950 border border-cyan-500/30 hover:border-cyan-400/80 hover:shadow-[0_0_12px_rgba(6,182,212,0.2)] transition-all cursor-pointer flex flex-col items-center justify-center text-center overflow-hidden"
                     title={`Rolar teste de ${attr.key} com d20`}
                   >
                     {/* Tiny top notch */}
-                    <div className="w-3 h-0.5 bg-amber-500/40 group-hover:bg-amber-400 rounded-full mb-1 transition-colors" />
+                    <div className="w-3 h-0.5 bg-cyan-500/40 group-hover:bg-cyan-400 rounded-full mb-1 transition-colors" />
 
                     {/* Attribute Name */}
-                    <span className="text-[10px] font-bold text-amber-400/90 tracking-wider uppercase font-serif">
+                    <span className="text-[10px] font-bold text-cyan-400/90 tracking-wider uppercase font-serif">
                       {attr.key}
                     </span>
 
                     {/* Attribute Score */}
-                    <span className="text-sm sm:text-base font-black font-mono text-zinc-100 group-hover:text-amber-200 transition-colors drop-shadow-xs my-0.5">
+                    <span className="text-sm sm:text-base font-black font-mono text-zinc-100 group-hover:text-cyan-200 transition-colors drop-shadow-xs my-0.5">
                       {score}
                     </span>
 
                     {/* Modifier Chip or roll indicator */}
                     {hasMod && modifier ? (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300 group-hover:bg-amber-500 group-hover:text-zinc-950 transition-colors">
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 group-hover:bg-cyan-500 group-hover:text-zinc-950 transition-colors">
                         <Dices className="w-2.5 h-2.5 opacity-60 group-hover:opacity-100" />
                         <span>{modifier}</span>
                       </span>
                     ) : (
-                      <span className="text-[9px] text-zinc-500 font-mono group-hover:text-amber-300 transition-colors">
+                      <span className="text-[9px] text-zinc-500 font-mono group-hover:text-cyan-300 transition-colors">
                         rolar
                       </span>
                     )}
@@ -598,7 +598,7 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
               <button
                 type="button"
                 onClick={() => setIsExpanded(true)}
-                className="text-[11px] text-amber-400 hover:text-amber-300 underline cursor-pointer font-medium"
+                className="text-[11px] text-cyan-400 hover:text-cyan-300 underline cursor-pointer font-medium"
               >
                 + Ver mais {displayAttributes.length - 6} atributos e perícias...
               </button>
@@ -613,8 +613,8 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
           {/* Secondary Resource Vials (Mana, Sanidade, Ki, etc.) */}
           {character.resources.length > 1 && (
             <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300 font-serif">
-                <Flame className="w-3.5 h-3.5 text-amber-400" />
+              <div className="flex items-center gap-1.5 text-xs font-bold text-cyan-300 font-serif">
+                <Flame className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Frascos de Recursos Secundários:</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
@@ -627,7 +627,7 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
                     >
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-semibold text-zinc-300 text-[11px] truncate">{res.name}</span>
-                        <span className="font-mono font-bold text-amber-300 text-xs">
+                        <span className="font-mono font-bold text-cyan-300 text-xs">
                           {res.current}/{res.max}
                         </span>
                       </div>
@@ -646,10 +646,10 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
 
           {/* Grimoire Notes, Attacks, Spells and Actions */}
           {character.notes && (
-            <div className="rounded-xl bg-zinc-900/90 border border-amber-500/30 p-3.5 space-y-2 shadow-inner">
+            <div className="rounded-xl bg-zinc-900/90 border border-cyan-500/30 p-3.5 space-y-2 shadow-inner">
               <div className="flex items-center justify-between border-b border-zinc-800/80 pb-1.5">
-                <div className="flex items-center gap-2 text-xs font-bold text-amber-400 font-serif">
-                  <Sword className="w-3.5 h-3.5 text-amber-400" />
+                <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 font-serif">
+                  <Sword className="w-3.5 h-3.5 text-cyan-400" />
                   <span>Ações de Combate, Habilidades & Feitiços:</span>
                 </div>
                 <span className="text-[10px] text-zinc-500 font-mono">Grimório da Ficha</span>
@@ -667,7 +667,7 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
                 return (
                   <div className="pt-2 border-t border-zinc-800/70 flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] font-bold text-zinc-400 flex items-center gap-1 font-serif">
-                      <Dices className="w-3 h-3 text-amber-400" />
+                      <Dices className="w-3 h-3 text-cyan-400" />
                       <span>Rolar do Texto:</span>
                     </span>
                     {uniqueRolls.map((expr, i) => (
@@ -675,7 +675,7 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
                         key={i}
                         type="button"
                         onClick={() => handleRollExpression(expr.replace(/\s+/g, ''), `Ataque / Dano (${expr})`)}
-                        className="px-2 py-0.5 rounded bg-zinc-950 hover:bg-zinc-800 border border-amber-500/40 text-amber-300 text-[11px] font-mono font-bold transition-colors cursor-pointer shadow-xs"
+                        className="px-2 py-0.5 rounded bg-zinc-950 hover:bg-zinc-800 border border-cyan-500/40 text-cyan-300 text-[11px] font-mono font-bold transition-colors cursor-pointer shadow-xs"
                       >
                         🎲 {expr}
                       </button>
@@ -696,7 +696,7 @@ export const EmbeddedCharacterCard: React.FC<EmbeddedCharacterCardProps> = ({
               <button
                 type="button"
                 onClick={() => onEditCharacter(character)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold text-xs transition-all cursor-pointer shadow-md shadow-amber-950/40"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-sky-600 hover:from-cyan-400 hover:to-sky-500 text-zinc-950 font-bold text-xs transition-all cursor-pointer shadow-md shadow-cyan-950/40"
               >
                 <Edit3 className="w-3.5 h-3.5" />
                 <span>Abrir Editor Completo da Ficha</span>

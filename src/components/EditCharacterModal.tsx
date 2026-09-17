@@ -134,7 +134,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
           {/* Header */}
           <div className="p-4 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30">
+              <span className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
                 {type === 'Monstro' ? (
                   <Skull className="w-5 h-5 text-rose-400" />
                 ) : type === 'NPC' ? (
@@ -182,7 +182,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsPortraitModalOpen(true)}
-                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 text-[10px] text-amber-300 transition-opacity cursor-pointer"
+                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 text-[10px] text-cyan-300 transition-opacity cursor-pointer"
                   >
                     <ImageIcon className="w-4 h-4" />
                     <span>Alterar</span>
@@ -191,7 +191,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsPortraitModalOpen(true)}
-                  className="text-[11px] text-amber-400 hover:underline"
+                  className="text-[11px] text-cyan-400 hover:underline"
                 >
                   Trocar Retrato
                 </button>
@@ -208,7 +208,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100 focus:outline-none focus:border-amber-500"
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100 focus:outline-none focus:border-cyan-500"
                     />
                   </div>
 
@@ -249,7 +249,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
                       value={role}
                       onChange={(e) => setRole(e.target.value)}
                       placeholder="Ex: Predador Alfa, Guerreiro Nv 3..."
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100 focus:outline-none focus:border-amber-500"
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100 focus:outline-none focus:border-cyan-500"
                     />
                   </div>
 
@@ -262,7 +262,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
                       value={challengeRating}
                       onChange={(e) => setChallengeRating(e.target.value)}
                       placeholder="Ex: ND 10, Ameaça 5, VD 40..."
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100 focus:outline-none focus:border-amber-500"
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100 focus:outline-none focus:border-cyan-500"
                     />
                   </div>
                 </div>
@@ -341,7 +341,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
                 <button
                   type="button"
                   onClick={handleAddResource}
-                  className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-amber-400 rounded text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-cyan-400 rounded text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   <Plus className="w-3 h-3" />
                   <span>Adicionar</span>
@@ -353,7 +353,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
             <div className="p-3 bg-zinc-950/60 rounded-xl border border-zinc-800 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-zinc-200 flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-amber-400" />
+                  <Shield className="w-3.5 h-3.5 text-cyan-400" />
                   Atributos & Modificadores
                 </span>
                 <span className="text-[10px] text-zinc-500">
@@ -377,7 +377,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
                       type="text"
                       value={attr.value}
                       onChange={(e) => handleUpdateAttribute(attr.id, attr.key, e.target.value)}
-                      className="flex-1 min-w-0 bg-zinc-950 border border-zinc-700 rounded px-1.5 py-0.5 text-xs text-amber-300 font-mono text-center font-semibold"
+                      className="flex-1 min-w-0 bg-zinc-950 border border-zinc-700 rounded px-1.5 py-0.5 text-xs text-cyan-300 font-mono text-center font-semibold"
                     />
                     <button
                       type="button"
@@ -409,7 +409,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
                 <button
                   type="button"
                   onClick={handleAddAttribute}
-                  className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-amber-400 rounded text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-cyan-400 rounded text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   <Plus className="w-3 h-3" />
                   <span>Adicionar</span>
@@ -427,7 +427,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Descreva ataques, magias conhecidas, imunidades, itens ou segredos..."
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-3 text-zinc-200 text-xs font-mono leading-relaxed focus:outline-none focus:border-amber-500"
+                className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-3 text-zinc-200 text-xs font-mono leading-relaxed focus:outline-none focus:border-cyan-500"
               />
             </div>
           </div>
@@ -444,7 +444,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
             <button
               type="button"
               onClick={handleSave}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold transition-all shadow-md cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-zinc-950 text-xs font-bold transition-all shadow-md cursor-pointer"
             >
               <Save className="w-4 h-4" />
               <span>Salvar Alterações</span>

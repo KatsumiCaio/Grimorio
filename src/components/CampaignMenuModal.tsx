@@ -401,7 +401,7 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsCreating(true)}
-                    className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs inline-flex items-center gap-1.5 cursor-pointer shadow-md"
+                    className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold rounded-lg text-xs inline-flex items-center gap-1.5 cursor-pointer shadow-md"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Criar Primeira Campanha</span>

@@ -573,7 +573,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   if (campaigns.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-zinc-950 text-zinc-100 space-y-4">
-        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-lg shadow-amber-950/20">
+        <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-lg shadow-cyan-950/20">
           <BookOpen className="w-8 h-8" />
         </div>
         <div className="max-w-md space-y-2">
@@ -588,7 +588,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               type="button"
               id="empty-state-open-menu-btn"
               onClick={onOpenCampaignMenu}
-              className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-amber-950/30 cursor-pointer transition-all"
+              className="px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-cyan-950/30 cursor-pointer transition-all"
             >
               <Scroll className="w-4 h-4" />
               <span>Abrir Menu de Campanhas</span>
@@ -600,7 +600,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
             onClick={() => setIsNewCampaignOpen(true)}
             className="px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-xl text-xs flex items-center gap-2 cursor-pointer transition-all"
           >
-            <Plus className="w-4 h-4 text-amber-400" />
+            <Plus className="w-4 h-4 text-cyan-400" />
             <span>Criar Campanha Rápida</span>
           </button>
         </div>
@@ -611,7 +611,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl space-y-4 text-left">
               <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
                 <h3 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <Sparkles className="w-4 h-4 text-cyan-400" />
                   <span>Nova Campanha</span>
                 </h3>
                 <button
@@ -629,7 +629,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                   placeholder="Ex: A Maldição de Strahd"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500"
                   autoFocus
                 />
               </div>
@@ -639,7 +639,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 <select
                   value={selectedSystemId}
                   onChange={(e) => setSelectedSystemId(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-amber-500 cursor-pointer"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 cursor-pointer"
                 >
                   {POPULAR_SYSTEM_GROUPS.map((group) => (
                     <optgroup key={group.group} label={group.group} className="bg-zinc-900 text-zinc-400">
@@ -662,7 +662,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                     placeholder="Ex: 3D&T Alpha, Gurps 4e, Cyberpunk RED..."
                     value={customSystemText}
                     onChange={(e) => setCustomSystemText(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500"
                   />
                 </div>
               )}
@@ -690,7 +690,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                     }
                   }}
                   disabled={!newTitle.trim()}
-                  className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-zinc-950 font-bold rounded-lg text-xs transition-colors"
+                  className="px-4 py-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:opacity-40 text-zinc-950 font-bold rounded-lg text-xs transition-colors"
                 >
                   Criar Campanha
                 </button>
@@ -717,8 +717,8 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
           {/* Campaign Selector & Focus Badge */}
           <div className="flex items-center gap-2">
             {isFullScreen && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-400 text-xs font-semibold select-none">
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded-lg text-cyan-400 text-xs font-semibold select-none">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
                 <span className="hidden sm:inline">Modo Foco</span>
               </div>
             )}
@@ -729,15 +729,15 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 type="button"
                 id="open-campaign-menu-top-btn"
                 onClick={onOpenCampaignMenu}
-                className="px-2.5 py-1.5 bg-zinc-950 hover:bg-zinc-850 border border-zinc-800 hover:border-amber-500/40 text-xs font-semibold text-amber-300 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs group"
+                className="px-2.5 py-1.5 bg-zinc-950 hover:bg-zinc-850 border border-zinc-800 hover:border-cyan-500/40 text-xs font-semibold text-cyan-300 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs group"
                 title="Abrir Menu de Campanhas (Selecionar, criar ou apagar todas)"
               >
-                <Scroll className="w-3.5 h-3.5 text-amber-400 group-hover:rotate-6 transition-transform shrink-0" />
+                <Scroll className="w-3.5 h-3.5 text-cyan-400 group-hover:rotate-6 transition-transform shrink-0" />
                 <span className="hidden sm:inline">Campanhas</span>
                 <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
                   {campaigns.length}
                 </span>
-                <ChevronDown className="w-3 h-3 text-zinc-500 group-hover:text-amber-400" />
+                <ChevronDown className="w-3 h-3 text-zinc-500 group-hover:text-cyan-400" />
               </button>
             )}
 
@@ -746,7 +746,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 id="campaign-select"
                 value={activeCampaignId}
                 onChange={(e) => onSelectCampaign(e.target.value)}
-                className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-200 rounded-lg px-2.5 py-1.5 pr-7 focus:outline-none focus:border-amber-500/50 cursor-pointer max-w-[170px] sm:max-w-[200px] truncate"
+                className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-200 rounded-lg px-2.5 py-1.5 pr-7 focus:outline-none focus:border-cyan-500/50 cursor-pointer max-w-[170px] sm:max-w-[200px] truncate"
                 title="Trocar campanha ativa"
               >
                 {campaigns.map((camp) => (
@@ -762,12 +762,12 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               type="button"
               id="top-campaign-system-badge"
               onClick={() => setShowSystemRulesInfo(true)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-300 text-xs font-medium transition-all cursor-pointer shadow-xs group"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 hover:border-cyan-500/50 text-cyan-300 text-xs font-medium transition-all cursor-pointer shadow-xs group"
               title={`Sistema de RPG ativo: ${activeSystemKnowledge.name}\nConvenção: ${activeSystemKnowledge.diceConvention}\nClique para ver as regras`}
             >
-              <Dices className="w-3.5 h-3.5 text-amber-400 shrink-0 group-hover:rotate-12 transition-transform" />
+              <Dices className="w-3.5 h-3.5 text-cyan-400 shrink-0 group-hover:rotate-12 transition-transform" />
               <span className="font-semibold">{activeSystemKnowledge.shortName}</span>
-              <span className="text-[10px] text-amber-400/80 font-normal px-1 py-0.2 rounded bg-amber-500/10 hidden xl:inline">
+              <span className="text-[10px] text-cyan-400/80 font-normal px-1 py-0.2 rounded bg-cyan-500/10 hidden xl:inline">
                 {activeSystemKnowledge.badge}
               </span>
             </button>
@@ -776,7 +776,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               <button
                 id="new-campaign-btn"
                 onClick={() => setIsNewCampaignOpen(true)}
-                className="p-1.5 bg-zinc-900 hover:bg-zinc-800 text-amber-400 hover:text-amber-300 border border-zinc-800 rounded-lg text-xs flex items-center gap-1 transition-colors"
+                className="p-1.5 bg-zinc-900 hover:bg-zinc-800 text-cyan-400 hover:text-cyan-300 border border-zinc-800 rounded-lg text-xs flex items-center gap-1 transition-colors"
                 title="Criar Nova Campanha"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -823,7 +823,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                     }
                   }
                 }}
-                className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-lg px-2 py-1 text-xs text-amber-300 font-medium focus:outline-none focus:border-amber-500/50 cursor-pointer max-w-[130px] sm:max-w-[180px] truncate"
+                className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-lg px-2 py-1 text-xs text-cyan-300 font-medium focus:outline-none focus:border-cyan-500/50 cursor-pointer max-w-[130px] sm:max-w-[180px] truncate"
                 title={`Sistema ativo: ${activeSystemKnowledge.name}\nMecânica: ${activeSystemKnowledge.diceConvention}`}
               >
                 {POPULAR_SYSTEM_GROUPS.map((group) => (
@@ -835,7 +835,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                     ))}
                   </optgroup>
                 ))}
-                <option value="custom" className="bg-zinc-950 text-amber-400 font-medium">
+                <option value="custom" className="bg-zinc-950 text-cyan-400 font-medium">
                   Outro / Personalizado...
                 </option>
               </select>
@@ -846,7 +846,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                   value={system}
                   onChange={(e) => setSystem(e.target.value)}
                   placeholder="Nome do sistema..."
-                  className="w-24 sm:w-32 bg-zinc-950 border border-amber-500/50 rounded-lg px-2 py-1 text-xs text-amber-200 font-medium placeholder:text-zinc-600 focus:outline-none"
+                  className="w-24 sm:w-32 bg-zinc-950 border border-cyan-500/50 rounded-lg px-2 py-1 text-xs text-cyan-200 font-medium placeholder:text-zinc-600 focus:outline-none"
                   title="Digite o nome personalizado do seu sistema"
                   autoFocus
                 />
@@ -856,10 +856,10 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               <button
                 type="button"
                 onClick={() => setShowSystemRulesInfo(true)}
-                className="p-1 px-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-amber-400 hover:text-amber-300 text-[10px] flex items-center gap-1 transition-colors"
+                className="p-1 px-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-cyan-400 hover:text-cyan-300 text-[10px] flex items-center gap-1 transition-colors"
                 title={`Ver modelo de regras de ${activeSystemKnowledge.shortName}`}
               >
-                <Dices className="w-3 h-3 text-amber-400" />
+                <Dices className="w-3 h-3 text-cyan-400" />
                 <span className="hidden md:inline">{activeSystemKnowledge.badge}</span>
               </button>
             </div>
@@ -871,7 +871,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 onClick={() => setIsWideText((prev) => !prev)}
                 className={`hidden md:inline-flex items-center px-2 py-1 rounded-lg text-xs border transition-colors ${
                   isWideText
-                    ? 'bg-zinc-800 text-amber-300 border-zinc-700 font-medium'
+                    ? 'bg-zinc-800 text-cyan-300 border-zinc-700 font-medium'
                     : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border-zinc-800'
                 }`}
                 title={isWideText ? 'Alternar para largura de foco confortável (centrado)' : 'Alternar para largura total (100%)'}
@@ -887,7 +887,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 onClick={() => setEditorMode('edit')}
                 className={`px-2 py-1 rounded-md text-xs transition-colors flex items-center gap-1 cursor-pointer ${
                   editorMode === 'edit'
-                    ? 'bg-zinc-800 text-amber-400 font-semibold'
+                    ? 'bg-zinc-800 text-cyan-400 font-semibold'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
                 title="Modo Editor de Texto"
@@ -900,7 +900,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 onClick={() => setEditorMode('read')}
                 className={`px-2.5 py-1 rounded-md text-xs transition-colors flex items-center gap-1.5 cursor-pointer ${
                   editorMode === 'read'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold shadow-xs'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-semibold shadow-xs'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
                 title="Modo Leitura: exibe o texto limpo com fichas e monstros renderizados como cartões interativos estilizados, sem códigos crus"
@@ -908,7 +908,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 <BookOpen className="w-3.5 h-3.5" />
                 <span>Leitura</span>
                 {embeddedFichaCards.length > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/25 text-amber-300 font-bold border border-amber-500/40">
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-cyan-500/25 text-cyan-300 font-bold border border-cyan-500/40">
                     {embeddedFichaCards.length}
                   </span>
                 )}
@@ -918,7 +918,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 onClick={() => setEditorMode('split')}
                 className={`hidden md:flex px-2 py-1 rounded-md text-xs transition-colors items-center gap-1 cursor-pointer ${
                   editorMode === 'split'
-                    ? 'bg-zinc-800 text-amber-400 font-semibold'
+                    ? 'bg-zinc-800 text-cyan-400 font-semibold'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
                 title="Modo Dividido: Editor à esquerda e Modo Leitura com Fichas à direita"
@@ -934,7 +934,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                   <button
                     id="enter-fullscreen-notes-btn"
                     onClick={onToggleFullScreen}
-                    className="p-1.5 rounded-md text-xs text-zinc-400 hover:text-amber-400 hover:bg-zinc-800 transition-colors"
+                    className="p-1.5 rounded-md text-xs text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800 transition-colors"
                     title="Modo Tela Cheia (Foco sem distrações) • F11"
                   >
                     <Maximize2 className="w-3.5 h-3.5" />
@@ -948,12 +948,12 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               <button
                 id="exit-fullscreen-notes-btn"
                 onClick={onToggleFullScreen}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-500/50 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-xs group"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 border border-cyan-500/30 hover:border-cyan-500/50 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-xs group"
                 title="Sair do Modo Tela Cheia (Pressione Esc ou F11)"
               >
-                <Minimize2 className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+                <Minimize2 className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
                 <span className="hidden sm:inline">Sair da Tela Cheia</span>
-                <kbd className="text-[10px] bg-zinc-950 text-amber-400/80 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono">
+                <kbd className="text-[10px] bg-zinc-950 text-cyan-400/80 border border-cyan-500/30 px-1.5 py-0.2 rounded font-mono">
                   Esc
                 </kbd>
               </button>
@@ -972,13 +972,13 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 onBlur={() => setIsEditingTitle(false)}
                 onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)}
                 autoFocus
-                className="bg-zinc-900 border border-amber-500/50 text-sm font-semibold text-zinc-100 rounded px-2 py-0.5 w-full focus:outline-none"
+                className="bg-zinc-900 border border-cyan-500/50 text-sm font-semibold text-zinc-100 rounded px-2 py-0.5 w-full focus:outline-none"
               />
             ) : (
               <div className="flex items-center gap-2.5 flex-wrap min-w-0">
                 <h2
                   onClick={() => setIsEditingTitle(true)}
-                  className="text-sm font-semibold text-zinc-200 hover:text-amber-400 cursor-pointer flex items-center gap-1.5 transition-colors group truncate"
+                  className="text-sm font-semibold text-zinc-200 hover:text-cyan-400 cursor-pointer flex items-center gap-1.5 transition-colors group truncate"
                   title="Clique para renomear"
                 >
                   <span className="truncate">{title}</span>
@@ -990,12 +990,12 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                   type="button"
                   id="campaign-active-system-badge"
                   onClick={() => setShowSystemRulesInfo(true)}
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-300 text-[11px] font-medium transition-all shadow-xs shrink-0 cursor-pointer group"
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 hover:border-cyan-500/50 text-cyan-300 text-[11px] font-medium transition-all shadow-xs shrink-0 cursor-pointer group"
                   title={`Sistema de RPG ativo: ${activeSystemKnowledge.name}\nConvenção de Dados: ${activeSystemKnowledge.diceConvention}\nClique para ver as regras e detalhes do sistema`}
                 >
-                  <Dices className="w-3 h-3 text-amber-400 shrink-0 group-hover:rotate-12 transition-transform" />
+                  <Dices className="w-3 h-3 text-cyan-400 shrink-0 group-hover:rotate-12 transition-transform" />
                   <span className="font-semibold">{activeSystemKnowledge.shortName}</span>
-                  <span className="text-[10px] text-amber-400/80 font-normal px-1 py-0.2 rounded bg-amber-500/10 border border-amber-500/20 hidden sm:inline">
+                  <span className="text-[10px] text-cyan-400/80 font-normal px-1 py-0.2 rounded bg-cyan-500/10 border border-cyan-500/20 hidden sm:inline">
                     {activeSystemKnowledge.badge}
                   </span>
                 </button>
@@ -1078,7 +1078,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 type="button"
                 id="insert-sheet-toolbar-btn"
                 onClick={() => setIsInsertSheetModalOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-[1.02]"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-[1.02]"
                 title="Inserir ficha de Personagem, NPC ou Monstro do Bestiário diretamente no texto da campanha"
               >
                 <Skull className="w-3.5 h-3.5 text-rose-400" />
@@ -1092,7 +1092,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
         <div className="flex-1 overflow-hidden relative flex flex-col">
           {/* Toast Notification when a sheet was inserted */}
           {sheetInsertedNotice && (
-            <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between text-xs text-amber-200 z-10 shrink-0">
+            <div className="bg-cyan-500/15 border-b border-cyan-500/30 px-4 py-2 flex items-center justify-between text-xs text-cyan-200 z-10 shrink-0">
               <div className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span className="font-medium">{sheetInsertedNotice}</span>
@@ -1111,7 +1111,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
           {editorMode === 'edit' && embeddedFichaCards.length > 0 && (
             <div className="bg-zinc-900/90 border-b border-zinc-800 px-3 sm:px-4 py-2 flex items-center justify-between gap-2 text-xs shrink-0 flex-wrap">
               <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                <span className="font-semibold text-amber-400 flex items-center gap-1 shrink-0 text-xs">
+                <span className="font-semibold text-cyan-400 flex items-center gap-1 shrink-0 text-xs">
                   <Skull className="w-3.5 h-3.5 text-rose-400" />
                   {embeddedFichaCards.length === 1 ? '1 Ficha vinculada:' : `${embeddedFichaCards.length} Fichas vinculadas:`}
                 </span>
@@ -1129,7 +1129,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setEditingCharacter(char)}
-                      className="text-amber-400 hover:text-amber-300 text-[10px] font-medium underline cursor-pointer"
+                      className="text-cyan-400 hover:text-cyan-300 text-[10px] font-medium underline cursor-pointer"
                       title="Editar ficha"
                     >
                       Editar
@@ -1150,7 +1150,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setEditorMode('read')}
-                  className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-md font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  className="px-2.5 py-1 bg-cyan-500 hover:bg-cyan-400 text-zinc-950 rounded-md font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
                   title="Abrir no Modo Leitura com fichas renderizadas interativamente e texto limpo"
                 >
                   <BookOpen className="w-3.5 h-3.5" />
@@ -1178,7 +1178,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="# Anotações da Sessão... Use '+ Ficha / Bestiário' para incorporar fichas no texto"
-                  className={`w-full h-full bg-zinc-950 leading-relaxed text-zinc-200 placeholder:text-zinc-700 font-sans focus:outline-none resize-none overflow-y-auto selection:bg-amber-500/20 selection:text-amber-200 ${
+                  className={`w-full h-full bg-zinc-950 leading-relaxed text-zinc-200 placeholder:text-zinc-700 font-sans focus:outline-none resize-none overflow-y-auto selection:bg-cyan-500/20 selection:text-cyan-200 ${
                     isFullScreen
                       ? isWideText
                         ? 'p-8 sm:p-12 text-base md:text-lg'
@@ -1197,8 +1197,8 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               <div className="px-4 py-2 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 border-b border-zinc-800/80 flex items-center justify-between gap-3 text-xs shrink-0 flex-wrap">
                 {/* Left: Mode Badge, Reading Stats & Quick Sheet Links */}
                 <div className="flex items-center gap-2.5 flex-wrap min-w-0">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold text-xs shadow-xs select-none">
-                    <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 font-bold text-xs shadow-xs select-none">
+                    <BookOpen className="w-3.5 h-3.5 text-cyan-400" />
                     <span>Modo Leitura</span>
                   </div>
 
@@ -1225,7 +1225,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                               }
                             }}
-                            className="px-2 py-0.5 rounded-md bg-zinc-900 hover:bg-amber-500/20 text-zinc-300 hover:text-amber-200 border border-zinc-800 text-[10px] font-semibold flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+                            className="px-2 py-0.5 rounded-md bg-zinc-900 hover:bg-cyan-500/20 text-zinc-300 hover:text-cyan-200 border border-zinc-800 text-[10px] font-semibold flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
                             title={`Rolar para a ficha de ${c.name}`}
                           >
                             <span>{c.type === 'Monstro' ? '💀' : '👤'}</span>
@@ -1245,7 +1245,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                       type="button"
                       onClick={() => setReaderFont('sans')}
                       className={`px-1.5 py-0.5 rounded text-[10px] font-sans transition-colors cursor-pointer ${
-                        readerFont === 'sans' ? 'bg-zinc-800 text-amber-300 font-bold' : 'text-zinc-500 hover:text-zinc-300'
+                        readerFont === 'sans' ? 'bg-zinc-800 text-cyan-300 font-bold' : 'text-zinc-500 hover:text-zinc-300'
                       }`}
                       title="Fonte Sem Serifa (Moderna)"
                     >
@@ -1255,7 +1255,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                       type="button"
                       onClick={() => setReaderFont('serif')}
                       className={`px-1.5 py-0.5 rounded text-[10px] font-serif transition-colors cursor-pointer ${
-                        readerFont === 'serif' ? 'bg-zinc-800 text-amber-300 font-bold' : 'text-zinc-500 hover:text-zinc-300'
+                        readerFont === 'serif' ? 'bg-zinc-800 text-cyan-300 font-bold' : 'text-zinc-500 hover:text-zinc-300'
                       }`}
                       title="Fonte Serifada (Tomo / Grimório Antigo)"
                     >
@@ -1269,7 +1269,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                       type="button"
                       onClick={() => setReaderFontSize('sm')}
                       className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
-                        readerFontSize === 'sm' ? 'bg-zinc-800 text-amber-300' : 'text-zinc-500 hover:text-zinc-300'
+                        readerFontSize === 'sm' ? 'bg-zinc-800 text-cyan-300' : 'text-zinc-500 hover:text-zinc-300'
                       }`}
                       title="Texto menor"
                     >
@@ -1279,7 +1279,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                       type="button"
                       onClick={() => setReaderFontSize('base')}
                       className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
-                        readerFontSize === 'base' ? 'bg-zinc-800 text-amber-300' : 'text-zinc-500 hover:text-zinc-300'
+                        readerFontSize === 'base' ? 'bg-zinc-800 text-cyan-300' : 'text-zinc-500 hover:text-zinc-300'
                       }`}
                       title="Texto padrão"
                     >
@@ -1289,7 +1289,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                       type="button"
                       onClick={() => setReaderFontSize('lg')}
                       className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
-                        readerFontSize === 'lg' ? 'bg-zinc-800 text-amber-300' : 'text-zinc-500 hover:text-zinc-300'
+                        readerFontSize === 'lg' ? 'bg-zinc-800 text-cyan-300' : 'text-zinc-500 hover:text-zinc-300'
                       }`}
                       title="Texto expandido"
                     >
@@ -1304,7 +1304,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                       onClick={() => setReaderNarrow((prev) => !prev)}
                       className={`hidden sm:inline-flex px-2 py-1 rounded-md text-[11px] border transition-colors cursor-pointer ${
                         readerNarrow
-                          ? 'bg-zinc-900 text-amber-300 border-zinc-700 font-medium'
+                          ? 'bg-zinc-900 text-cyan-300 border-zinc-700 font-medium'
                           : 'bg-zinc-950 text-zinc-500 hover:text-zinc-300 border-zinc-800'
                       }`}
                       title={readerNarrow ? 'Alternar para largura total' : 'Alternar para coluna confortável de leitura'}
@@ -1321,7 +1321,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                       className="px-2.5 py-1 bg-zinc-850 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-md font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
                       title="Voltar a editar o texto das notas"
                     >
-                      <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                      <Edit3 className="w-3.5 h-3.5 text-cyan-400" />
                       <span className="hidden sm:inline">Editar</span>
                     </button>
                   )}
@@ -1330,16 +1330,16 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
 
               {/* Toast de Rolagem de Dados de Fichas Incorporadas */}
               {diceRollResult && (
-                <div className="mx-4 mt-3 p-3 bg-gradient-to-r from-amber-950/90 via-zinc-900/90 to-zinc-950/90 border-2 border-amber-500/70 rounded-xl flex items-center justify-between text-amber-200 text-xs sm:text-sm font-bold shadow-xl shadow-amber-950/40 animate-fadeIn shrink-0">
+                <div className="mx-4 mt-3 p-3 bg-gradient-to-r from-cyan-950/90 via-zinc-900/90 to-zinc-950/90 border-2 border-cyan-500/70 rounded-xl flex items-center justify-between text-cyan-200 text-xs sm:text-sm font-bold shadow-xl shadow-cyan-950/40 animate-fadeIn shrink-0">
                   <div className="flex items-center gap-2.5">
-                    <div className={`p-1.5 rounded-lg shrink-0 ${diceRollResult.isCrit ? 'bg-amber-500/30 text-amber-300' : diceRollResult.isFumble ? 'bg-rose-500/30 text-rose-300' : 'bg-zinc-800 text-amber-400'}`}>
+                    <div className={`p-1.5 rounded-lg shrink-0 ${diceRollResult.isCrit ? 'bg-cyan-500/30 text-cyan-300' : diceRollResult.isFumble ? 'bg-rose-500/30 text-rose-300' : 'bg-zinc-800 text-cyan-400'}`}>
                       <Dices className="w-4 h-4" />
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-zinc-200">{diceRollResult.label}:</span>
-                        <span className="font-mono text-amber-300 text-sm">{diceRollResult.total}</span>
-                        {diceRollResult.isCrit && <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-300 font-extrabold border border-amber-400/50">CRÍTICO!</span>}
+                        <span className="font-mono text-cyan-300 text-sm">{diceRollResult.total}</span>
+                        {diceRollResult.isCrit && <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-500/30 text-cyan-300 font-extrabold border border-cyan-400/50">CRÍTICO!</span>}
                         {diceRollResult.isFumble && <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-500/30 text-rose-300 font-extrabold border border-rose-500/50">FALHA CRÍTICA!</span>}
                       </div>
                       <div className="text-[11px] font-mono text-zinc-400 font-normal">
@@ -1401,7 +1401,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                       </div>
                       <p className="text-zinc-400">Nenhuma anotação registrada ainda nesta campanha.</p>
                       <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-                        Clique em <strong className="text-amber-400">Editor</strong> para redigir sua sessão ou insira uma ficha de monstro para começar.
+                        Clique em <strong className="text-cyan-400">Editor</strong> para redigir sua sessão ou insira uma ficha de monstro para começar.
                       </p>
                       <div className="pt-2 flex items-center justify-center gap-2">
                         <button
@@ -1409,13 +1409,13 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                           onClick={() => setEditorMode('edit')}
                           className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
                         >
-                          <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                          <Edit3 className="w-3.5 h-3.5 text-cyan-400" />
                           <span>Ir para o Editor</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => setIsInsertSheetModalOpen(true)}
-                          className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
                         >
                           <Skull className="w-3.5 h-3.5 text-rose-400" />
                           <span>Inserir Ficha / Bestiário</span>
@@ -1432,7 +1432,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
           {isFullScreen && (
             <div className="absolute bottom-3 right-5 pointer-events-none opacity-40 hover:opacity-100 transition-opacity flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900/90 border border-zinc-800 text-[10px] text-zinc-400 select-none">
               <span>Pressione</span>
-              <kbd className="font-mono bg-zinc-800 text-amber-300/90 px-1 rounded">Esc</kbd>
+              <kbd className="font-mono bg-zinc-800 text-cyan-300/90 px-1 rounded">Esc</kbd>
               <span>para sair da tela cheia</span>
             </div>
           )}
@@ -1448,7 +1448,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
         {/* Chat Header: Context indicator & Actions */}
         <div className="p-3 px-4 bg-zinc-900/70 border-b border-zinc-800/80 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+            <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shrink-0" />
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs font-semibold text-zinc-100">Copiloto do Mestre</span>
@@ -1457,10 +1457,10 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 </span>
                 <button
                   onClick={() => setShowSystemRulesInfo(true)}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/50 hover:bg-amber-900/50 text-amber-300 border border-amber-500/20 font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950/50 hover:bg-cyan-900/50 text-cyan-300 border border-cyan-500/20 font-medium flex items-center gap-1 transition-colors cursor-pointer"
                   title={`Modelo de regras: ${activeSystemKnowledge.name}\n${activeSystemKnowledge.diceConvention}\nClique para ver detalhes.`}
                 >
-                  <Dices className="w-3 h-3 text-amber-400" />
+                  <Dices className="w-3 h-3 text-cyan-400" />
                   <span>{activeSystemKnowledge.shortName}</span>
                 </button>
               </div>
@@ -1505,11 +1505,11 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
         {/* Message Stream History */}
         <div
           ref={chatScrollRef}
-          className="flex-1 overflow-y-auto p-4 space-y-4 text-xs sm:text-sm selection:bg-amber-500/20"
+          className="flex-1 overflow-y-auto p-4 space-y-4 text-xs sm:text-sm selection:bg-cyan-500/20"
         >
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center px-4 py-6 text-zinc-500">
-              <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800/80 flex items-center justify-center mb-3 text-amber-500 shadow-inner">
+              <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800/80 flex items-center justify-center mb-3 text-cyan-500 shadow-inner">
                 <Sparkles className="w-6 h-6" />
               </div>
               <h3 className="text-sm font-semibold text-zinc-200 mb-1">
@@ -1517,7 +1517,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               </h3>
               <p className="text-xs text-zinc-400 max-w-xs leading-relaxed mb-3">
                 Pergunte sobre regras, combate, perícias ou ganchos. O Copiloto conhece as regras oficiais de{' '}
-                <span className="text-amber-400 font-medium">{activeSystemKnowledge.name}</span> e suas anotações de{' '}
+                <span className="text-cyan-400 font-medium">{activeSystemKnowledge.name}</span> e suas anotações de{' '}
                 <span className="text-zinc-200 font-medium">"{title}"</span>.
               </p>
 
@@ -1525,10 +1525,10 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               <div className="w-full max-w-xs bg-zinc-900/80 border border-zinc-800/90 rounded-xl p-3 text-left space-y-1.5 mb-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
-                    <Dices className="w-3.5 h-3.5 text-amber-400" />
+                    <Dices className="w-3.5 h-3.5 text-cyan-400" />
                     {activeSystemKnowledge.shortName}
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/40 text-amber-300 border border-amber-500/30">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950/40 text-cyan-300 border border-cyan-500/30">
                     {activeSystemKnowledge.badge}
                   </span>
                 </div>
@@ -1552,7 +1552,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                   <div
                     className={`max-w-[92%] rounded-2xl px-4 py-3 shadow-xs ${
                       isUser
-                        ? 'bg-amber-950/40 text-amber-100 border border-amber-500/30 rounded-br-xs'
+                        ? 'bg-cyan-950/40 text-cyan-100 border border-cyan-500/30 rounded-br-xs'
                         : 'bg-zinc-900/90 text-zinc-200 border border-zinc-800 rounded-bl-xs'
                     }`}
                   >
@@ -1564,9 +1564,9 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                           <MarkdownRenderer content={msg.content} />
                         ) : msg.isStreaming ? (
                           <div className="flex items-center gap-1.5 text-zinc-400 text-xs italic py-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce" />
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce delay-100" />
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce delay-200" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-bounce" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-bounce delay-100" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-bounce delay-200" />
                             <span>Canalizando sabedoria...</span>
                           </div>
                         ) : null}
@@ -1576,7 +1576,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                           <div className="pt-2 mt-2 border-t border-zinc-800/80 flex items-center justify-end gap-2 text-[11px] text-zinc-400">
                             <button
                               onClick={() => handleInsertIntoNotes(msg.content, msg.id)}
-                              className="flex items-center gap-1 hover:text-amber-400 transition-colors px-1.5 py-0.5 rounded hover:bg-zinc-800"
+                              className="flex items-center gap-1 hover:text-cyan-400 transition-colors px-1.5 py-0.5 rounded hover:bg-zinc-800"
                               title="Inserir texto diretamente no seu caderno"
                             >
                               {insertedMessageId === msg.id ? (
@@ -1639,9 +1639,9 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                   key={idx}
                   onClick={() => handleSendMessage(qp.prompt)}
                   disabled={isStreaming}
-                  className="shrink-0 flex items-center gap-1 px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 active:scale-95 border border-zinc-800 hover:border-amber-500/40 rounded-full text-[11px] text-zinc-300 hover:text-amber-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="shrink-0 flex items-center gap-1 px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 active:scale-95 border border-zinc-800 hover:border-cyan-500/40 rounded-full text-[11px] text-zinc-300 hover:text-cyan-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <IconComp className="w-3 h-3 text-amber-500" />
+                  <IconComp className="w-3 h-3 text-cyan-500" />
                   <span>{qp.label}</span>
                 </button>
               );
@@ -1651,7 +1651,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
 
         {/* Chat Input Box */}
         <div className="p-3 bg-zinc-950 border-t border-zinc-800/80">
-          <div className="relative bg-zinc-900 border border-zinc-800 focus-within:border-amber-500/60 rounded-xl p-2 transition-colors">
+          <div className="relative bg-zinc-900 border border-zinc-800 focus-within:border-cyan-500/60 rounded-xl p-2 transition-colors">
             <textarea
               ref={textareaRef}
               rows={1}
@@ -1678,7 +1678,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                   <button
                     onClick={() => handleSendMessage()}
                     disabled={!inputPrompt.trim()}
-                    className="p-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:hover:bg-amber-500 text-zinc-950 font-bold rounded-lg text-xs transition-colors"
+                    className="p-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:opacity-40 disabled:hover:bg-cyan-500 text-zinc-950 font-bold rounded-lg text-xs transition-colors"
                     title="Enviar pergunta"
                   >
                     <Send className="w-3.5 h-3.5" />
@@ -1697,7 +1697,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
@@ -1728,7 +1728,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 placeholder="ex: As Areias de Al-Qadim, Sombras de Arton, O Caso Blackwood"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-amber-500/60"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500/60"
                 autoFocus
               />
             </div>
@@ -1737,12 +1737,12 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
             <div>
               <label className="block text-xs font-medium text-zinc-300 mb-1 flex items-center justify-between">
                 <span>Sistema de RPG</span>
-                <span className="text-[10px] text-amber-400/90 font-mono">IA adaptada às regras</span>
+                <span className="text-[10px] text-cyan-400/90 font-mono">IA adaptada às regras</span>
               </label>
               <select
                 value={selectedSystemId}
                 onChange={(e) => setSelectedSystemId(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-amber-300 font-medium focus:outline-none focus:border-amber-500/60 cursor-pointer"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-cyan-300 font-medium focus:outline-none focus:border-cyan-500/60 cursor-pointer"
               >
                 {POPULAR_SYSTEM_GROUPS.map((group) => (
                   <optgroup key={group.group} label={group.group} className="bg-zinc-900 text-zinc-300 font-semibold">
@@ -1753,7 +1753,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                     ))}
                   </optgroup>
                 ))}
-                <option value="custom" className="bg-zinc-950 text-amber-400 font-semibold">
+                <option value="custom" className="bg-zinc-950 text-cyan-400 font-semibold">
                   Outro Sistema / Sistema Próprio...
                 </option>
               </select>
@@ -1770,7 +1770,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                   placeholder="ex: Alien RPG, Blades in the Dark, Numenera..."
                   value={customSystemText}
                   onChange={(e) => setCustomSystemText(e.target.value)}
-                  className="w-full bg-zinc-950 border border-amber-500/40 rounded-lg px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-amber-500"
+                  className="w-full bg-zinc-950 border border-cyan-500/40 rounded-lg px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-cyan-500"
                   autoFocus
                 />
               </div>
@@ -1787,10 +1787,10 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 <div className="bg-zinc-950/90 border border-zinc-800/90 rounded-xl p-3 text-xs space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-zinc-200 flex items-center gap-1.5">
-                      <Dices className="w-3.5 h-3.5 text-amber-400" />
+                      <Dices className="w-3.5 h-3.5 text-cyan-400" />
                       {previewKnowledge.shortName}
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950/40 border border-amber-500/30 text-amber-300">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950/40 border border-cyan-500/30 text-cyan-300">
                       {previewKnowledge.badge}
                     </span>
                   </div>
@@ -1833,7 +1833,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                   }
                 }}
                 disabled={!newTitle.trim()}
-                className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-zinc-950 font-bold rounded-lg text-xs transition-colors"
+                className="px-4 py-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:opacity-40 text-zinc-950 font-bold rounded-lg text-xs transition-colors"
               >
                 Criar Campanha
               </button>
@@ -1848,12 +1848,12 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
                   <Dices className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-zinc-100">{activeSystemKnowledge.name}</h3>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-950/40 text-amber-300 border border-amber-500/30">
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-950/40 text-cyan-300 border border-cyan-500/30">
                     {activeSystemKnowledge.badge}
                   </span>
                 </div>
@@ -1868,14 +1868,14 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
 
             <div className="space-y-3 text-xs">
               <div className="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800 space-y-1">
-                <div className="font-semibold text-amber-300 text-[11px] uppercase tracking-wider">
+                <div className="font-semibold text-cyan-300 text-[11px] uppercase tracking-wider">
                   Mecânica de Rolagem e Resolução
                 </div>
                 <p className="text-zinc-300 text-xs leading-relaxed">{activeSystemKnowledge.diceConvention}</p>
               </div>
 
               <div className="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800 space-y-1">
-                <div className="font-semibold text-amber-300 text-[11px] uppercase tracking-wider">
+                <div className="font-semibold text-cyan-300 text-[11px] uppercase tracking-wider">
                   Mecânicas Chave do Sistema
                 </div>
                 <p className="text-zinc-300 text-xs leading-relaxed">{activeSystemKnowledge.keyMechanics}</p>
@@ -1902,7 +1902,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                     textareaRef.current.focus();
                   }
                 }}
-                className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 hover:underline"
+                className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 hover:underline"
               >
                 <BookOpen className="w-3.5 h-3.5" />
                 <span>Perguntar sobre regras no chat</span>

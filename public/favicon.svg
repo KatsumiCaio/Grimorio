@@ -1,58 +1,84 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <defs>
-    <!-- Background Gradients -->
+    <!-- Solid Dark Gray Rounded Square Canvas -->
     <linearGradient id="bgPlate" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#1e2229"/>
-      <stop offset="50%" stop-color="#12151b"/>
-      <stop offset="100%" stop-color="#0a0c10"/>
+      <stop offset="0%" stop-color="#1b1f28"/>
+      <stop offset="50%" stop-color="#13161e"/>
+      <stop offset="100%" stop-color="#0c0e14"/>
     </linearGradient>
 
-    <linearGradient id="bookCover" x1="60" y1="60" x2="452" y2="452" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#1a1e27"/>
-      <stop offset="100%" stop-color="#0d1017"/>
+    <!-- Ancient Grimoire Charcoal Leather Cover -->
+    <linearGradient id="grimoireLeather" x1="56" y1="56" x2="456" y2="456" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#181c25"/>
+      <stop offset="40%" stop-color="#12151d"/>
+      <stop offset="100%" stop-color="#0a0c11"/>
     </linearGradient>
 
-    <!-- Metal Brackets -->
-    <linearGradient id="metalGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#64748b"/>
-      <stop offset="50%" stop-color="#334155"/>
-      <stop offset="100%" stop-color="#1e293b"/>
+    <!-- Embossed Grimoire Inlay & Corner Metal -->
+    <linearGradient id="cornerMetal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4b5563"/>
+      <stop offset="50%" stop-color="#374151"/>
+      <stop offset="100%" stop-color="#1f2937"/>
     </linearGradient>
 
-    <!-- Cyan Arcane Flame Gradient -->
-    <linearGradient id="cyanFlame" x1="256" y1="380" x2="256" y2="90" gradientUnits="userSpaceOnUse">
+    <!-- Vibrant Arcane Cyan & Blue Flame Gradients -->
+    <linearGradient id="flameCore" x1="256" y1="360" x2="256" y2="100" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#0284c7"/>
-      <stop offset="35%" stop-color="#0284c7"/>
-      <stop offset="65%" stop-color="#00d2ff"/>
-      <stop offset="85%" stop-color="#38bdf8"/>
-      <stop offset="100%" stop-color="#e0f2fe"/>
+      <stop offset="30%" stop-color="#0ea5e9"/>
+      <stop offset="65%" stop-color="#00e5ff"/>
+      <stop offset="85%" stop-color="#7dd3fc"/>
+      <stop offset="100%" stop-color="#f0f9ff"/>
     </linearGradient>
 
-    <!-- D20 Facets Gradients -->
-    <linearGradient id="d20FacetCenter" x1="256" y1="200" x2="256" y2="300" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#163861"/>
-      <stop offset="100%" stop-color="#0b1d36"/>
+    <linearGradient id="flameWingLeft" x1="160" y1="320" x2="210" y2="130" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0369a1"/>
+      <stop offset="50%" stop-color="#00d2ff"/>
+      <stop offset="100%" stop-color="#bae6fd"/>
     </linearGradient>
 
-    <linearGradient id="d20FacetTop" x1="256" y1="160" x2="256" y2="210" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#1e4e85"/>
-      <stop offset="100%" stop-color="#102b4d"/>
+    <linearGradient id="flameWingRight" x1="352" y1="320" x2="302" y2="130" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0369a1"/>
+      <stop offset="50%" stop-color="#00d2ff"/>
+      <stop offset="100%" stop-color="#bae6fd"/>
     </linearGradient>
 
-    <linearGradient id="d20FacetSide1" x1="170" y1="200" x2="240" y2="280" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#122d4f"/>
-      <stop offset="100%" stop-color="#081526"/>
-    </linearGradient>
-
-    <linearGradient id="d20FacetSide2" x1="340" y1="200" x2="270" y2="280" gradientUnits="userSpaceOnUse">
+    <!-- D20 Facet Gradients (Bold Flat Shading with Dark Arcane Tones) -->
+    <linearGradient id="facetCenter" x1="256" y1="200" x2="256" y2="284" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#15365e"/>
-      <stop offset="100%" stop-color="#0a1a30"/>
+      <stop offset="100%" stop-color="#0a1b32"/>
     </linearGradient>
 
-    <!-- Glowing Filters -->
-    <filter id="cyanGlow" x="-30%" y="-30%" width="160%" height="160%">
+    <linearGradient id="facetTop" x1="256" y1="158" x2="256" y2="201" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1e4d82"/>
+      <stop offset="100%" stop-color="#0f2947"/>
+    </linearGradient>
+
+    <linearGradient id="facetSideL" x1="168" y1="208" x2="256" y2="284" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#102a4a"/>
+      <stop offset="100%" stop-color="#071526"/>
+    </linearGradient>
+
+    <linearGradient id="facetSideR" x1="344" y1="208" x2="256" y2="284" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#122f54"/>
+      <stop offset="100%" stop-color="#08182b"/>
+    </linearGradient>
+
+    <linearGradient id="facetBottom" x1="256" y1="284" x2="256" y2="354" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#163760"/>
+      <stop offset="100%" stop-color="#09182a"/>
+    </linearGradient>
+
+    <!-- Radial Arcane Glow Filters -->
+    <radialGradient id="arcaneAura" cx="256" cy="256" r="160" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00e5ff" stop-opacity="0.28"/>
+      <stop offset="45%" stop-color="#0284c7" stop-opacity="0.14"/>
+      <stop offset="75%" stop-color="#0369a1" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+
+    <filter id="cyanGlowSoft" x="-40%" y="-40%" width="180%" height="180%">
       <feGaussianBlur stdDeviation="8" result="blur1"/>
-      <feGaussianBlur stdDeviation="18" result="blur2"/>
+      <feGaussianBlur stdDeviation="16" result="blur2"/>
       <feMerge>
         <feMergeNode in="blur2"/>
         <feMergeNode in="blur1"/>
@@ -60,155 +86,202 @@
       </feMerge>
     </filter>
 
-    <filter id="intenseGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="12" result="blur"/>
+    <filter id="intenseBloom" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="sharpGlow"/>
+      <feGaussianBlur stdDeviation="12" result="softGlow"/>
       <feMerge>
-        <feMergeNode in="blur"/>
+        <feMergeNode in="softGlow"/>
+        <feMergeNode in="sharpGlow"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
   </defs>
 
-  <!-- App Icon Rounded Squircle Base -->
+  <!-- ================= 1. SOLID DARK GRAY ROUNDED SQUARE BACKGROUND ================= -->
   <rect width="512" height="512" rx="112" fill="url(#bgPlate)"/>
-  <rect x="4" y="4" width="504" height="504" rx="108" fill="none" stroke="#2a303c" stroke-width="3" opacity="0.6"/>
+  <rect x="4" y="4" width="504" height="504" rx="108" fill="none" stroke="#2a3242" stroke-width="2.5" opacity="0.6"/>
 
-  <!-- Leather Book Cover Base -->
-  <rect x="52" y="52" width="408" height="408" rx="28" fill="url(#bookCover)" stroke="#0e131b" stroke-width="6"/>
-  <!-- Book Spine Details on Left -->
-  <rect x="48" y="52" width="24" height="408" rx="12" fill="#151922" stroke="#090c12" stroke-width="4"/>
-  <line x1="48" y1="130" x2="72" y2="130" stroke="#2a3242" stroke-width="5" stroke-linecap="round"/>
-  <line x1="48" y1="256" x2="72" y2="256" stroke="#2a3242" stroke-width="5" stroke-linecap="round"/>
-  <line x1="48" y1="382" x2="72" y2="382" stroke="#2a3242" stroke-width="5" stroke-linecap="round"/>
+  <!-- ================= 2. ANCIENT MAGICAL GRIMOIRE COVER (TOP-DOWN FLAT VIEW) ================= -->
+  <!-- Centered Leather Cover Base -->
+  <rect x="52" y="52" width="408" height="408" rx="28" fill="url(#grimoireLeather)" stroke="#090c12" stroke-width="5"/>
 
-  <!-- Outer Stitched Border -->
-  <rect x="84" y="68" width="360" height="376" rx="18" fill="none" stroke="#232b3a" stroke-width="2" stroke-dasharray="6 6"/>
+  <!-- Embossed Outer Stitched Border -->
+  <rect x="74" y="74" width="364" height="364" rx="18" fill="none" stroke="#252e3d" stroke-width="2.5" stroke-dasharray="8 6"/>
 
-  <!-- Inner Ornate Frame -->
-  <rect x="96" y="80" width="336" height="352" rx="14" fill="#0f131a" stroke="#2c3649" stroke-width="3"/>
+  <!-- Inner Embossed Recessed Frame -->
+  <rect x="88" y="88" width="336" height="336" rx="14" fill="#0d1017" stroke="#1d2636" stroke-width="2.5"/>
 
-  <!-- Corner Filigree Flourishes -->
-  <path d="M 112 140 C 112 112 112 112 140 112 C 160 112 166 126 150 134 C 134 142 142 160 134 150" stroke="#3d4b63" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M 416 140 C 416 112 416 112 388 112 C 368 112 362 126 378 134 C 394 142 386 160 394 150" stroke="#3d4b63" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M 112 372 C 112 400 112 400 140 400 C 160 400 166 386 150 378 C 134 370 142 352 134 362" stroke="#3d4b63" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M 416 372 C 416 400 416 400 388 400 C 368 400 362 386 378 378 C 394 370 386 352 394 362" stroke="#3d4b63" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- Symmetrical Four Corner Metal Brackets (Embossed Game Icon Fittings) -->
+  <!-- Top-Left Corner Bracket -->
+  <path d="M 88 138 L 88 102 C 88 94 94 88 102 88 L 138 88 L 122 104 L 104 104 L 104 122 Z" fill="url(#cornerMetal)" stroke="#111827" stroke-width="2"/>
+  <circle cx="100" cy="100" r="3.5" fill="#0f172a" stroke="#475569" stroke-width="1.5"/>
 
-  <!-- Runic Circle Bands -->
-  <circle cx="264" cy="256" r="148" fill="none" stroke="#1d2636" stroke-width="3"/>
-  <circle cx="264" cy="256" r="136" fill="#0b0e14" stroke="#273449" stroke-width="2"/>
-  <circle cx="264" cy="256" r="112" fill="none" stroke="#1d2636" stroke-width="2" stroke-dasharray="3 4"/>
+  <!-- Top-Right Corner Bracket -->
+  <path d="M 424 138 L 424 102 C 424 94 418 88 410 88 L 374 88 L 390 104 L 408 104 L 408 122 Z" fill="url(#cornerMetal)" stroke="#111827" stroke-width="2"/>
+  <circle cx="412" cy="100" r="3.5" fill="#0f172a" stroke="#475569" stroke-width="1.5"/>
 
-  <!-- Inscribed Nordic Runes in Circle (ᚠ ᛗ ᚱ ᚾ ᛉ ᛊ ᛞ ᚦ ᚱ ᛗ ᛉ ᚱ ᚾ ᛏ) -->
-  <g fill="#475569" font-family="monospace" font-size="14" font-weight="bold" text-anchor="middle" opacity="0.85">
-    <text transform="translate(264,132) rotate(0)">ᚠ</text>
-    <text transform="translate(304,138) rotate(22)">ᛗ</text>
-    <text transform="translate(340,158) rotate(45)">ᚱ</text>
-    <text transform="translate(366,188) rotate(68)">ᚾ</text>
-    <text transform="translate(378,226) rotate(90)">ᛉ</text>
-    <text transform="translate(374,268) rotate(112)">ᛊ</text>
-    <text transform="translate(356,306) rotate(135)">ᛞ</text>
-    <text transform="translate(324,336) rotate(158)">ᚦ</text>
-    <text transform="translate(284,352) rotate(180)">ᛏ</text>
-    <text transform="translate(244,352) rotate(202)">ᛒ</text>
-    <text transform="translate(204,336) rotate(225)">ᛖ</text>
-    <text transform="translate(172,306) rotate(248)">ᛗ</text>
-    <text transform="translate(154,268) rotate(270)">ᛚ</text>
-    <text transform="translate(150,226) rotate(292)">ᛜ</text>
-    <text transform="translate(162,188) rotate(315)">ᛞ</text>
-    <text transform="translate(188,158) rotate(338)">ᛟ</text>
-    <text transform="translate(224,138) rotate(355)">ᚪ</text>
+  <!-- Bottom-Left Corner Bracket -->
+  <path d="M 88 374 L 88 410 C 88 418 94 424 102 424 L 138 424 L 122 408 L 104 408 L 104 390 Z" fill="url(#cornerMetal)" stroke="#111827" stroke-width="2"/>
+  <circle cx="100" cy="412" r="3.5" fill="#0f172a" stroke="#475569" stroke-width="1.5"/>
+
+  <!-- Bottom-Right Corner Bracket -->
+  <path d="M 424 374 L 424 410 C 424 418 418 424 410 424 L 374 424 L 390 408 L 408 408 L 408 390 Z" fill="url(#cornerMetal)" stroke="#111827" stroke-width="2"/>
+  <circle cx="412" cy="412" r="3.5" fill="#0f172a" stroke="#475569" stroke-width="1.5"/>
+
+  <!-- Ornate Filigree Corner Accents -->
+  <path d="M 124 124 C 136 124 144 132 144 144" stroke="#2e3a4e" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M 388 124 C 376 124 368 132 368 144" stroke="#2e3a4e" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M 124 388 C 136 388 144 380 144 368" stroke="#2e3a4e" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M 388 388 C 376 388 368 380 368 368" stroke="#2e3a4e" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- ================= 3. SUBTLE EMBOSSED MYSTICAL RUNES IN A CIRCLE ================= -->
+  <!-- Outer Runic Ring Track -->
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#192231" stroke-width="2.5"/>
+  <circle cx="256" cy="256" r="136" fill="#090c12" stroke="#243043" stroke-width="2"/>
+  <circle cx="256" cy="256" r="114" fill="none" stroke="#18212e" stroke-width="1.8" stroke-dasharray="4 4"/>
+
+  <!-- Radial Arcane Glow Aura Casting over Grimoire -->
+  <circle cx="256" cy="256" r="140" fill="url(#arcaneAura)"/>
+
+  <!-- 24 Embossed Mystical Runes forming a perfect circle around the die -->
+  <g fill="#475569" font-family="monospace, sans-serif" font-size="13" font-weight="bold" text-anchor="middle" dominant-baseline="central" opacity="0.9">
+    <!-- North & Surrounding -->
+    <text transform="translate(256,125) rotate(0)">ᚠ</text>
+    <text transform="translate(289,129) rotate(15)">ᚢ</text>
+    <text transform="translate(320,142) rotate(30)">ᚦ</text>
+    <text transform="translate(346,163) rotate(45)">ᚨ</text>
+    <text transform="translate(367,190) rotate(60)">ᚱ</text>
+    <text transform="translate(380,222) rotate(75)">ᚲ</text>
+
+    <!-- East & Surrounding -->
+    <text transform="translate(385,256) rotate(90)">ᚷ</text>
+    <text transform="translate(380,290) rotate(105)">ᚹ</text>
+    <text transform="translate(367,322) rotate(120)">ᚺ</text>
+    <text transform="translate(346,349) rotate(135)">ᚾ</text>
+    <text transform="translate(320,370) rotate(150)">ᛁ</text>
+    <text transform="translate(289,383) rotate(165)">ᛃ</text>
+
+    <!-- South & Surrounding -->
+    <text transform="translate(256,387) rotate(180)">ᛇ</text>
+    <text transform="translate(223,383) rotate(195)">ᛈ</text>
+    <text transform="translate(192,370) rotate(210)">ᛉ</text>
+    <text transform="translate(166,349) rotate(225)">ᛊ</text>
+    <text transform="translate(145,322) rotate(240)">ᛏ</text>
+    <text transform="translate(132,290) rotate(255)">ᛒ</text>
+
+    <!-- West & Surrounding -->
+    <text transform="translate(127,256) rotate(270)">ᛖ</text>
+    <text transform="translate(132,222) rotate(285)">ᛗ</text>
+    <text transform="translate(145,190) rotate(300)">ᛚ</text>
+    <text transform="translate(166,163) rotate(315)">ᛜ</text>
+    <text transform="translate(192,142) rotate(330)">ᛞ</text>
+    <text transform="translate(223,129) rotate(345)">ᛟ</text>
   </g>
 
-  <!-- Cyan Arcane Fire Glow & Flames wrapping D20 -->
-  <!-- Outer Glow Halo -->
-  <circle cx="264" cy="256" r="88" fill="#00d2ff" opacity="0.16" filter="url(#cyanGlow)"/>
+  <!-- Cardinal Node Stars on Rune Ring -->
+  <circle cx="256" cy="114" r="2.5" fill="#38bdf8" filter="url(#intenseBloom)"/>
+  <circle cx="398" cy="256" r="2.5" fill="#38bdf8" filter="url(#intenseBloom)"/>
+  <circle cx="256" cy="398" r="2.5" fill="#38bdf8" filter="url(#intenseBloom)"/>
+  <circle cx="114" cy="256" r="2.5" fill="#38bdf8" filter="url(#intenseBloom)"/>
 
-  <!-- Stylized Cyan Fire Tongues -->
-  <g filter="url(#cyanGlow)">
-    <!-- Back flame mass -->
-    <path d="M 200 290 C 165 260 160 205 190 175 C 198 190 215 195 210 170 C 205 140 235 110 248 92 C 255 125 240 145 258 135 C 265 105 290 95 295 90 C 298 120 285 145 305 138 C 325 130 338 105 348 115 C 342 145 328 165 345 168 C 365 170 375 195 365 225 C 358 208 346 215 348 232 C 352 265 320 300 295 315 C 310 290 325 245 295 240 C 275 238 270 260 264 275 C 255 255 242 245 230 248 C 205 252 215 285 200 290 Z" fill="url(#cyanFlame)" opacity="0.95"/>
+  <!-- ================= 4. VIBRANT CYAN & BRIGHT ARCANE BLUE FLAMES ================= -->
+  <!-- Back Flame Silhouette & Ethereal Glow -->
+  <g filter="url(#cyanGlowSoft)">
+    <!-- Primary Top Flame Column -->
+    <path d="M 230 220 C 205 170 215 130 240 100 C 248 122 258 132 254 115 C 252 90 270 72 278 68 C 282 92 272 118 288 112 C 304 106 318 84 326 94 C 322 120 310 142 324 150 C 342 160 354 184 346 216 C 338 198 328 204 330 222 C 334 250 316 280 296 295 C 298 270 286 250 270 248 C 248 245 236 268 230 285 C 220 262 212 240 230 220 Z" fill="url(#flameCore)" opacity="0.95"/>
 
-    <!-- Left side flame tongue -->
-    <path d="M 172 265 C 150 245 152 210 170 190 C 168 205 180 212 186 210 C 175 228 180 248 192 258 Z" fill="#38bdf8"/>
+    <!-- Left Fire Tongue wrapping around die -->
+    <path d="M 190 280 C 158 250 156 200 182 165 C 180 185 192 196 198 192 C 186 215 194 240 210 255 Z" fill="url(#flameWingLeft)" opacity="0.9"/>
 
-    <!-- Right side flame tongue -->
-    <path d="M 356 265 C 378 245 376 210 358 190 C 360 205 348 212 342 210 C 353 228 348 248 336 258 Z" fill="#38bdf8"/>
+    <!-- Right Fire Tongue wrapping around die -->
+    <path d="M 322 280 C 354 250 356 200 330 165 C 332 185 320 196 314 192 C 326 215 318 240 302 255 Z" fill="url(#flameWingRight)" opacity="0.9"/>
 
-    <!-- Bottom anchoring wisps -->
-    <path d="M 230 340 C 250 362 264 368 266 366 C 270 355 260 345 250 340" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <!-- Bottom Swirling Arcane Fire Tails -->
+    <path d="M 218 320 C 235 348 252 358 256 356 C 262 344 250 332 238 324" stroke="#00e5ff" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+    <path d="M 294 320 C 277 348 260 358 256 356 C 250 344 262 332 274 324" stroke="#00e5ff" stroke-width="4.5" stroke-linecap="round" fill="none"/>
   </g>
 
-  <!-- Cyan Spark Embers -->
-  <circle cx="198" cy="142" r="3.5" fill="#e0f2fe" filter="url(#intenseGlow)"/>
-  <circle cx="336" cy="132" r="3" fill="#e0f2fe" filter="url(#intenseGlow)"/>
-  <circle cx="270" cy="80" r="4" fill="#e0f2fe" filter="url(#intenseGlow)"/>
-  <circle cx="160" cy="210" r="2.5" fill="#38bdf8"/>
-  <circle cx="368" cy="205" r="3" fill="#38bdf8"/>
-  <circle cx="295" cy="108" r="2" fill="#bae6fd"/>
+  <!-- Sharp Vector Flame Highlights & Core Licks -->
+  <g>
+    <!-- Inner White-Cyan Flame Spire -->
+    <path d="M 246 160 C 242 135 252 110 258 92 C 262 112 268 120 272 108 C 274 94 286 86 290 84 C 291 102 284 120 295 116 C 304 112 312 98 316 106 C 313 125 304 140 312 148 C 315 132 322 136 320 152 C 316 180 298 202 286 212" fill="#e0f2fe" opacity="0.85"/>
 
-  <!-- ==================== THE D20 DIE ==================== -->
-  <g id="d20-die">
-    <!-- D20 Outer Silhouette Base -->
-    <polygon points="264,164 348,212 348,308 264,356 180,308 180,212" fill="#081424" stroke="#00e5ff" stroke-width="4.5" stroke-linejoin="round" filter="url(#cyanGlow)"/>
+    <!-- Left Rim Flame -->
+    <path d="M 188 238 C 172 216 174 186 190 168 C 190 182 198 190 202 188 C 195 204 200 222 210 234 Z" fill="#38bdf8"/>
 
-    <!-- Surrounding Facets -->
-    <!-- Top triangular facet -->
-    <polygon points="264,164 220,208 308,208" fill="url(#d20FacetTop)" stroke="#0284c7" stroke-width="2"/>
-    <text x="264" y="195" fill="#38bdf8" font-size="16" font-family="sans-serif" font-weight="900" text-anchor="middle" dominant-baseline="central">18</text>
-
-    <!-- Upper left facet -->
-    <polygon points="264,164 180,212 220,208" fill="#0c203b" stroke="#0284c7" stroke-width="2"/>
-    <!-- Upper right facet -->
-    <polygon points="264,164 348,212 308,208" fill="#0e2442" stroke="#0284c7" stroke-width="2"/>
-    <text x="326" y="194" fill="#38bdf8" font-size="14" font-family="sans-serif" font-weight="bold" text-anchor="middle">4</text>
-
-    <!-- Middle Left Facet (holds "2") -->
-    <polygon points="180,212 220,208 220,304" fill="url(#d20FacetSide1)" stroke="#00d2ff" stroke-width="2"/>
-    <text x="202" y="244" fill="#38bdf8" font-size="20" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central">2</text>
-
-    <!-- Middle Right Facet (holds "14") -->
-    <polygon points="348,212 308,208 308,304" fill="url(#d20FacetSide2)" stroke="#00d2ff" stroke-width="2"/>
-    <text x="324" y="242" fill="#38bdf8" font-size="18" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central">14</text>
-
-    <!-- Far left edge facet -->
-    <polygon points="180,212 180,308 220,304" fill="#081729" stroke="#0284c7" stroke-width="2"/>
-    <text x="189" y="268" fill="#0284c7" font-size="13" font-family="sans-serif" font-weight="bold" text-anchor="middle" transform="rotate(-30 189 268)">12</text>
-
-    <!-- Far right edge facet -->
-    <polygon points="348,212 348,308 308,304" fill="#0a1d33" stroke="#0284c7" stroke-width="2"/>
-    <text x="338" y="268" fill="#0284c7" font-size="14" font-family="sans-serif" font-weight="bold" text-anchor="middle">9</text>
-
-    <!-- Bottom Center-Left Facet (holds "10") -->
-    <polygon points="220,304 264,356 180,308" fill="#0b1e36" stroke="#0284c7" stroke-width="2"/>
-    <text x="214" y="326" fill="#38bdf8" font-size="15" font-family="sans-serif" font-weight="bold" text-anchor="middle" transform="rotate(25 214 326)">10</text>
-
-    <!-- Bottom Center Facet (holds "8") -->
-    <polygon points="220,304 308,304 264,356" fill="#0e233d" stroke="#00d2ff" stroke-width="2"/>
-    <text x="264" y="324" fill="#38bdf8" font-size="20" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central">8</text>
-
-    <!-- Bottom Center-Right Facet (holds "16") -->
-    <polygon points="308,304 264,356 348,308" fill="#08172b" stroke="#0284c7" stroke-width="2"/>
-    <text x="314" y="326" fill="#38bdf8" font-size="15" font-family="sans-serif" font-weight="bold" text-anchor="middle" transform="rotate(-25 314 326)">16</text>
-
-    <!-- CENTRAL TRIANGULAR FACET - INSCRIBED "20" -->
-    <polygon points="264,208 308,304 220,304" fill="url(#d20FacetCenter)" stroke="#00e5ff" stroke-width="3"/>
-
-    <!-- Glowing Edges Inner Lines -->
-    <line x1="264" y1="208" x2="308" y2="304" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
-    <line x1="264" y1="208" x2="220" y2="304" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
-    <line x1="220" y1="304" x2="308" y2="304" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
-
-    <!-- The Radiant "20" Inscription -->
-    <text x="264" y="260" fill="#e0f2fe" font-size="34" font-family="sans-serif" font-weight="900" text-anchor="middle" dominant-baseline="central" letter-spacing="-1" filter="url(#intenseGlow)">20</text>
-    <text x="264" y="260" fill="#38bdf8" font-size="34" font-family="sans-serif" font-weight="900" text-anchor="middle" dominant-baseline="central" letter-spacing="-1">20</text>
+    <!-- Right Rim Flame -->
+    <path d="M 324 238 C 340 216 338 186 322 168 C 322 182 314 190 310 188 C 317 204 312 222 302 234 Z" fill="#38bdf8"/>
   </g>
 
-  <!-- Metal Corner Brackets (Steel / Slate with Rivets) -->
-  <!-- Top-Right Metal Bracket -->
-  <path d="M 390 52 L 444 52 C 454 52 460 58 460 68 L 460 122 L 430 92 L 416 106 L 416 88 L 398 88 L 412 74 Z" fill="url(#metalGrad)" stroke="#111827" stroke-width="3"/>
-  <circle cx="434" cy="78" r="4" fill="#0f172a" stroke="#475569" stroke-width="2"/>
+  <!-- Arcane Embers / Floating Cyan Sparks -->
+  <circle cx="192" cy="148" r="3.5" fill="#f0f9ff" filter="url(#intenseBloom)"/>
+  <circle cx="320" cy="138" r="3" fill="#f0f9ff" filter="url(#intenseBloom)"/>
+  <circle cx="262" cy="74" r="4" fill="#f0f9ff" filter="url(#intenseBloom)"/>
+  <circle cx="340" cy="98" r="2.5" fill="#38bdf8" filter="url(#intenseBloom)"/>
+  <circle cx="162" cy="204" r="2.5" fill="#00e5ff"/>
+  <circle cx="350" cy="204" r="3" fill="#00e5ff"/>
+  <circle cx="224" cy="106" r="2" fill="#bae6fd"/>
 
-  <!-- Bottom-Right Metal Bracket -->
-  <path d="M 460 390 L 460 444 C 460 454 454 460 444 460 L 390 460 L 412 438 L 398 424 L 416 424 L 416 406 L 430 420 Z" fill="url(#metalGrad)" stroke="#111827" stroke-width="3"/>
-  <circle cx="434" cy="434" r="4" fill="#0f172a" stroke="#475569" stroke-width="2"/>
+  <!-- ================= 5. THE BOLD 20-SIDED DIE (D20) IN DEAD CENTER ================= -->
+  <!-- Outer D20 Silhouette & Bright Cyan Contour -->
+  <g id="d20-isometric">
+    <!-- Geometric 20-sided die vertices centered at (256, 256):
+         Outer points: (256,158), (344,208), (344,304), (256,354), (168,304), (168,208)
+         Central front face triangle: (256,201), (304,284), (208,284) -> centroid exactly (256, 256)!
+    -->
+
+    <!-- Deep Midnight Base Plate -->
+    <polygon points="256,158 344,208 344,304 256,354 168,304 168,208" fill="#070e1a" stroke="#00e5ff" stroke-width="4.5" stroke-linejoin="round" filter="url(#cyanGlowSoft)"/>
+
+    <!-- Outer Facets with Bold Flat Shading & Clean Sharp Lines -->
+    <!-- Top Facet -->
+    <polygon points="256,158 256,201 344,208" fill="url(#facetTop)" stroke="#0ea5e9" stroke-width="2" stroke-linejoin="round"/>
+    <text x="286" y="190" fill="#38bdf8" font-size="14" font-family="sans-serif" font-weight="900" opacity="0.8">14</text>
+
+    <!-- Top-Left Facet -->
+    <polygon points="256,158 168,208 256,201" fill="#0c1f36" stroke="#0ea5e9" stroke-width="2" stroke-linejoin="round"/>
+    <text x="226" y="190" fill="#38bdf8" font-size="14" font-family="sans-serif" font-weight="900" opacity="0.8">2</text>
+
+    <!-- Far Upper-Left Facet -->
+    <polygon points="168,208 208,284 256,201" fill="url(#facetSideL)" stroke="#00e5ff" stroke-width="2" stroke-linejoin="round"/>
+    <text x="206" y="238" fill="#38bdf8" font-size="15" font-family="sans-serif" font-weight="900" opacity="0.85">12</text>
+
+    <!-- Far Lower-Left Facet -->
+    <polygon points="168,208 168,304 208,284" fill="#081524" stroke="#0284c7" stroke-width="2" stroke-linejoin="round"/>
+    <text x="178" y="266" fill="#0284c7" font-size="13" font-family="sans-serif" font-weight="bold" opacity="0.7">18</text>
+
+    <!-- Bottom-Left Facet -->
+    <polygon points="168,304 256,354 208,284" fill="#091829" stroke="#0284c7" stroke-width="2" stroke-linejoin="round"/>
+    <text x="208" y="324" fill="#38bdf8" font-size="14" font-family="sans-serif" font-weight="bold" opacity="0.75">4</text>
+
+    <!-- Bottom Center-Under Facet -->
+    <polygon points="208,284 256,354 304,284" fill="url(#facetBottom)" stroke="#00e5ff" stroke-width="2" stroke-linejoin="round"/>
+    <text x="256" y="324" fill="#38bdf8" font-size="18" font-family="sans-serif" font-weight="900" text-anchor="middle" dominant-baseline="central" opacity="0.9">8</text>
+
+    <!-- Bottom-Right Facet -->
+    <polygon points="304,284 256,354 344,304" fill="#071524" stroke="#0284c7" stroke-width="2" stroke-linejoin="round"/>
+    <text x="304" y="324" fill="#38bdf8" font-size="14" font-family="sans-serif" font-weight="bold" opacity="0.75">16</text>
+
+    <!-- Far Lower-Right Facet -->
+    <polygon points="344,208 344,304 304,284" fill="#0a1a2e" stroke="#0284c7" stroke-width="2" stroke-linejoin="round"/>
+    <text x="334" y="266" fill="#0284c7" font-size="13" font-family="sans-serif" font-weight="bold" opacity="0.7">6</text>
+
+    <!-- Far Upper-Right Facet -->
+    <polygon points="256,201 304,284 344,208" fill="url(#facetSideR)" stroke="#00e5ff" stroke-width="2" stroke-linejoin="round"/>
+    <text x="306" y="238" fill="#38bdf8" font-size="15" font-family="sans-serif" font-weight="900" opacity="0.85">10</text>
+
+    <!-- ================= CENTRAL FRONT FACE TRIANGLE (DEAD CENTER) ================= -->
+    <polygon points="256,201 304,284 208,284" fill="url(#facetCenter)" stroke="#00ffff" stroke-width="3.5" stroke-linejoin="round"/>
+
+    <!-- Radiant Inner Edge Glow -->
+    <line x1="256" y1="201" x2="304" y2="284" stroke="#7dd3fc" stroke-width="2" stroke-linecap="round"/>
+    <line x1="256" y1="201" x2="208" y2="284" stroke="#7dd3fc" stroke-width="2" stroke-linecap="round"/>
+    <line x1="208" y1="284" x2="304" y2="284" stroke="#7dd3fc" stroke-width="2" stroke-linecap="round"/>
+
+    <!-- THE BOLD "20" ON FRONT FACE (CENTERED AT X=256, Y=256) -->
+    <!-- Bloom Shadow under the number -->
+    <text x="256" y="258" fill="#00e5ff" font-size="38" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle" dominant-baseline="central" letter-spacing="-1.5" filter="url(#intenseBloom)">20</text>
+    <!-- Crisp High-Contrast Core Text -->
+    <text x="256" y="258" fill="#f0f9ff" font-size="38" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle" dominant-baseline="central" letter-spacing="-1.5">20</text>
+  </g>
 </svg>

@@ -159,7 +159,7 @@ export const Header: React.FC<HeaderProps> = ({
         >
           {syncStatus === 'syncing' ? (
             <>
-              <RefreshCw className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+              <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
               <span className="text-zinc-400">Sincronizando...</span>
             </>
           ) : syncStatus === 'offline' ? (

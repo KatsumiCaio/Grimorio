@@ -123,10 +123,10 @@ export const BestiaryView: React.FC<BestiaryViewProps> = ({
         {activeCampaign && (
           <div className="flex items-center gap-2 bg-zinc-950 px-3 py-1.5 rounded-xl border border-zinc-800 text-xs">
             <span className="text-zinc-500">Campanha Ativa:</span>
-            <span className="font-bold text-amber-300 truncate max-w-[140px]">
+            <span className="font-bold text-cyan-300 truncate max-w-[140px]">
               {activeCampaign.title}
             </span>
-            <span className="text-[10px] text-amber-400/80 px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/20 font-mono">
+            <span className="text-[10px] text-cyan-400/80 px-1.5 py-0.2 rounded bg-cyan-500/10 border border-cyan-500/20 font-mono">
               {activeCampaign.system}
             </span>
           </div>
@@ -319,7 +319,7 @@ export const BestiaryView: React.FC<BestiaryViewProps> = ({
                   type="button"
                   id="insert-monster-into-text-btn"
                   onClick={() => handleAdd(selectedMonster, true)}
-                  className="w-full sm:w-auto px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer hover:scale-[1.02]"
+                  className="w-full sm:w-auto px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer hover:scale-[1.02]"
                   title="Adicionar à campanha e abrir a escrita para inserir o card no texto"
                 >
                   <BookOpen className="w-4 h-4" />
@@ -332,7 +332,7 @@ export const BestiaryView: React.FC<BestiaryViewProps> = ({
             <div className="p-6 space-y-6">
               <div className="space-y-2">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-amber-400" />
+                  <Shield className="w-3.5 h-3.5 text-cyan-400" />
                   <span>Atributos do Sistema ({selectedMonster.system})</span>
                 </h4>
                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
@@ -344,7 +344,7 @@ export const BestiaryView: React.FC<BestiaryViewProps> = ({
                       <div className="text-[10px] text-zinc-400 font-bold uppercase">
                         {attr.key}
                       </div>
-                      <div className="text-sm font-bold text-amber-300 font-mono">
+                      <div className="text-sm font-bold text-cyan-300 font-mono">
                         {attr.value}
                       </div>
                     </div>
