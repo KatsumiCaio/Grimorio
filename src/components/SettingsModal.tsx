@@ -70,6 +70,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [copiedBackup, setCopiedBackup] = useState(false);
   const [copiedDomain, setCopiedDomain] = useState(false);
+  const [copiedConsoleUrl, setCopiedConsoleUrl] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [syncSuccessMessage, setSyncSuccessMessage] = useState<string | null>(null);
   const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
@@ -433,23 +434,61 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 )}
 
                 {authErrorInfo?.type === 'provider-disabled' && (
-                  <div className="bg-zinc-900/90 p-3 rounded-lg border border-zinc-800 text-[11px] space-y-2">
-                    <div className="font-medium text-zinc-200">Como habilitar o login Google no Firebase:</div>
-                    <ol className="list-decimal list-inside space-y-1 text-zinc-400 text-[11px]">
-                      <li>Acesse o Firebase Console do projeto <strong className="text-zinc-200">{FIREBASE_PROJECT_ID}</strong>.</li>
-                      <li>Vá em <strong className="text-zinc-300">Authentication &gt; Sign-in method</strong>.</li>
-                      <li>Ative o provedor <strong className="text-cyan-400">Google</strong> e salve.</li>
+                  <div className="bg-zinc-900/90 p-3.5 rounded-lg border border-zinc-800 text-[11px] space-y-2.5">
+                    <div className="font-semibold text-zinc-200 flex items-center gap-1.5">
+                      <span>Passo a Passo para Ativar o Login Google:</span>
+                    </div>
+                    <ol className="list-decimal list-inside space-y-1.5 text-zinc-300 text-[11px] leading-relaxed">
+                      <li>
+                        Acesse o Firebase Console do projeto <strong className="text-cyan-300 font-mono">{FIREBASE_PROJECT_ID}</strong>.
+                      </li>
+                      <li>
+                        Vá em <strong className="text-zinc-200">Authentication &gt; Sign-in method</strong>.
+                      </li>
+                      <li>
+                        Clique no provedor <strong className="text-cyan-400">Google</strong> e marque a chave <strong className="text-zinc-200">Habilitar</strong> (Enable).
+                      </li>
+                      <li>
+                        Selecione o <strong className="text-zinc-200">E-mail de suporte do projeto</strong> (obrigatório pelo Firebase) e clique em <strong className="text-cyan-300">Salvar</strong>.
+                      </li>
+                      <li>
+                        Na aba <strong className="text-zinc-200">Settings &gt; Authorized domains</strong>, verifique se o domínio deste app (<code className="text-cyan-400 font-mono text-[10px]">{currentHostname || 'seu-dominio'}</code>) está adicionado.
+                      </li>
                     </ol>
-                    <div className="pt-1">
+
+                    <div className="pt-2 flex flex-wrap items-center gap-2 border-t border-zinc-800/80">
                       <a
                         href={FIREBASE_CONSOLE_AUTH_URL}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-medium transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-semibold text-xs transition-colors shadow-sm"
                       >
-                        <span>Abrir Métodos de Login no Firebase</span>
-                        <ExternalLink className="w-3 h-3" />
+                        <span>Abrir Firebase Console (Sign-in method)</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
                       </a>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(FIREBASE_CONSOLE_AUTH_URL);
+                          setCopiedConsoleUrl(true);
+                          setTimeout(() => setCopiedConsoleUrl(false), 2000);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs transition-colors cursor-pointer"
+                      >
+                        {copiedConsoleUrl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copiedConsoleUrl ? 'Link Copiado!' : 'Copiar Link'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isLoggingIn}
+                        onClick={handleGoogleAuth}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-cyan-300 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isLoggingIn ? 'animate-spin' : ''}`} />
+                        <span>{isLoggingIn ? 'Conectando...' : 'Testar Conexão Novamente'}</span>
+                      </button>
                     </div>
                   </div>
                 )}

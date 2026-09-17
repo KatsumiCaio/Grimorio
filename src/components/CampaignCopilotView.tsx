@@ -29,7 +29,9 @@ import {
   Cloud,
   Database,
   Skull,
+  FileText,
 } from 'lucide-react';
+import { FloatingDiceWidget, CampaignRollResult } from './FloatingDiceWidget';
 import { Campaign, CharacterSheet, BestiaryMonster, CharacterType } from '../types';
 import { useGeminiChat } from '../hooks/useGeminiChat';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -101,9 +103,11 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     label: string;
     total: number;
     detail: string;
+    rolls?: number[];
     isCrit?: boolean;
     isFumble?: boolean;
   } | null>(null);
+  const [copiedRollFeedback, setCopiedRollFeedback] = useState(false);
 
   const [notes, setNotes] = useState(activeCampaign?.notes || '');
   const [system, setSystem] = useState(activeCampaign?.system || 'D&D 5e');
@@ -153,6 +157,36 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
       isCrit,
       isFumble,
     });
+  };
+
+  // Helper to insert roll result directly into notes
+  const handleInsertRollIntoNotes = (roll: { expression: string; detail: string; total: number; label: string }) => {
+    const insertText = `\n> 🎲 **Rolagem ${roll.label} (${roll.expression})**: ${roll.detail}\n`;
+    const textarea = document.getElementById('campaign-notes-textarea') as HTMLTextAreaElement;
+    if (textarea) {
+      const start = textarea.selectionStart ?? notes.length;
+      const end = textarea.selectionEnd ?? notes.length;
+      const newText = notes.substring(0, start) + insertText + notes.substring(end);
+      setNotes(newText);
+      onUpdateCampaign({ notes: newText, updatedAt: Date.now() });
+      setTimeout(() => {
+        textarea.focus();
+        const cursorAfter = start + insertText.length;
+        textarea.setSelectionRange(cursorAfter, cursorAfter);
+      }, 50);
+    } else {
+      const newText = `${notes.trimEnd()}${insertText}`;
+      setNotes(newText);
+      onUpdateCampaign({ notes: newText, updatedAt: Date.now() });
+    }
+  };
+
+  // Helper to send roll to Copilot chat
+  const handleSendRollToChat = (text: string) => {
+    setInputPrompt((prev) => (prev ? `${prev}\n${text}` : `${text} no sistema ${system}. Como isso se resolve?`));
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
   };
 
   // Sheet & Bestiary insertion and editing states
@@ -1169,6 +1203,80 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
             </div>
           )}
 
+          {/* Banner de Rolagem de Dados Ativo na Interface da Campanha */}
+          {diceRollResult && (
+            <div className="mx-4 my-2 p-2.5 sm:p-3 bg-gradient-to-r from-cyan-950/95 via-zinc-900/95 to-zinc-950/95 border-2 border-cyan-500/80 rounded-xl flex items-center justify-between text-cyan-200 text-xs sm:text-sm font-bold shadow-xl shadow-cyan-950/50 animate-in fade-in slide-in-from-top-2 duration-150 shrink-0 z-20">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`p-2 rounded-xl shrink-0 ${
+                    diceRollResult.isCrit
+                      ? 'bg-cyan-500/30 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.5)]'
+                      : diceRollResult.isFumble
+                      ? 'bg-rose-500/30 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.4)]'
+                      : 'bg-zinc-800 text-cyan-400'
+                  }`}
+                >
+                  <Dices className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                    <span className="text-zinc-200 font-bold">{diceRollResult.label}:</span>
+                    <span className="font-mono text-cyan-300 text-sm sm:text-base font-black">
+                      {diceRollResult.total}
+                    </span>
+                    {diceRollResult.isCrit && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/30 text-cyan-300 font-black border border-cyan-400/60 uppercase tracking-wider animate-pulse">
+                        ✨ CRÍTICO!
+                      </span>
+                    )}
+                    {diceRollResult.isFumble && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/30 text-rose-300 font-black border border-rose-500/60 uppercase tracking-wider">
+                        💀 FALHA CRÍTICA!
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] font-mono text-zinc-400 font-normal truncate mt-0.5">
+                    {diceRollResult.detail}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0 ml-2 sm:ml-4">
+                <button
+                  type="button"
+                  onClick={() => handleInsertRollIntoNotes(diceRollResult)}
+                  className="px-2.5 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Inserir esta rolagem nas notas da sessão"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Inserir na Nota</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`🎲 ${diceRollResult.label}: ${diceRollResult.detail}`);
+                    setCopiedRollFeedback(true);
+                    setTimeout(() => setCopiedRollFeedback(false), 2000);
+                  }}
+                  className="p-1.5 rounded-lg bg-zinc-850 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
+                  title="Copiar resultado"
+                >
+                  {copiedRollFeedback ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDiceRollResult(null)}
+                  className="text-zinc-500 hover:text-zinc-200 p-1.5 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer"
+                  title="Fechar resultado da rolagem"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex-1 overflow-hidden relative flex">
             {/* Editor Mode */}
             {(editorMode === 'edit' || editorMode === 'split') && (
@@ -1328,36 +1436,6 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 </div>
               </div>
 
-              {/* Toast de Rolagem de Dados de Fichas Incorporadas */}
-              {diceRollResult && (
-                <div className="mx-4 mt-3 p-3 bg-gradient-to-r from-cyan-950/90 via-zinc-900/90 to-zinc-950/90 border-2 border-cyan-500/70 rounded-xl flex items-center justify-between text-cyan-200 text-xs sm:text-sm font-bold shadow-xl shadow-cyan-950/40 animate-fadeIn shrink-0">
-                  <div className="flex items-center gap-2.5">
-                    <div className={`p-1.5 rounded-lg shrink-0 ${diceRollResult.isCrit ? 'bg-cyan-500/30 text-cyan-300' : diceRollResult.isFumble ? 'bg-rose-500/30 text-rose-300' : 'bg-zinc-800 text-cyan-400'}`}>
-                      <Dices className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-zinc-200">{diceRollResult.label}:</span>
-                        <span className="font-mono text-cyan-300 text-sm">{diceRollResult.total}</span>
-                        {diceRollResult.isCrit && <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-500/30 text-cyan-300 font-extrabold border border-cyan-400/50">CRÍTICO!</span>}
-                        {diceRollResult.isFumble && <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-500/30 text-rose-300 font-extrabold border border-rose-500/50">FALHA CRÍTICA!</span>}
-                      </div>
-                      <div className="text-[11px] font-mono text-zinc-400 font-normal">
-                        {diceRollResult.detail}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setDiceRollResult(null)}
-                    className="text-zinc-500 hover:text-zinc-200 p-1 cursor-pointer"
-                    title="Fechar notificação"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
               {/* Reader Body Canvas */}
               <div className={`flex-1 overflow-y-auto ${readerNarrow && editorMode === 'read' ? 'flex justify-center' : ''}`}>
                 <div className={`p-6 sm:p-10 ${readerNarrow && editorMode === 'read' ? 'max-w-3xl w-full' : 'w-full'}`}>
@@ -1430,12 +1508,43 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
 
           {/* Floating Esc helper badge in full screen mode */}
           {isFullScreen && (
-            <div className="absolute bottom-3 right-5 pointer-events-none opacity-40 hover:opacity-100 transition-opacity flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900/90 border border-zinc-800 text-[10px] text-zinc-400 select-none">
+            <div className="absolute bottom-3 left-5 pointer-events-none opacity-40 hover:opacity-100 transition-opacity flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900/90 border border-zinc-800 text-[10px] text-zinc-400 select-none">
               <span>Pressione</span>
               <kbd className="font-mono bg-zinc-800 text-cyan-300/90 px-1 rounded">Esc</kbd>
               <span>para sair da tela cheia</span>
             </div>
           )}
+
+          {/* Widget Flutuante de Rolagem de Dados (ex: 1d20, 2d6) */}
+          <FloatingDiceWidget
+            onRoll={(res: CampaignRollResult) => {
+              setDiceRollResult({
+                expression: res.expression,
+                label: res.label,
+                total: res.total,
+                detail: res.detail,
+                rolls: res.rolls,
+                isCrit: res.isCrit,
+                isFumble: res.isFumble,
+              });
+            }}
+            onInsertIntoNotes={(text: string) => {
+              const textarea = document.getElementById('campaign-notes-textarea') as HTMLTextAreaElement;
+              if (textarea) {
+                const start = textarea.selectionStart ?? notes.length;
+                const end = textarea.selectionEnd ?? notes.length;
+                const newText = notes.substring(0, start) + text + notes.substring(end);
+                setNotes(newText);
+                onUpdateCampaign({ notes: newText, updatedAt: Date.now() });
+              } else {
+                const newText = `${notes.trimEnd()}${text}`;
+                setNotes(newText);
+                onUpdateCampaign({ notes: newText, updatedAt: Date.now() });
+              }
+            }}
+            onSendToChat={handleSendRollToChat}
+            className="bottom-3 right-3 sm:bottom-4 sm:right-4"
+          />
           </div>
         </div>
       </div>
