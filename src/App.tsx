@@ -8,6 +8,7 @@ import { BestiaryView } from './components/BestiaryView';
 import { SettingsModal } from './components/SettingsModal';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { CampaignMenuModal } from './components/CampaignMenuModal';
+import { BottomNav } from './components/BottomNav';
 import type { User } from 'firebase/auth';
 import {
   signInWithGoogleAccount,
@@ -498,7 +499,7 @@ export default function App() {
       )}
 
       {/* Main App Body */}
-      <main className="flex-1 flex overflow-hidden">
+      <main className={`flex-1 flex overflow-hidden ${!isFullScreenNotes ? 'pb-14 md:pb-0' : ''}`}>
         {currentTab === 'campaign' ? (
           <CampaignCopilotView
             campaigns={campaigns}
@@ -564,6 +565,16 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Mobile Bottom Navigation Bar */}
+      {!isFullScreenNotes && (
+        <BottomNav
+          currentTab={currentTab}
+          onTabChange={handleTabChange}
+          characterCount={activeCampaignCharacterCount}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
+      )}
 
       {/* Campaign Menu & Management Modal */}
       <CampaignMenuModal

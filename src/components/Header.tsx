@@ -78,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             id="header-campaign-menu-btn"
             onClick={onOpenCampaignMenu}
-            className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-cyan-500/50 text-xs text-zinc-200 transition-all cursor-pointer group shadow-xs max-w-[170px] sm:max-w-[240px]"
+            className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-cyan-500/50 text-xs text-zinc-200 transition-all cursor-pointer group shadow-xs max-w-[125px] sm:max-w-[190px] md:max-w-[240px]"
             title="Abrir Menu de Campanhas (Escolher, criar ou apagar campanhas)"
           >
             <Scroll className="w-3.5 h-3.5 text-cyan-400 group-hover:rotate-6 transition-transform shrink-0" />
@@ -95,8 +95,8 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </div>
 
-      {/* Navigation Tabs */}
-      <nav className="flex items-center p-1 bg-zinc-900/90 border border-zinc-800 rounded-xl">
+      {/* Navigation Tabs (Desktop only - Mobile uses Bottom Navigation Bar) */}
+      <nav className="hidden md:flex items-center p-1 bg-zinc-900/90 border border-zinc-800 rounded-xl">
         <button
           id="tab-campaign-btn"
           onClick={() => onTabChange('campaign')}

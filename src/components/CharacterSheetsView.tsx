@@ -19,6 +19,7 @@ import {
   Skull,
   Crown,
   Sword,
+  ArrowLeft,
 } from 'lucide-react';
 import { CharacterSheet, CharacterType, AttributeItem, ResourceBar, AppSettings } from '../types';
 import { NewCharacterModal } from './NewCharacterModal';
@@ -74,6 +75,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
   }, [selectedCharacterId, activeCampaignId, campaignCharacters]);
   const [filterType, setFilterType] = useState<'ALL' | 'PJ' | 'NPC' | 'Monstro'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
   const [newAttributeKey, setNewAttributeKey] = useState('');
   const [newAttributeValue, setNewAttributeValue] = useState('');
   const [isAddingAttr, setIsAddingAttr] = useState(false);
@@ -128,6 +130,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
       id: generatedId,
     });
     setSelectedCharId(generatedId);
+    setMobileView('detail');
   };
 
   const handleApplyTemplate = (
@@ -278,7 +281,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
       {/* ========================================================================= */}
       {/* SIDEBAR: LISTA DE FICHAS (PJs & NPCs)                                     */}
       {/* ========================================================================= */}
-      <div className="w-full md:w-80 lg:w-96 border-r border-zinc-800/90 flex flex-col h-[40vh] md:h-full bg-zinc-950/90 shrink-0">
+      <div className={`w-full md:w-80 lg:w-96 border-r border-zinc-800/90 flex flex-col h-full bg-zinc-950/90 shrink-0 ${mobileView === 'list' ? 'flex' : 'hidden md:flex'}`}>
         {/* Sidebar Header */}
         <div className="p-3.5 border-b border-zinc-800/80 bg-zinc-900/50 space-y-2.5">
           <div className="flex items-center justify-between">
@@ -408,6 +411,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                   onClick={() => {
                     setSelectedCharId(char.id);
                     onSelectCharacter?.(char.id);
+                    setMobileView('detail');
                   }}
                   className={`p-2.5 rounded-xl border transition-all cursor-pointer group ${
                     isSelected
@@ -485,7 +489,24 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
       {/* ========================================================================= */}
       {/* PAINEL PRINCIPAL: DETALHES & EDIÇÃO DA FICHA                             */}
       {/* ========================================================================= */}
-      <div className="flex-1 flex flex-col h-[60vh] md:h-full overflow-y-auto bg-zinc-950">
+      <div className={`flex-1 flex flex-col h-full overflow-y-auto bg-zinc-950 ${mobileView === 'detail' ? 'flex' : 'hidden md:flex'}`}>
+        {/* Mobile Back to List Bar */}
+        <div className="md:hidden p-2.5 px-4 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between shrink-0 sticky top-0 z-20 shadow-sm backdrop-blur-xs">
+          <button
+            type="button"
+            onClick={() => setMobileView('list')}
+            className="flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 font-semibold py-1.5 px-3 rounded-lg bg-zinc-800 border border-zinc-700 active:scale-95 transition-all cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Lista de Fichas</span>
+          </button>
+          {selectedChar && (
+            <span className="text-xs text-zinc-300 font-medium truncate max-w-[170px]">
+              {selectedChar.name}
+            </span>
+          )}
+        </div>
+
         {!selectedChar ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-zinc-500">
             <User className="w-12 h-12 text-zinc-700 mb-3" />

@@ -14,6 +14,7 @@ import {
   Edit3,
   Dices,
   Sparkles,
+  ArrowLeft,
 } from 'lucide-react';
 import { BestiaryMonster, Campaign, CharacterSheet } from '../types';
 import { RPG_BESTIARY } from '../data/bestiary';
@@ -52,6 +53,7 @@ export const BestiaryView: React.FC<BestiaryViewProps> = ({
   const [selectedSystem, setSelectedSystem] = useState<string>(defaultSystem);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [mobileMode, setMobileMode] = useState<'list' | 'detail'>('list');
   const [selectedMonsterId, setSelectedMonsterId] = useState<string>(
     RPG_BESTIARY[0]?.id || ''
   );
@@ -183,7 +185,7 @@ export const BestiaryView: React.FC<BestiaryViewProps> = ({
       {/* Main Split Body: Monster List + Monster Detail */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Monster List Column */}
-        <div className="w-full md:w-80 lg:w-96 border-r border-zinc-800 bg-zinc-950/70 overflow-y-auto p-3 space-y-2 shrink-0">
+        <div className={`w-full md:w-80 lg:w-96 border-r border-zinc-800 bg-zinc-950/70 overflow-y-auto p-3 space-y-2 shrink-0 ${mobileMode === 'list' ? 'block' : 'hidden md:block'}`}>
           {filteredMonsters.length === 0 ? (
             <div className="py-16 text-center text-zinc-500 space-y-2">
               <Skull className="w-8 h-8 mx-auto opacity-30 text-zinc-600" />
@@ -206,7 +208,10 @@ export const BestiaryView: React.FC<BestiaryViewProps> = ({
               return (
                 <div
                   key={monster.id}
-                  onClick={() => setSelectedMonsterId(monster.id)}
+                  onClick={() => {
+                    setSelectedMonsterId(monster.id);
+                    setMobileMode('detail');
+                  }}
                   className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2.5 ${
                     isSelected
                       ? 'bg-zinc-900 border-rose-500/60 shadow-md ring-1 ring-rose-500/20'
@@ -257,7 +262,22 @@ export const BestiaryView: React.FC<BestiaryViewProps> = ({
 
         {/* Right: Detailed Monster Inspector */}
         {selectedMonster ? (
-          <div className="hidden md:flex flex-1 flex-col bg-zinc-950 overflow-y-auto">
+          <div className={`flex-1 flex-col bg-zinc-950 overflow-y-auto ${mobileMode === 'detail' ? 'flex' : 'hidden md:flex'}`}>
+            {/* Mobile Back to List Bar */}
+            <div className="md:hidden p-2.5 px-4 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between shrink-0 sticky top-0 z-20 shadow-sm backdrop-blur-xs">
+              <button
+                type="button"
+                onClick={() => setMobileMode('list')}
+                className="flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 font-semibold py-1.5 px-3 rounded-lg bg-zinc-800 border border-zinc-700 active:scale-95 transition-all cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Voltar ao Bestiário</span>
+              </button>
+              <span className="text-xs text-zinc-300 font-medium truncate max-w-[170px]">
+                {selectedMonster.name}
+              </span>
+            </div>
+
             {/* Monster Hero Header */}
             <div className="p-6 bg-gradient-to-b from-zinc-900 to-zinc-950 border-b border-zinc-800 flex flex-col sm:flex-row items-start justify-between gap-4">
               <div className="flex items-start gap-4">

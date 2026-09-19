@@ -115,6 +115,8 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [insertedMessageId, setInsertedMessageId] = useState<string | null>(null);
+  // Mobile responsive view tab: 'notes' or 'copilot'
+  const [mobileTab, setMobileTab] = useState<'notes' | 'copilot'>('notes');
 
   // Dice roll handler for interactive cards in reading mode
   const handleRollDice = (diceExpression: string, label: string) => {
@@ -493,6 +495,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     setNotes(newNotes);
     onUpdateCampaign({ notes: newNotes, updatedAt: Date.now() });
     setInsertedMessageId(msgId);
+    setMobileTab('notes');
     setTimeout(() => setInsertedMessageId(null), 2000);
   };
 
@@ -738,12 +741,55 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
 
   return (
     <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-zinc-950 text-zinc-100">
+      {/* Mobile Switcher Tab Bar: Anotações vs Copiloto */}
+      {!isFullScreen && (
+        <div className="md:hidden flex items-center bg-zinc-950 border-b border-zinc-800 p-1.5 shrink-0 z-20 gap-1.5 shadow-sm">
+          <button
+            type="button"
+            id="mobile-tab-notes-btn"
+            onClick={() => setMobileTab('notes')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              mobileTab === 'notes'
+                ? 'bg-zinc-850 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.2)] border border-cyan-500/40'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
+            }`}
+          >
+            <BookOpen className={`w-3.5 h-3.5 ${mobileTab === 'notes' ? 'text-cyan-400' : 'text-zinc-400'}`} />
+            <span>Anotações</span>
+            {notes.trim() && (
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+            )}
+          </button>
+          <button
+            type="button"
+            id="mobile-tab-copilot-btn"
+            onClick={() => setMobileTab('copilot')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer relative ${
+              mobileTab === 'copilot'
+                ? 'bg-zinc-850 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.2)] border border-cyan-500/40'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
+            }`}
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${mobileTab === 'copilot' ? 'text-cyan-400' : 'text-zinc-400'}`} />
+            <span>Copiloto IA</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-500/15 text-cyan-300 font-mono">
+              {activeSystemKnowledge.shortName}
+            </span>
+            {isStreaming && (
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+            )}
+          </button>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* LADO ESQUERDO: CADERNO / ANOTAÇÕES (OBSIDIAN-STYLE)                      */}
       {/* ========================================================================= */}
       <div
-        className={`flex-1 flex flex-col min-w-0 ${
-          isFullScreen ? 'w-full h-full' : 'border-r border-zinc-800/90 h-[50vh] md:h-full'
+        className={`flex-1 flex-col min-w-0 ${
+          isFullScreen
+            ? 'flex w-full h-full'
+            : `${mobileTab === 'notes' ? 'flex w-full h-full' : 'hidden'} md:flex md:border-r md:border-zinc-800/90 md:h-full`
         }`}
       >
         {/* Top bar do Caderno: Seletor de Campanha + Sistema + Modo Tela Cheia */}
@@ -1543,7 +1589,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               }
             }}
             onSendToChat={handleSendRollToChat}
-            className="bottom-3 right-3 sm:bottom-4 sm:right-4"
+            className="bottom-16 md:bottom-4 right-3 md:right-4"
           />
           </div>
         </div>
@@ -1553,7 +1599,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
       {/* LADO DIREITO: CHAT COM IA (COPILOTO GEMINI 2.5 FLASH)                     */}
       {/* ========================================================================= */}
       {!isFullScreen && (
-        <div className="w-full md:w-[420px] lg:w-[480px] flex flex-col h-[50vh] md:h-full bg-zinc-950 shrink-0">
+        <div className={`w-full md:w-[420px] lg:w-[480px] flex-col h-full bg-zinc-950 shrink-0 ${mobileTab === 'copilot' ? 'flex' : 'hidden'} md:flex`}>
         {/* Chat Header: Context indicator & Actions */}
         <div className="p-3 px-4 bg-zinc-900/70 border-b border-zinc-800/80 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
