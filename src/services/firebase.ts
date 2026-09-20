@@ -16,8 +16,8 @@ import {
   deleteDoc,
   onSnapshot,
   query,
-  where,
   getDocs,
+  getDocFromServer,
   writeBatch,
   orderBy,
   limit,
@@ -46,6 +46,74 @@ export const db: Firestore =
   firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
     ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
     : getFirestore(app);
+
+// Error Handling Specification conforming to Firebase Skill
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null
+): never {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo:
+        auth.currentUser?.providerData?.map((provider) => ({
+          providerId: provider.providerId,
+          email: provider.email,
+        })) || [],
+    },
+    operationType,
+    path,
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+// Test connection to Firestore on boot (as required by Firebase skill)
+export async function testFirestoreConnection(): Promise<boolean> {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.error('Please check your Firebase configuration.');
+      return false;
+    }
+    // If the server answered (even document not found), the connection is online and healthy
+    return true;
+  }
+}
 
 export interface FirebaseSyncStatus {
   isConnected: boolean;
@@ -93,7 +161,8 @@ export const parseFirebaseAuthError = (err: any): AuthErrorInfo => {
     return {
       code,
       title: 'Bloqueio de Pop-up no Visualizador (iFrame)',
-      message: 'A janela de autenticação do Google não respondeu ou foi impedida pelas políticas de segurança do visualizador embutido (iframe). Abra o Grimório em uma nova aba para fazer login com o Google.',
+      message:
+        'A janela de autenticação do Google não respondeu ou foi impedida pelas políticas de segurança do visualizador embutido (iframe). Abra o Grimório em uma nova aba para fazer login com o Google.',
       type: 'iframe',
     };
   }
@@ -120,7 +189,12 @@ export const parseFirebaseAuthError = (err: any): AuthErrorInfo => {
     };
   }
 
-  if (code === 'auth/configuration-not-found' || msg.includes('configuration-not-found') || code === 'auth/operation-not-allowed' || msg.includes('operation-not-allowed')) {
+  if (
+    code === 'auth/configuration-not-found' ||
+    msg.includes('configuration-not-found') ||
+    code === 'auth/operation-not-allowed' ||
+    msg.includes('operation-not-allowed')
+  ) {
     return {
       code: code || 'auth/operation-not-allowed',
       title: 'Provedor Google Não Habilitado no Firebase',
@@ -152,7 +226,8 @@ export const parseFirebaseAuthError = (err: any): AuthErrorInfo => {
     return {
       code,
       title: 'Tempo Limite Excedido',
-      message: 'A solicitação de login demorou muito para responder. Verifique sua conexão ou se janelas pop-up estão bloqueadas.',
+      message:
+        'A solicitação de login demorou muito para responder. Verifique sua conexão ou se janelas pop-up estão bloqueadas.',
       type: 'generic',
     };
   }
@@ -175,7 +250,6 @@ export const signInAnonymousUser = async (): Promise<User | null> => {
     const cred = await signInAnonymously(auth);
     return cred.user;
   } catch (err: any) {
-    // If anonymous auth is not enabled in user's Firebase console, safely fallback to offline
     console.warn('Firebase login anônimo não configurado (modo offline local ativo):', err?.code || err?.message);
     return null;
   }
@@ -199,7 +273,8 @@ export const signInWithGoogleAccount = async (): Promise<{
         if (inIframe) {
           reject({
             code: 'auth/iframe-timeout',
-            message: 'A janela de autenticação do Google não respondeu ou foi bloqueada pelo navegador no visualizador embutido (iframe).',
+            message:
+              'A janela de autenticação do Google não respondeu ou foi bloqueada pelo navegador no visualizador embutido (iframe).',
           });
         } else {
           reject({
@@ -215,8 +290,7 @@ export const signInWithGoogleAccount = async (): Promise<{
   } catch (err: any) {
     const structured = parseFirebaseAuthError(err);
     const isConfigErr =
-      structured.type === 'provider-disabled' ||
-      structured.type === 'unauthorized-domain';
+      structured.type === 'provider-disabled' || structured.type === 'unauthorized-domain';
     console.warn('Firebase autenticação aviso:', structured.message);
     return {
       user: null,
@@ -239,15 +313,14 @@ export const onAuthStatusChange = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
 };
 
-// Firestore Realtime Collections
-export const subscribeToUserCampaigns = (
-  userId: string,
+// Firestore Universal Realtime Campaigns (Accessible equally across all versions)
+export const subscribeToCampaigns = (
   onUpdate: (campaigns: Campaign[]) => void,
   onError?: (err: Error) => void
 ) => {
-  const q = query(collection(db, 'campaigns'), where('userId', '==', userId));
+  const campaignsCol = collection(db, 'campaigns');
   return onSnapshot(
-    q,
+    campaignsCol,
     (snapshot) => {
       const items: Campaign[] = [];
       snapshot.forEach((docSnap) => {
@@ -267,19 +340,32 @@ export const subscribeToUserCampaigns = (
     },
     (err) => {
       console.warn('Erro ao escutar campanhas no Firestore:', err);
-      onError?.(err);
+      try {
+        handleFirestoreError(err, OperationType.LIST, 'campaigns');
+      } catch (e: any) {
+        onError?.(e);
+      }
     }
   );
 };
 
-export const subscribeToUserCharacters = (
-  userId: string,
+// Backward-compatible alias
+export const subscribeToUserCampaigns = (
+  _userId: string,
+  onUpdate: (campaigns: Campaign[]) => void,
+  onError?: (err: Error) => void
+) => {
+  return subscribeToCampaigns(onUpdate, onError);
+};
+
+// Firestore Universal Realtime Characters (Accessible equally across all versions)
+export const subscribeToCharacters = (
   onUpdate: (characters: CharacterSheet[]) => void,
   onError?: (err: Error) => void
 ) => {
-  const q = query(collection(db, 'characters'), where('userId', '==', userId));
+  const charsCol = collection(db, 'characters');
   return onSnapshot(
-    q,
+    charsCol,
     (snapshot) => {
       const items: CharacterSheet[] = [];
       snapshot.forEach((docSnap) => {
@@ -304,77 +390,167 @@ export const subscribeToUserCharacters = (
     },
     (err) => {
       console.warn('Erro ao escutar personagens no Firestore:', err);
-      onError?.(err);
+      try {
+        handleFirestoreError(err, OperationType.LIST, 'characters');
+      } catch (e: any) {
+        onError?.(e);
+      }
     }
   );
 };
 
+// Backward-compatible alias
+export const subscribeToUserCharacters = (
+  _userId: string,
+  onUpdate: (characters: CharacterSheet[]) => void,
+  onError?: (err: Error) => void
+) => {
+  return subscribeToCharacters(onUpdate, onError);
+};
+
 // Firestore Mutations
 export const saveCampaignToFirestore = async (
-  userId: string,
-  campaign: Campaign
+  arg1: string | Campaign,
+  arg2?: Campaign | string
 ): Promise<void> => {
+  const campaign: Campaign =
+    typeof arg1 === 'object' ? arg1 : (arg2 as Campaign);
+  const userId: string =
+    typeof arg1 === 'string'
+      ? arg1
+      : typeof arg2 === 'string'
+      ? arg2
+      : auth.currentUser?.uid || 'shared';
+
+  if (!campaign || !campaign.id) return;
+
+  const path = `campaigns/${campaign.id}`;
   const docRef = doc(db, 'campaigns', campaign.id);
-  await setDoc(
-    docRef,
-    {
-      ...campaign,
-      userId,
-      updatedAt: Date.now(),
-    },
-    { merge: true }
-  );
+  try {
+    await setDoc(
+      docRef,
+      {
+        id: campaign.id,
+        title: campaign.title || 'Campanha sem título',
+        system: campaign.system || 'D&D 5e',
+        notes: campaign.notes || '',
+        createdAt: campaign.createdAt || Date.now(),
+        updatedAt: Date.now(),
+        userId,
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
 };
 
 export const deleteCampaignFromFirestore = async (campaignId: string): Promise<void> => {
+  const path = `campaigns/${campaignId}`;
   const docRef = doc(db, 'campaigns', campaignId);
-  await deleteDoc(docRef);
+  try {
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
 };
 
-export const deleteAllCampaignsFromFirestore = async (userId: string): Promise<void> => {
-  const q = query(collection(db, 'campaigns'), where('userId', '==', userId));
-  const snapshot = await getDocs(q);
-  const deletePromises = snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref));
-  await Promise.all(deletePromises);
+export const deleteAllCampaignsFromFirestore = async (_userId?: string): Promise<void> => {
+  const path = 'campaigns';
+  try {
+    const snapshot = await getDocs(collection(db, path));
+    const deletePromises = snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref));
+    await Promise.all(deletePromises);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
 };
 
 export const saveCharacterToFirestore = async (
-  userId: string,
-  character: CharacterSheet
+  arg1: string | CharacterSheet,
+  arg2?: CharacterSheet | string
 ): Promise<void> => {
+  const character: CharacterSheet =
+    typeof arg1 === 'object' ? arg1 : (arg2 as CharacterSheet);
+  const userId: string =
+    typeof arg1 === 'string'
+      ? arg1
+      : typeof arg2 === 'string'
+      ? arg2
+      : auth.currentUser?.uid || 'shared';
+
+  if (!character || !character.id) return;
+
+  const path = `characters/${character.id}`;
   const docRef = doc(db, 'characters', character.id);
-  await setDoc(
-    docRef,
-    {
-      ...character,
-      userId,
-      updatedAt: Date.now(),
-    },
-    { merge: true }
-  );
+  try {
+    await setDoc(
+      docRef,
+      {
+        id: character.id,
+        campaignId: character.campaignId || '',
+        name: character.name || 'Personagem',
+        role: character.role || 'Aventureiro',
+        type: character.type || 'PJ',
+        attributes: Array.isArray(character.attributes) ? character.attributes : [],
+        resources: Array.isArray(character.resources) ? character.resources : [],
+        notes: character.notes || '',
+        avatarUrl: character.avatarUrl || null,
+        challengeRating: character.challengeRating || null,
+        createdAt: character.createdAt || Date.now(),
+        updatedAt: Date.now(),
+        userId,
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
 };
 
 export const deleteCharacterFromFirestore = async (characterId: string): Promise<void> => {
+  const path = `characters/${characterId}`;
   const docRef = doc(db, 'characters', characterId);
-  await deleteDoc(docRef);
-};
-
-export const deleteAllCharactersFromFirestore = async (userId: string): Promise<void> => {
-  const q = query(collection(db, 'characters'), where('userId', '==', userId));
-  const snapshot = await getDocs(q);
-  const deletePromises = snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref));
-  await Promise.all(deletePromises);
-};
-
-// Check if user has data in Firestore, if empty, migrate initial local data
-export const checkAndSeedCloudData = async (
-  userId: string,
-  initialCampaigns: Campaign[],
-  initialCharacters: CharacterSheet[]
-): Promise<boolean> => {
   try {
-    const campaignsQuery = query(collection(db, 'campaigns'), where('userId', '==', userId));
-    const snapshot = await getDocs(campaignsQuery);
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+};
+
+export const deleteAllCharactersFromFirestore = async (_userId?: string): Promise<void> => {
+  const path = 'characters';
+  try {
+    const snapshot = await getDocs(collection(db, path));
+    const deletePromises = snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref));
+    await Promise.all(deletePromises);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+};
+
+// Check if database has data in Firestore, if empty, seed initial local data
+export const checkAndSeedCloudData = async (
+  arg1: string | Campaign[],
+  arg2?: Campaign[] | CharacterSheet[],
+  arg3?: CharacterSheet[]
+): Promise<boolean> => {
+  let initialCampaigns: Campaign[] = [];
+  let initialCharacters: CharacterSheet[] = [];
+  let effectiveUserId = auth.currentUser?.uid || 'shared';
+
+  if (typeof arg1 === 'string') {
+    effectiveUserId = arg1;
+    initialCampaigns = Array.isArray(arg2) ? (arg2 as Campaign[]) : [];
+    initialCharacters = Array.isArray(arg3) ? (arg3 as CharacterSheet[]) : [];
+  } else if (Array.isArray(arg1)) {
+    initialCampaigns = arg1;
+    initialCharacters = Array.isArray(arg2) ? (arg2 as CharacterSheet[]) : [];
+  }
+
+  try {
+    const campaignsCol = collection(db, 'campaigns');
+    const snapshot = await getDocs(campaignsCol);
 
     if (snapshot.empty && initialCampaigns.length > 0) {
       const batch = writeBatch(db);
@@ -383,9 +559,13 @@ export const checkAndSeedCloudData = async (
       for (const camp of initialCampaigns) {
         const campRef = doc(db, 'campaigns', camp.id);
         batch.set(campRef, {
-          ...camp,
-          userId,
+          id: camp.id,
+          title: camp.title,
+          system: camp.system,
+          notes: camp.notes,
+          createdAt: camp.createdAt || Date.now(),
           updatedAt: Date.now(),
+          userId: effectiveUserId,
         });
       }
 
@@ -393,9 +573,19 @@ export const checkAndSeedCloudData = async (
       for (const char of initialCharacters) {
         const charRef = doc(db, 'characters', char.id);
         batch.set(charRef, {
-          ...char,
-          userId,
+          id: char.id,
+          campaignId: char.campaignId || '',
+          name: char.name,
+          role: char.role,
+          type: char.type,
+          attributes: char.attributes || [],
+          resources: char.resources || [],
+          notes: char.notes || '',
+          avatarUrl: char.avatarUrl || null,
+          challengeRating: char.challengeRating || null,
+          createdAt: char.createdAt || Date.now(),
           updatedAt: Date.now(),
+          userId: effectiveUserId,
         });
       }
 
@@ -404,7 +594,7 @@ export const checkAndSeedCloudData = async (
     }
     return false;
   } catch (e) {
-    console.warn('Aviso ao sincronizar dados iniciais no Firestore:', e);
+    console.warn('Aviso ao verificar dados iniciais no Firestore:', e);
     return false;
   }
 };
@@ -416,6 +606,7 @@ export const subscribeToCampaignChat = (
   onError?: (err: Error) => void
 ) => {
   if (!campaignId) return () => {};
+  const path = `campaigns/${campaignId}/messages`;
   const messagesCol = collection(db, 'campaigns', campaignId, 'messages');
   const q = query(messagesCol, orderBy('timestamp', 'asc'), limit(200));
 
@@ -427,7 +618,12 @@ export const subscribeToCampaignChat = (
         const data = docSnap.data();
         items.push({
           id: docSnap.id,
-          role: data.role === 'assistant' ? 'assistant' : data.role === 'system' ? 'system' : 'user',
+          role:
+            data.role === 'assistant'
+              ? 'assistant'
+              : data.role === 'system'
+              ? 'system'
+              : 'user',
           content: data.content || '',
           timestamp: data.timestamp || Date.now(),
         });
@@ -436,39 +632,67 @@ export const subscribeToCampaignChat = (
     },
     (err) => {
       console.warn(`Erro ao escutar mensagens do chat da campanha ${campaignId}:`, err);
-      onError?.(err);
+      try {
+        handleFirestoreError(err, OperationType.LIST, path);
+      } catch (e: any) {
+        onError?.(e);
+      }
     }
   );
 };
 
 export const saveCampaignChatMessage = async (
-  userId: string,
-  campaignId: string,
-  message: ChatMessage,
-  systemName?: string
+  arg1: string,
+  arg2: string | ChatMessage,
+  arg3?: ChatMessage | string,
+  arg4?: string
 ): Promise<void> => {
-  if (!campaignId || !message.id) return;
-  // Ignore temporary streaming placeholder without content
+  let campaignId = '';
+  let message: ChatMessage | null = null;
+  let userId = auth.currentUser?.uid || 'shared';
+  let systemName = '';
+
+  if (typeof arg2 === 'object') {
+    // Called as (campaignId, message, userId?, systemName?)
+    campaignId = arg1;
+    message = arg2 as ChatMessage;
+    if (typeof arg3 === 'string') userId = arg3;
+    if (typeof arg4 === 'string') systemName = arg4;
+  } else if (typeof arg2 === 'string' && typeof arg3 === 'object') {
+    // Called as (userId, campaignId, message, systemName?)
+    userId = arg1;
+    campaignId = arg2;
+    message = arg3 as ChatMessage;
+    if (typeof arg4 === 'string') systemName = arg4;
+  }
+
+  if (!campaignId || !message || !message.id) return;
   if (message.isStreaming && !message.content) return;
 
+  const path = `campaigns/${campaignId}/messages/${message.id}`;
   const docRef = doc(db, 'campaigns', campaignId, 'messages', message.id);
-  await setDoc(
-    docRef,
-    {
-      id: message.id,
-      campaignId,
-      userId,
-      role: message.role,
-      content: message.content,
-      system: systemName || '',
-      timestamp: message.timestamp || Date.now(),
-    },
-    { merge: true }
-  );
+  try {
+    await setDoc(
+      docRef,
+      {
+        id: message.id,
+        campaignId,
+        userId,
+        role: message.role,
+        content: message.content,
+        system: systemName || '',
+        timestamp: message.timestamp || Date.now(),
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
 };
 
 export const clearCampaignChatInFirestore = async (campaignId: string): Promise<void> => {
   if (!campaignId) return;
+  const path = `campaigns/${campaignId}/messages`;
   try {
     const messagesCol = collection(db, 'campaigns', campaignId, 'messages');
     const snapshot = await getDocs(messagesCol);
@@ -480,7 +704,8 @@ export const clearCampaignChatInFirestore = async (campaignId: string): Promise<
     });
     await batch.commit();
   } catch (err) {
-    console.warn(`Erro ao limpar chat da campanha ${campaignId} no Firestore:`, err);
+    handleFirestoreError(err, OperationType.DELETE, path);
   }
 };
+
 

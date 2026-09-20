@@ -14,8 +14,8 @@ import {
   signInWithGoogleAccount,
   logoutUser,
   onAuthStatusChange,
-  subscribeToUserCampaigns,
-  subscribeToUserCharacters,
+  subscribeToCampaigns,
+  subscribeToCharacters,
   saveCampaignToFirestore,
   deleteCampaignFromFirestore,
   deleteAllCampaignsFromFirestore,
@@ -23,6 +23,7 @@ import {
   deleteCharacterFromFirestore,
   deleteAllCharactersFromFirestore,
   checkAndSeedCloudData,
+  testFirestoreConnection,
   AuthErrorInfo,
 } from './services/firebase';
 
@@ -50,83 +51,71 @@ export default function App() {
   const [isLoggingInGoogle, setIsLoggingInGoogle] = useState(false);
   const isCloudLoadedRef = useRef(false);
 
-  // Initialize Firebase Auth & Realtime Subscriptions
+  // Initialize Firebase Auth & Universal Realtime Database Subscriptions
   useEffect(() => {
     let unsubCampaigns: (() => void) | null = null;
     let unsubCharacters: (() => void) | null = null;
 
-    const unsubscribeAuth = onAuthStatusChange(async (user) => {
-      // Clean up previous listeners if user changed
-      if (unsubCampaigns) {
-        unsubCampaigns();
-        unsubCampaigns = null;
+    // 1. Verify Firestore connectivity & seed initial data if remote database is empty
+    const initCloud = async () => {
+      setSyncStatus('syncing');
+      try {
+        await testFirestoreConnection();
+        const localCamps = storageService.getCampaigns();
+        const localChars = storageService.getCharacters();
+        await checkAndSeedCloudData(localCamps, localChars);
+      } catch (err) {
+        console.warn('Verificação inicial do Firestore:', err);
       }
-      if (unsubCharacters) {
-        unsubCharacters();
-        unsubCharacters = null;
-      }
+    };
 
-      if (user) {
-        setCurrentUser(user);
-        setSyncStatus('syncing');
+    void initCloud();
 
-        try {
-          // Check if user already has data in cloud, if not seed current local data
-          const localCamps = storageService.getCampaigns();
-          const localChars = storageService.getCharacters();
-          await checkAndSeedCloudData(user.uid, localCamps, localChars);
-
-          // Realtime listener for campaigns
-          unsubCampaigns = subscribeToUserCampaigns(
-            user.uid,
-            (cloudCampaigns) => {
-              if (cloudCampaigns.length > 0) {
-                setCampaigns(cloudCampaigns);
-                storageService.saveCampaigns(cloudCampaigns);
-                setActiveCampaignId((prev) => {
-                  if (prev && cloudCampaigns.some((c) => c.id === prev)) return prev;
-                  return cloudCampaigns[0]?.id || '';
-                });
-              } else if (isCloudLoadedRef.current) {
-                setCampaigns([]);
-                storageService.clearCampaigns();
-                setActiveCampaignId('');
-              }
-              isCloudLoadedRef.current = true;
-              setSyncStatus('synced');
-            },
-            (err) => {
-              console.warn('Erro na sincronização de campanhas:', err);
-              setSyncStatus('offline');
-            }
-          );
-
-          // Realtime listener for characters
-          unsubCharacters = subscribeToUserCharacters(
-            user.uid,
-            (cloudCharacters) => {
-              if (cloudCharacters.length > 0) {
-                setCharacters(cloudCharacters);
-                storageService.saveCharacters(cloudCharacters);
-              } else if (isCloudLoadedRef.current) {
-                setCharacters([]);
-                storageService.saveCharacters([]);
-              }
-              setSyncStatus('synced');
-            },
-            (err) => {
-              console.warn('Erro na sincronização de fichas:', err);
-              setSyncStatus('offline');
-            }
-          );
-        } catch (err) {
-          console.warn('Erro ao conectar ao Firestore:', err);
-          setSyncStatus('offline');
+    // 2. Universal realtime listener for all campaigns across all versions
+    unsubCampaigns = subscribeToCampaigns(
+      (cloudCampaigns) => {
+        if (cloudCampaigns.length > 0) {
+          setCampaigns(cloudCampaigns);
+          storageService.saveCampaigns(cloudCampaigns);
+          setActiveCampaignId((prev) => {
+            if (prev && cloudCampaigns.some((c) => c.id === prev)) return prev;
+            return cloudCampaigns[0]?.id || '';
+          });
+        } else if (isCloudLoadedRef.current) {
+          setCampaigns([]);
+          storageService.clearCampaigns();
+          setActiveCampaignId('');
         }
-      } else {
-        setCurrentUser(null);
+        isCloudLoadedRef.current = true;
+        setSyncStatus('synced');
+      },
+      (err) => {
+        console.warn('Erro na sincronização de campanhas:', err);
         setSyncStatus('offline');
       }
+    );
+
+    // 3. Universal realtime listener for all characters across all versions
+    unsubCharacters = subscribeToCharacters(
+      (cloudCharacters) => {
+        if (cloudCharacters.length > 0) {
+          setCharacters(cloudCharacters);
+          storageService.saveCharacters(cloudCharacters);
+        } else if (isCloudLoadedRef.current) {
+          setCharacters([]);
+          storageService.saveCharacters([]);
+        }
+        setSyncStatus('synced');
+      },
+      (err) => {
+        console.warn('Erro na sincronização de fichas:', err);
+        setSyncStatus('offline');
+      }
+    );
+
+    // 4. Track auth status
+    const unsubscribeAuth = onAuthStatusChange((user) => {
+      setCurrentUser(user);
     });
 
     return () => {
@@ -148,7 +137,6 @@ export default function App() {
     setIsLoggingInGoogle(false);
 
     if (res.error) {
-      setSyncStatus('offline');
       setAuthNotice(res.error);
       setAuthErrorInfo(res.authError || null);
       setIsSettingsOpen(true);
@@ -163,20 +151,19 @@ export default function App() {
   const handleSignOut = useCallback(async () => {
     await logoutUser();
     setCurrentUser(null);
-    setSyncStatus('offline');
   }, []);
 
   // Manual Full Cloud Sync Handler
   const handleManualSyncCloud = useCallback(async () => {
-    if (!currentUser) return;
     setIsSyncingManual(true);
     setSyncStatus('syncing');
     try {
+      const currentUid = currentUser?.uid || 'shared';
       for (const camp of campaigns) {
-        await saveCampaignToFirestore(currentUser.uid, camp);
+        await saveCampaignToFirestore(camp, currentUid);
       }
       for (const char of characters) {
-        await saveCharacterToFirestore(currentUser.uid, char);
+        await saveCharacterToFirestore(char, currentUid);
       }
       setSyncStatus('synced');
     } catch (e) {
@@ -264,8 +251,8 @@ export default function App() {
       storageService.saveCampaigns(next);
 
       // Persist to Firestore
-      if (currentUser && updatedCamp) {
-        saveCampaignToFirestore(currentUser.uid, updatedCamp).catch((err) => {
+      if (updatedCamp) {
+        saveCampaignToFirestore(updatedCamp, currentUser?.uid || 'shared').catch((err) => {
           console.warn('Erro ao sincronizar campanha no Firestore:', err);
         });
       }
@@ -292,11 +279,9 @@ export default function App() {
     setActiveCampaignId(newCamp.id);
 
     // Persist to Firestore
-    if (currentUser) {
-      saveCampaignToFirestore(currentUser.uid, newCamp).catch((err) => {
-        console.warn('Erro ao salvar nova campanha no Firestore:', err);
-      });
-    }
+    saveCampaignToFirestore(newCamp, currentUser?.uid || 'shared').catch((err) => {
+      console.warn('Erro ao salvar nova campanha no Firestore:', err);
+    });
   }, [currentUser]);
 
   const handleUpdateCampaignById = useCallback((id: string, updated: Partial<Campaign>) => {
@@ -309,13 +294,11 @@ export default function App() {
       });
       storageService.saveCampaigns(next);
 
-      if (currentUser) {
-        const found = next.find((c) => c.id === id);
-        if (found) {
-          saveCampaignToFirestore(currentUser.uid, found).catch((err) => {
-            console.warn('Erro ao atualizar campanha no Firestore:', err);
-          });
-        }
+      const found = next.find((c) => c.id === id);
+      if (found) {
+        saveCampaignToFirestore(found, currentUser?.uid || 'shared').catch((err) => {
+          console.warn('Erro ao atualizar campanha no Firestore:', err);
+        });
       }
       return next;
     });
@@ -332,12 +315,10 @@ export default function App() {
     });
 
     // Delete from Firestore
-    if (currentUser) {
-      deleteCampaignFromFirestore(idToDelete).catch((err) => {
-        console.warn('Erro ao excluir campanha no Firestore:', err);
-      });
-    }
-  }, [activeCampaignId, currentUser]);
+    deleteCampaignFromFirestore(idToDelete).catch((err) => {
+      console.warn('Erro ao excluir campanha no Firestore:', err);
+    });
+  }, [activeCampaignId]);
 
   const handleDeleteAllCampaigns = useCallback(async (options?: { deleteCharacters?: boolean }) => {
     setCampaigns([]);
@@ -350,18 +331,16 @@ export default function App() {
       setSelectedCharacterId(undefined);
     }
 
-    // Delete from Firestore if authenticated
-    if (currentUser) {
-      try {
-        await deleteAllCampaignsFromFirestore(currentUser.uid);
-        if (options?.deleteCharacters) {
-          await deleteAllCharactersFromFirestore(currentUser.uid);
-        }
-      } catch (err) {
-        console.warn('Erro ao excluir todas as campanhas no Firestore:', err);
+    // Delete from Firestore
+    try {
+      await deleteAllCampaignsFromFirestore();
+      if (options?.deleteCharacters) {
+        await deleteAllCharactersFromFirestore();
       }
+    } catch (err) {
+      console.warn('Erro ao excluir todas as campanhas no Firestore:', err);
     }
-  }, [currentUser]);
+  }, []);
 
   // Character handlers
   const handleCreateCharacter = useCallback(
@@ -380,11 +359,9 @@ export default function App() {
       });
 
       // Persist to Firestore
-      if (currentUser) {
-        saveCharacterToFirestore(currentUser.uid, newChar).catch((err) => {
-          console.warn('Erro ao salvar ficha no Firestore:', err);
-        });
-      }
+      saveCharacterToFirestore(newChar, currentUser?.uid || 'shared').catch((err) => {
+        console.warn('Erro ao salvar ficha no Firestore:', err);
+      });
 
       return newChar;
     },
@@ -404,8 +381,8 @@ export default function App() {
       storageService.saveCharacters(next);
 
       // Persist to Firestore
-      if (currentUser && updatedChar) {
-        saveCharacterToFirestore(currentUser.uid, updatedChar).catch((err) => {
+      if (updatedChar) {
+        saveCharacterToFirestore(updatedChar, currentUser?.uid || 'shared').catch((err) => {
           console.warn('Erro ao atualizar ficha no Firestore:', err);
         });
       }
@@ -422,12 +399,10 @@ export default function App() {
     });
 
     // Delete from Firestore
-    if (currentUser) {
-      deleteCharacterFromFirestore(id).catch((err) => {
-        console.warn('Erro ao excluir ficha no Firestore:', err);
-      });
-    }
-  }, [currentUser]);
+    deleteCharacterFromFirestore(id).catch((err) => {
+      console.warn('Erro ao excluir ficha no Firestore:', err);
+    });
+  }, []);
 
   // Settings handlers
   const handleSaveSettings = useCallback((newSettings: AppSettings) => {

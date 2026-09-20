@@ -293,23 +293,21 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     customApiKey,
     onUserMessageAdded: (userMsg) => {
       if (activeCampaign?.id) {
-        const currentUid = userId || auth.currentUser?.uid;
+        const currentUid = userId || auth.currentUser?.uid || 'shared';
         // Save to local storage cache immediately
         const prevMsgs = storageService.getCampaignChatMessages(activeCampaign.id);
         const nextMsgs = [...prevMsgs, userMsg];
         storageService.saveCampaignChatMessages(activeCampaign.id, nextMsgs);
 
         // Persist to Firestore subcollection /campaigns/{campaignId}/messages/{messageId}
-        if (currentUid) {
-          saveCampaignChatMessage(currentUid, activeCampaign.id, userMsg, system).catch((err) => {
-            console.warn('Aviso ao salvar mensagem de usuário no Firestore:', err);
-          });
-        }
+        saveCampaignChatMessage(activeCampaign.id, userMsg, currentUid, system).catch((err) => {
+          console.warn('Aviso ao salvar mensagem de usuário no Firestore:', err);
+        });
       }
     },
     onMessageComplete: (_userMsg, assistantMsg) => {
       if (activeCampaign?.id) {
-        const currentUid = userId || auth.currentUser?.uid;
+        const currentUid = userId || auth.currentUser?.uid || 'shared';
         // Save finalized assistant answer to local storage cache
         const prevMsgs = storageService.getCampaignChatMessages(activeCampaign.id);
         const filtered = prevMsgs.filter((m) => m.id !== assistantMsg.id);
@@ -317,11 +315,9 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
         storageService.saveCampaignChatMessages(activeCampaign.id, nextMsgs);
 
         // Persist to Firestore subcollection
-        if (currentUid) {
-          saveCampaignChatMessage(currentUid, activeCampaign.id, assistantMsg, system).catch((err) => {
-            console.warn('Aviso ao salvar resposta no Firestore:', err);
-          });
-        }
+        saveCampaignChatMessage(activeCampaign.id, assistantMsg, currentUid, system).catch((err) => {
+          console.warn('Aviso ao salvar resposta no Firestore:', err);
+        });
       }
     },
   });
@@ -334,34 +330,30 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     const localMsgs = storageService.getCampaignChatMessages(activeCampaign.id);
     setMessages(localMsgs);
 
-    // 2. If authenticated or userId present, listen to real-time updates from Firestore
-    const currentUid = userId || auth.currentUser?.uid;
-    let unsubscribe = () => {};
-
-    if (currentUid) {
-      unsubscribe = subscribeToCampaignChat(
-        activeCampaign.id,
-        (cloudMsgs) => {
-          if (cloudMsgs && cloudMsgs.length > 0) {
-            setMessages(cloudMsgs);
-            storageService.saveCampaignChatMessages(activeCampaign.id, cloudMsgs);
-            setIsCloudChatSynced(true);
-          } else if (localMsgs.length > 0) {
-            // Seed local messages to Firestore if cloud is empty
-            localMsgs.forEach((msg) => {
-              saveCampaignChatMessage(currentUid, activeCampaign.id, msg, activeCampaign.system);
-            });
-            setIsCloudChatSynced(true);
-          }
-        },
-        (err) => {
-          console.warn('Aviso no listener de chat do Firestore:', err);
-          setIsCloudChatSynced(false);
+    // 2. Real-time universal subscription to Firestore chat messages
+    const currentUid = userId || auth.currentUser?.uid || 'shared';
+    const unsubscribe = subscribeToCampaignChat(
+      activeCampaign.id,
+      (cloudMsgs) => {
+        if (cloudMsgs && cloudMsgs.length > 0) {
+          setMessages(cloudMsgs);
+          storageService.saveCampaignChatMessages(activeCampaign.id, cloudMsgs);
+          setIsCloudChatSynced(true);
+        } else if (localMsgs.length > 0) {
+          // Seed local messages to Firestore if cloud collection is empty
+          localMsgs.forEach((msg) => {
+            saveCampaignChatMessage(activeCampaign.id, msg, currentUid, activeCampaign.system).catch(() => {});
+          });
+          setIsCloudChatSynced(true);
+        } else {
+          setIsCloudChatSynced(true);
         }
-      );
-    } else {
-      setIsCloudChatSynced(false);
-    }
+      },
+      (err) => {
+        console.warn('Aviso no listener de chat do Firestore:', err);
+        setIsCloudChatSynced(false);
+      }
+    );
 
     return () => {
       unsubscribe();
@@ -373,12 +365,9 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     clearMessages();
     if (activeCampaign?.id) {
       storageService.clearCampaignChatMessages(activeCampaign.id);
-      const currentUid = userId || auth.currentUser?.uid;
-      if (currentUid) {
-        clearCampaignChatInFirestore(activeCampaign.id).catch((err) => {
-          console.warn('Aviso ao limpar chat no Firestore:', err);
-        });
-      }
+      clearCampaignChatInFirestore(activeCampaign.id).catch((err) => {
+        console.warn('Aviso ao limpar chat no Firestore:', err);
+      });
     }
   };
 

@@ -64,9 +64,22 @@
         "timestamp": { "type": "number" }
       },
       "required": ["id", "campaignId", "userId", "role", "content", "timestamp"]
+    },
+    "testConnection": {
+      "title": "TestConnection",
+      "description": "Health check and connection verification document",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string" },
+        "timestamp": { "type": "number" }
+      }
     }
   },
   "firestore": {
+    "/test/{testId}": {
+      "schema": "testConnection",
+      "description": "Connection test and health check document"
+    },
     "/users/{userId}": {
       "schema": "users",
       "description": "User profiles and account settings"

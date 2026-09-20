@@ -2,38 +2,65 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAuthenticated() {
-      return request.auth != null;
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    function isValidCampaign(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.title is string && data.title.size() <= 300
+        && data.system is string && data.system.size() <= 100
+        && data.notes is string && data.notes.size() <= 500000;
     }
 
-    // Users collection
+    function isValidCharacter(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 200
+        && data.role is string && data.role.size() <= 200
+        && data.type is string && (data.type == 'PJ' || data.type == 'NPC' || data.type == 'Monstro');
+    }
+
+    function isValidChatMessage(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.role is string && (data.role == 'user' || data.role == 'assistant' || data.role == 'system')
+        && data.content is string && data.content.size() <= 100000;
+    }
+
+    // Health / Connection Test
+    match /test/{testId} {
+      allow read, write: if true;
+    }
+
+    // Users Collection (profiles)
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Campaigns collection
+    // Campaigns Collection (shared world notebooks)
     match /campaigns/{campaignId} {
-      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if true;
+      allow create: if isValidId(campaignId) && isValidCampaign(request.resource.data);
+      allow update: if isValidId(campaignId) && isValidCampaign(request.resource.data);
+      allow delete: if isValidId(campaignId);
 
-      // Campaign AI Copilot Chat Messages subcollection
+      // AI Copilot Chat Messages subcollection
       match /messages/{messageId} {
-        allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
-        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-        allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+        allow read: if true;
+        allow create: if isValidId(messageId) && isValidChatMessage(request.resource.data);
+        allow update: if isValidId(messageId) && isValidChatMessage(request.resource.data);
+        allow delete: if isValidId(messageId);
       }
     }
 
-    // Characters collection
+    // Characters Collection (PJs, NPCs, Monsters)
     match /characters/{characterId} {
-      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if true;
+      allow create: if isValidId(characterId) && isValidCharacter(request.resource.data);
+      allow update: if isValidId(characterId) && isValidCharacter(request.resource.data);
+      allow delete: if isValidId(characterId);
     }
   }
 }
+
