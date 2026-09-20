@@ -22,18 +22,14 @@ import {
   Palette,
   Trash2,
 } from 'lucide-react';
-import { AppSettings } from '../types';
+import { AppSettings, UserProfile } from '../types';
 import { storageService } from '../services/storage';
 import { FlamingD20Logo } from './FlamingD20Logo';
+import { UserAvatar } from './UserAvatar';
 import {
   FIRESTORE_DATABASE_ID,
   FIREBASE_PROJECT_ID,
-  FIREBASE_CONSOLE_AUTH_URL,
-  FIREBASE_CONSOLE_AUTH_SETTINGS_URL,
-  isInsideIframe,
-  AuthErrorInfo,
 } from '../services/firebase';
-import type { User } from 'firebase/auth';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -41,14 +37,10 @@ interface SettingsModalProps {
   settings: AppSettings;
   onSaveSettings: (settings: AppSettings) => void;
   onDataImported: () => void;
-  user?: User | null;
-  onSignInGoogle?: () => Promise<void>;
-  isLoggingIn?: boolean;
-  onSignOut?: () => Promise<void>;
+  currentUser?: UserProfile;
+  onOpenAuthModal?: () => void;
   onSyncCloud?: () => Promise<void>;
   isSyncing?: boolean;
-  authNotice?: string | null;
-  authErrorInfo?: AuthErrorInfo | null;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -57,28 +49,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   settings,
   onSaveSettings,
   onDataImported,
-  user,
-  onSignInGoogle,
-  isLoggingIn = false,
-  onSignOut,
+  currentUser,
+  onOpenAuthModal,
   onSyncCloud,
   isSyncing = false,
-  authNotice = null,
-  authErrorInfo = null,
 }) => {
   const [formData, setFormData] = useState<AppSettings>(settings);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [copiedBackup, setCopiedBackup] = useState(false);
-  const [copiedDomain, setCopiedDomain] = useState(false);
-  const [copiedConsoleUrl, setCopiedConsoleUrl] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
   const [syncSuccessMessage, setSyncSuccessMessage] = useState<string | null>(null);
+  const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null);
   const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
   const [copiedFaviconNotice, setCopiedFaviconNotice] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
-  const inIframe = isInsideIframe();
 
   useEffect(() => {
     if (isOpen) {
@@ -86,46 +69,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [isOpen, settings]);
 
-  useEffect(() => {
-    if (authNotice) {
-      setAuthError(authNotice);
-    }
-  }, [authNotice]);
-
   if (!isOpen) return null;
-
-  const handleGoogleAuth = async () => {
-    try {
-      setAuthError(null);
-      if (onSignInGoogle) {
-        await onSignInGoogle();
-      }
-    } catch (e: any) {
-      setAuthError(e?.message || 'Falha na autenticação com Google.');
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      setAuthError(null);
-      if (onSignOut) {
-        await onSignOut();
-      }
-    } catch (e: any) {
-      setAuthError(e?.message || 'Falha ao desconectar.');
-    }
-  };
 
   const handleManualSync = async () => {
     try {
+      setSyncErrorMessage(null);
       setSyncSuccessMessage(null);
       if (onSyncCloud) {
         await onSyncCloud();
-        setSyncSuccessMessage('Sincronização com Firebase concluída com sucesso!');
+        setSyncSuccessMessage('Sincronização com Firebase Firestore concluída com sucesso!');
         setTimeout(() => setSyncSuccessMessage(null), 3500);
       }
     } catch (e: any) {
-      setAuthError(e?.message || 'Erro ao sincronizar com nuvem.');
+      setSyncErrorMessage(e?.message || 'Erro ao sincronizar com nuvem.');
     }
   };
 
@@ -226,114 +182,69 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Modal Content */}
         <div className="p-5 space-y-5 overflow-y-auto">
-          {/* Firebase Cloud Firestore Section */}
+          {/* User Account & Cloud Sync Section */}
           <div className="space-y-3 bg-zinc-950/70 border border-cyan-500/20 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-semibold text-cyan-400 uppercase tracking-wider">
                 <Cloud className="w-4 h-4 text-cyan-500" />
-                <span>Nuvem Firebase Firestore</span>
+                <span>Perfil de Acesso & Sincronização</span>
               </div>
               <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Ativo
+                Conectado
               </span>
             </div>
 
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Suas anotações, fichas de RPG e campanhas são sincronizadas automaticamente em tempo real no banco de dados Firestore.
-            </p>
-
-            {/* If in iframe, show tip */}
-            {inIframe && (
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-[11px] text-cyan-200">
-                <div className="flex items-start sm:items-center gap-2">
-                  <ExternalLink className="w-3.5 h-3.5 shrink-0 text-cyan-400 mt-0.5 sm:mt-0" />
-                  <span>
-                    O Grimório está no visualizador embutido (iframe). Caso a janela do Google não abra, abra em nova aba:
-                  </span>
+            {/* Active User Card */}
+            {currentUser && (
+              <div className="bg-zinc-900/90 border border-zinc-800 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <UserAvatar
+                    avatarId={currentUser.avatarId}
+                    color={currentUser.color}
+                    size="md"
+                    showGlow={true}
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-zinc-100">
+                        {currentUser.displayName}
+                      </span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 font-mono">
+                        @{currentUser.username}
+                      </span>
+                    </div>
+                    <div className="text-xs text-cyan-400/90 font-medium mt-0.5">
+                      {currentUser.role}
+                    </div>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => window.open(window.location.href, '_blank')}
-                  className="self-start sm:self-auto px-2.5 py-1 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 font-medium whitespace-nowrap cursor-pointer flex items-center gap-1.5 transition-colors"
-                >
-                  <span>Abrir em Nova Aba</span>
-                  <ExternalLink className="w-3 h-3" />
-                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenAuthModal?.();
+                    }}
+                    className="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-cyan-300 text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    Alternar Contas
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* Account status & Login with Google */}
-            <div className="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {user && !user.isAnonymous && user.photoURL ? (
-                    <img
-                      src={user.photoURL}
-                      alt="Foto de perfil"
-                      referrerPolicy="no-referrer"
-                      className="w-7 h-7 rounded-full object-cover border border-cyan-500/50"
-                    />
-                  ) : (
-                    <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-cyan-400">
-                      <Database className="w-3.5 h-3.5" />
-                    </div>
-                  )}
-                  <div>
-                    <div className="text-xs font-medium text-zinc-200">
-                      {user && !user.isAnonymous
-                        ? user.displayName || user.email || 'Conta Google'
-                        : 'Sessão Anônima (Offline & Cloud Sync)'}
-                    </div>
-                    <div className="text-[10px] text-zinc-500">
-                      UID: {user ? `${user.uid.slice(0, 10)}...` : 'Conectando...'}
-                    </div>
-                  </div>
-                </div>
-
-                {user && !user.isAnonymous ? (
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 rounded border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer"
-                  >
-                    <LogOut className="w-3 h-3" />
-                    <span>Sair</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={isLoggingIn}
-                    onClick={handleGoogleAuth}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 border border-cyan-500/30 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait"
-                  >
-                    {isLoggingIn ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-                        <span>Conectando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <LogIn className="w-3.5 h-3.5" />
-                        <span>Entrar com Google</span>
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-
-              {/* Sync actions */}
-              <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-zinc-800/80 text-[11px]">
+            {/* Firestore Cloud Details */}
+            <div className="bg-zinc-900/50 border border-zinc-850 rounded-xl p-3 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                 <div className="space-y-0.5">
-                  <div className="text-zinc-400">
-                    Banco Firestore:{' '}
-                    <code className="text-cyan-400 font-mono text-[10px] bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800">
-                      {FIRESTORE_DATABASE_ID}
-                    </code>
+                  <div className="text-zinc-300 font-medium flex items-center gap-1.5">
+                    <Database className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Armazenamento Local & Nuvem Firestore</span>
                   </div>
-                  <div className="text-zinc-500 text-[10px]">
-                    Projeto:{' '}
-                    <span className="text-zinc-400 font-mono">{FIREBASE_PROJECT_ID}</span>
+                  <div className="text-[11px] text-zinc-400">
+                    Campanhas e fichas isoladas e seguras para cada usuário.
                   </div>
                 </div>
 
@@ -341,170 +252,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   type="button"
                   onClick={handleManualSync}
                   disabled={isSyncing}
-                  className="self-start sm:self-auto flex items-center gap-1.5 px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-cyan-400 hover:text-cyan-300 disabled:opacity-50 transition-colors cursor-pointer shrink-0"
+                  className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-cyan-300 text-xs transition-colors cursor-pointer disabled:opacity-50"
                 >
-                  <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
-                  <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Agora'}</span>
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Nuvem'}</span>
                 </button>
               </div>
+
+              {syncSuccessMessage && (
+                <div className="p-2 rounded-lg text-xs bg-emerald-950/40 border border-emerald-800/50 text-emerald-300 flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>{syncSuccessMessage}</span>
+                </div>
+              )}
+              {syncErrorMessage && (
+                <div className="p-2 rounded-lg text-xs bg-rose-950/40 border border-rose-800/50 text-rose-300 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                  <span>{syncErrorMessage}</span>
+                </div>
+              )}
             </div>
-
-            {syncSuccessMessage && (
-              <div className="p-2 rounded-lg text-xs bg-emerald-950/40 border border-emerald-800/50 text-emerald-300 flex items-center gap-1.5">
-                <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>{syncSuccessMessage}</span>
-              </div>
-            )}
-
-            {(authError || authErrorInfo) && (
-              <div className="p-3.5 rounded-xl text-xs bg-cyan-950/30 border border-cyan-500/30 text-zinc-300 space-y-3">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-                  <div className="space-y-1 w-full">
-                    <div className="font-semibold text-cyan-300 text-xs">
-                      {authErrorInfo?.title || 'Diagnóstico de Conexão com Google'}
-                    </div>
-                    <p className="text-[11px] text-zinc-300 leading-relaxed">
-                      {authError || authErrorInfo?.message}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Specific actions depending on error type */}
-                {authErrorInfo?.type === 'iframe' || authErrorInfo?.type === 'popup-blocked' || inIframe ? (
-                  <div className="bg-zinc-900/90 p-3 rounded-lg border border-zinc-800 text-[11px] space-y-2">
-                    <div className="font-medium text-cyan-300 flex items-center gap-1.5">
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Solução Recomendada: Abrir em Nova Aba</span>
-                    </div>
-                    <p className="text-zinc-400 leading-relaxed">
-                      Por segurança, navegadores (Chrome, Brave, Edge, Safari) bloqueiam janelas de login do Google dentro de iframes embutidos. Ao abrir em uma nova aba, o login funciona imediatamente.
-                    </p>
-                    <div className="pt-1 flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => window.open(window.location.href, '_blank')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500 text-zinc-950 font-semibold text-xs hover:bg-cyan-400 transition-colors cursor-pointer shadow-sm"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>Abrir Grimório em Nova Aba</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-
-                {authErrorInfo?.type === 'unauthorized-domain' && (
-                  <div className="bg-zinc-900/90 p-3 rounded-lg border border-zinc-800 text-[11px] space-y-2">
-                    <div className="font-medium text-zinc-200">Como autorizar este domínio no Firebase:</div>
-                    <div className="flex items-center gap-2 bg-zinc-950 px-2 py-1.5 rounded border border-zinc-800">
-                      <Globe className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                      <span className="font-mono text-[10px] text-cyan-400 flex-1 truncate">
-                        {currentHostname}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void navigator.clipboard.writeText(currentHostname);
-                          setCopiedDomain(true);
-                          setTimeout(() => setCopiedDomain(false), 2000);
-                        }}
-                        className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] flex items-center gap-1 cursor-pointer transition-colors"
-                      >
-                        {copiedDomain ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                        <span>{copiedDomain ? 'Copiado!' : 'Copiar'}</span>
-                      </button>
-                    </div>
-                    <ol className="list-decimal list-inside space-y-1 text-zinc-400 text-[11px]">
-                      <li>Abra as configurações do Firebase Authentication pelo botão abaixo.</li>
-                      <li>Vá na aba <strong className="text-zinc-300">Settings &gt; Authorized domains</strong>.</li>
-                      <li>Clique em <strong className="text-zinc-300">Add domain</strong> e cole o domínio acima.</li>
-                    </ol>
-                    <div className="pt-1">
-                      <a
-                        href={FIREBASE_CONSOLE_AUTH_SETTINGS_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-medium transition-colors"
-                      >
-                        <span>Abrir Domínios Autorizados no Firebase</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
-                  </div>
-                )}
-
-                {authErrorInfo?.type === 'provider-disabled' && (
-                  <div className="bg-zinc-900/90 p-3.5 rounded-lg border border-zinc-800 text-[11px] space-y-2.5">
-                    <div className="font-semibold text-zinc-200 flex items-center gap-1.5">
-                      <span>Passo a Passo para Ativar o Login Google:</span>
-                    </div>
-                    <ol className="list-decimal list-inside space-y-1.5 text-zinc-300 text-[11px] leading-relaxed">
-                      <li>
-                        Acesse o Firebase Console do projeto <strong className="text-cyan-300 font-mono">{FIREBASE_PROJECT_ID}</strong>.
-                      </li>
-                      <li>
-                        Vá em <strong className="text-zinc-200">Authentication &gt; Sign-in method</strong>.
-                      </li>
-                      <li>
-                        Clique no provedor <strong className="text-cyan-400">Google</strong> e marque a chave <strong className="text-zinc-200">Habilitar</strong> (Enable).
-                      </li>
-                      <li>
-                        Selecione o <strong className="text-zinc-200">E-mail de suporte do projeto</strong> (obrigatório pelo Firebase) e clique em <strong className="text-cyan-300">Salvar</strong>.
-                      </li>
-                      <li>
-                        Na aba <strong className="text-zinc-200">Settings &gt; Authorized domains</strong>, verifique se o domínio deste app (<code className="text-cyan-400 font-mono text-[10px]">{currentHostname || 'seu-dominio'}</code>) está adicionado.
-                      </li>
-                    </ol>
-
-                    <div className="pt-2 flex flex-wrap items-center gap-2 border-t border-zinc-800/80">
-                      <a
-                        href={FIREBASE_CONSOLE_AUTH_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-semibold text-xs transition-colors shadow-sm"
-                      >
-                        <span>Abrir Firebase Console (Sign-in method)</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void navigator.clipboard.writeText(FIREBASE_CONSOLE_AUTH_URL);
-                          setCopiedConsoleUrl(true);
-                          setTimeout(() => setCopiedConsoleUrl(false), 2000);
-                        }}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs transition-colors cursor-pointer"
-                      >
-                        {copiedConsoleUrl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                        <span>{copiedConsoleUrl ? 'Link Copiado!' : 'Copiar Link'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={isLoggingIn}
-                        onClick={handleGoogleAuth}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-cyan-300 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${isLoggingIn ? 'animate-spin' : ''}`} />
-                        <span>{isLoggingIn ? 'Conectando...' : 'Testar Conexão Novamente'}</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-1 border-t border-zinc-800/60">
-                  <span className="text-emerald-400 font-medium">✓ Suas campanhas e fichas estão salvas e intactas localmente</span>
-                  <button
-                    type="button"
-                    onClick={() => setAuthError(null)}
-                    className="text-zinc-400 hover:text-zinc-200 underline cursor-pointer"
-                  >
-                    Dispensar aviso
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* AI Settings */}

@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import {
   getFirestore,
+  initializeFirestore,
   collection,
   doc,
   setDoc,
@@ -41,11 +42,25 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 // Initialize Authentication
 export const auth = getAuth(app);
 
-// Initialize Firestore targeting the user's project database
-export const db: Firestore =
-  firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
-    ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-    : getFirestore(app);
+// Initialize Firestore targeting the user's project database with robust long-polling auto-detection
+export const db: Firestore = (() => {
+  const customDbId =
+    firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+      ? firebaseConfig.firestoreDatabaseId
+      : undefined;
+
+  try {
+    return initializeFirestore(
+      app,
+      {
+        experimentalAutoDetectLongPolling: true,
+      },
+      customDbId
+    );
+  } catch (_e) {
+    return customDbId ? getFirestore(app, customDbId) : getFirestore(app);
+  }
+})();
 
 // Error Handling Specification conforming to Firebase Skill
 export enum OperationType {
@@ -74,6 +89,17 @@ export interface FirestoreErrorInfo {
   };
 }
 
+export function isPermissionError(error: unknown): boolean {
+  if (!error) return false;
+  const msg = error instanceof Error ? error.message : String(error);
+  const code = (error as any)?.code;
+  return (
+    code === 'permission-denied' ||
+    msg.toLowerCase().includes('missing or insufficient permissions') ||
+    msg.toLowerCase().includes('insufficient permissions')
+  );
+}
+
 export function handleFirestoreError(
   error: unknown,
   operationType: OperationType,
@@ -100,6 +126,18 @@ export function handleFirestoreError(
   throw new Error(JSON.stringify(errInfo));
 }
 
+export function handleOperationError(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null
+): void {
+  if (isPermissionError(error)) {
+    handleFirestoreError(error, operationType, path);
+  } else {
+    console.warn(`Operação no Firestore (${operationType} em ${path}) em modo offline/desconectado.`);
+  }
+}
+
 // Test connection to Firestore on boot (as required by Firebase skill)
 export async function testFirestoreConnection(): Promise<boolean> {
   try {
@@ -107,7 +145,7 @@ export async function testFirestoreConnection(): Promise<boolean> {
     return true;
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error('Please check your Firebase configuration.');
+      console.warn('Firebase Firestore offline ou banco de dados ainda não inicializado no console.');
       return false;
     }
     // If the server answered (even document not found), the connection is online and healthy
@@ -339,27 +377,66 @@ export const subscribeToCampaigns = (
       onUpdate(items);
     },
     (err) => {
-      console.warn('Erro ao escutar campanhas no Firestore:', err);
-      try {
-        handleFirestoreError(err, OperationType.LIST, 'campaigns');
-      } catch (e: any) {
-        onError?.(e);
+      console.warn('Sincronização de campanhas em segundo plano:', err?.message || err);
+      if (isPermissionError(err)) {
+        try {
+          handleFirestoreError(err, OperationType.LIST, 'campaigns');
+        } catch (e: any) {
+          onError?.(e);
+        }
+      } else {
+        onError?.(err instanceof Error ? err : new Error(String(err)));
       }
     }
   );
 };
 
-// Backward-compatible alias
+// Firestore Realtime Campaigns filtered for specific User Account
 export const subscribeToUserCampaigns = (
-  _userId: string,
+  userId: string,
   onUpdate: (campaigns: Campaign[]) => void,
   onError?: (err: Error) => void
 ) => {
-  return subscribeToCampaigns(onUpdate, onError);
+  const campaignsCol = collection(db, 'campaigns');
+  return onSnapshot(
+    campaignsCol,
+    (snapshot) => {
+      const items: Campaign[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const docUserId = data.userId || 'usr_mestre';
+        if (!userId || docUserId === userId || (userId === 'usr_mestre' && docUserId === 'shared')) {
+          items.push({
+            id: docSnap.id,
+            title: data.title || 'Campanha sem título',
+            system: data.system || 'D&D 5e',
+            notes: data.notes || '',
+            createdAt: data.createdAt || Date.now(),
+            updatedAt: data.updatedAt || Date.now(),
+          });
+        }
+      });
+      items.sort((a, b) => b.updatedAt - a.updatedAt);
+      onUpdate(items);
+    },
+    (err) => {
+      console.warn('Sincronização de campanhas do usuário em segundo plano:', err?.message || err);
+      if (isPermissionError(err)) {
+        try {
+          handleFirestoreError(err, OperationType.LIST, 'campaigns');
+        } catch (e: any) {
+          onError?.(e);
+        }
+      } else {
+        onError?.(err instanceof Error ? err : new Error(String(err)));
+      }
+    }
+  );
 };
 
-// Firestore Universal Realtime Characters (Accessible equally across all versions)
-export const subscribeToCharacters = (
+// Firestore Realtime Characters filtered for specific User Account
+export const subscribeToUserCharacters = (
+  userId: string,
   onUpdate: (characters: CharacterSheet[]) => void,
   onError?: (err: Error) => void
 ) => {
@@ -370,42 +447,40 @@ export const subscribeToCharacters = (
       const items: CharacterSheet[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        items.push({
-          id: docSnap.id,
-          campaignId: data.campaignId || '',
-          name: data.name || 'Personagem',
-          role: data.role || 'Aventureiro',
-          type: data.type === 'NPC' ? 'NPC' : data.type === 'Monstro' ? 'Monstro' : 'PJ',
-          attributes: Array.isArray(data.attributes) ? data.attributes : [],
-          resources: Array.isArray(data.resources) ? data.resources : [],
-          notes: data.notes || '',
-          avatarUrl: data.avatarUrl || undefined,
-          challengeRating: data.challengeRating || undefined,
-          createdAt: data.createdAt || Date.now(),
-          updatedAt: data.updatedAt || Date.now(),
-        });
+        const docUserId = data.userId || 'usr_mestre';
+        if (!userId || docUserId === userId || (userId === 'usr_mestre' && docUserId === 'shared')) {
+          items.push({
+            id: docSnap.id,
+            campaignId: data.campaignId || '',
+            name: data.name || 'Personagem',
+            role: data.role || 'Aventureiro',
+            type: data.type === 'NPC' ? 'NPC' : data.type === 'Monstro' ? 'Monstro' : 'PJ',
+            attributes: Array.isArray(data.attributes) ? data.attributes : [],
+            resources: Array.isArray(data.resources) ? data.resources : [],
+            notes: data.notes || '',
+            avatarUrl: data.avatarUrl || undefined,
+            challengeRating: data.challengeRating || undefined,
+            createdAt: data.createdAt || Date.now(),
+            updatedAt: data.updatedAt || Date.now(),
+          });
+        }
       });
       items.sort((a, b) => b.updatedAt - a.updatedAt);
       onUpdate(items);
     },
     (err) => {
-      console.warn('Erro ao escutar personagens no Firestore:', err);
-      try {
-        handleFirestoreError(err, OperationType.LIST, 'characters');
-      } catch (e: any) {
-        onError?.(e);
+      console.warn('Sincronização de personagens do usuário em segundo plano:', err?.message || err);
+      if (isPermissionError(err)) {
+        try {
+          handleFirestoreError(err, OperationType.LIST, 'characters');
+        } catch (e: any) {
+          onError?.(e);
+        }
+      } else {
+        onError?.(err instanceof Error ? err : new Error(String(err)));
       }
     }
   );
-};
-
-// Backward-compatible alias
-export const subscribeToUserCharacters = (
-  _userId: string,
-  onUpdate: (characters: CharacterSheet[]) => void,
-  onError?: (err: Error) => void
-) => {
-  return subscribeToCharacters(onUpdate, onError);
 };
 
 // Firestore Mutations
@@ -441,7 +516,7 @@ export const saveCampaignToFirestore = async (
       { merge: true }
     );
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    handleOperationError(error, OperationType.WRITE, path);
   }
 };
 
@@ -451,7 +526,7 @@ export const deleteCampaignFromFirestore = async (campaignId: string): Promise<v
   try {
     await deleteDoc(docRef);
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
+    handleOperationError(error, OperationType.DELETE, path);
   }
 };
 
@@ -462,7 +537,7 @@ export const deleteAllCampaignsFromFirestore = async (_userId?: string): Promise
     const deletePromises = snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref));
     await Promise.all(deletePromises);
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
+    handleOperationError(error, OperationType.DELETE, path);
   }
 };
 
@@ -504,7 +579,7 @@ export const saveCharacterToFirestore = async (
       { merge: true }
     );
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    handleOperationError(error, OperationType.WRITE, path);
   }
 };
 
@@ -514,7 +589,7 @@ export const deleteCharacterFromFirestore = async (characterId: string): Promise
   try {
     await deleteDoc(docRef);
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
+    handleOperationError(error, OperationType.DELETE, path);
   }
 };
 
@@ -525,7 +600,7 @@ export const deleteAllCharactersFromFirestore = async (_userId?: string): Promis
     const deletePromises = snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref));
     await Promise.all(deletePromises);
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
+    handleOperationError(error, OperationType.DELETE, path);
   }
 };
 
@@ -631,11 +706,15 @@ export const subscribeToCampaignChat = (
       onUpdate(items);
     },
     (err) => {
-      console.warn(`Erro ao escutar mensagens do chat da campanha ${campaignId}:`, err);
-      try {
-        handleFirestoreError(err, OperationType.LIST, path);
-      } catch (e: any) {
-        onError?.(e);
+      console.warn(`Sincronização de chat da campanha ${campaignId} em segundo plano:`, err?.message || err);
+      if (isPermissionError(err)) {
+        try {
+          handleFirestoreError(err, OperationType.LIST, path);
+        } catch (e: any) {
+          onError?.(e);
+        }
+      } else {
+        onError?.(err instanceof Error ? err : new Error(String(err)));
       }
     }
   );
@@ -686,7 +765,7 @@ export const saveCampaignChatMessage = async (
       { merge: true }
     );
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    handleOperationError(error, OperationType.WRITE, path);
   }
 };
 
@@ -704,7 +783,7 @@ export const clearCampaignChatInFirestore = async (campaignId: string): Promise<
     });
     await batch.commit();
   } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, path);
+    handleOperationError(err, OperationType.DELETE, path);
   }
 };
 

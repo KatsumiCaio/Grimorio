@@ -1,4 +1,5 @@
 import { Campaign, CharacterSheet, AppSettings, ChatMessage } from '../types';
+import { authService } from './auth';
 
 const CAMPAIGNS_STORAGE_KEY = 'grimorio_campaigns_v1';
 const CHARACTERS_STORAGE_KEY = 'grimorio_characters_v1';
@@ -170,69 +171,243 @@ Reação inicial: Amigável e prestativo, mas evita perguntas sobre seu antigo m
   },
 ];
 
+// Distinct starter campaigns for Narradora Lyra
+const NARRADORA_CAMPAIGNS: Campaign[] = [
+  {
+    id: 'camp-lyra-1',
+    title: 'Crônicas de Cyber-Neo-Tokyo 2099',
+    system: 'Cyberpunk RED',
+    createdAt: Date.now() - 86400000 * 5,
+    updatedAt: Date.now() - 86400000 * 1,
+    notes: `# Operação: Protocolo Sombra em Shinjuku
+
+## 🌃 Clima & Cenário
+- Chuva ácida fina, reflexos de neon azul e magenta no asfalto molhado.
+- Sirenes de drones da megacorporação Arasaka patrulhando o setor 4.
+
+## 💾 Missão Ativa
+Extrair o chip quântico da bioengenheira Dra. Vane antes que a equipe de contenção limpe o laboratório.
+
+## 👥 Contatos & Aliados
+{{ficha:char-lyra-1}}
+`,
+  },
+  {
+    id: 'camp-lyra-2',
+    title: 'O Culto da Serpente de Ferro',
+    system: 'Tormenta 20',
+    createdAt: Date.now() - 86400000 * 12,
+    updatedAt: Date.now() - 86400000 * 3,
+    notes: `# A Fenda de Valkaria
+
+## 🗡️ Rumores na Taverna
+- Mercadores afirmam que caravanas estão sumindo nas colinas dos Uivantes.
+- Um clérigo da deusa da cura pede ajuda para purificar uma mina de ferro corrompida.
+`,
+  },
+];
+
+const NARRADORA_CHARACTERS: CharacterSheet[] = [
+  {
+    id: 'char-lyra-1',
+    campaignId: 'camp-lyra-1',
+    name: 'Kaelen "Glitch" Vane',
+    role: 'Netrunner & Mercenário de Elite',
+    type: 'PJ',
+    attributes: [
+      { id: 'a1', key: 'REF', value: 14 },
+      { id: 'a2', key: 'INT', value: 18 },
+      { id: 'a3', key: 'TEC', value: 16 },
+      { id: 'a4', key: 'VON', value: 13 },
+      { id: 'a5', key: 'MOV', value: 12 },
+      { id: 'a6', key: 'COR', value: 10 },
+    ],
+    resources: [
+      { id: 'r1', name: 'Pontos de Vida', current: 35, max: 35, color: 'emerald' },
+      { id: 'r2', name: 'Interface Cyberdeck', current: 5, max: 5, color: 'blue' },
+    ],
+    notes: 'Equipado com Cyberdeck Militech e pistola de plasma silenciosa.',
+    createdAt: Date.now() - 86400000 * 5,
+    updatedAt: Date.now() - 86400000 * 1,
+  },
+];
+
 export const storageService = {
-  getCampaigns(): Campaign[] {
+  // --- USER SPECIFIC CAMPAIGNS ---
+  getUserCampaigns(userId: string): Campaign[] {
+    if (!userId) return [];
+    const storageKey = `grimorio_user_${userId}_campaigns`;
     try {
-      const data = localStorage.getItem(CAMPAIGNS_STORAGE_KEY);
-      if (!data) {
-        this.saveCampaigns(DEFAULT_CAMPAIGNS);
+      const data = localStorage.getItem(storageKey);
+      if (data) {
+        return JSON.parse(data);
+      }
+
+      // Check migration from legacy storage if this is the primary master account
+      if (userId === 'usr_mestre' || userId === 'shared') {
+        const legacyData = localStorage.getItem(CAMPAIGNS_STORAGE_KEY);
+        if (legacyData) {
+          try {
+            const parsedLegacy = JSON.parse(legacyData);
+            if (Array.isArray(parsedLegacy) && parsedLegacy.length > 0) {
+              this.saveUserCampaigns(userId, parsedLegacy);
+              return parsedLegacy;
+            }
+          } catch {
+            // ignore
+          }
+        }
+        // Seed default master campaigns
+        this.saveUserCampaigns(userId, DEFAULT_CAMPAIGNS);
         return DEFAULT_CAMPAIGNS;
       }
-      const parsed: Campaign[] = JSON.parse(data);
-      // If default campaign exists and doesn't have the embed demo, update it seamlessly
-      const defaultCamp = parsed.find((c) => c.id === 'camp-default-1');
-      if (defaultCamp && !defaultCamp.notes.includes('{{ficha:')) {
-        defaultCamp.notes = DEFAULT_CAMPAIGNS[0].notes;
-        this.saveCampaigns(parsed);
+
+      if (userId === 'usr_narradora') {
+        this.saveUserCampaigns(userId, NARRADORA_CAMPAIGNS);
+        return NARRADORA_CAMPAIGNS;
       }
-      return parsed;
+
+      // For any newly created user, start with a fresh custom starter campaign
+      const starterCamp: Campaign[] = [
+        {
+          id: `camp_${userId}_starter`,
+          title: 'Primeira Jornada',
+          system: 'D&D 5e',
+          notes: `# Primeira Jornada do Mestre\n\nBem-vindo ao seu novo Grimório!\n\n## ⚔️ Ganchos Iniciais\n- A aventura começa aqui. Adicione suas anotações, fichas de personagens e use o Copiloto IA para expandir seu mundo.\n`,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      ];
+      this.saveUserCampaigns(userId, starterCamp);
+      return starterCamp;
     } catch {
-      return DEFAULT_CAMPAIGNS;
+      return [];
     }
   },
 
-  saveCampaigns(campaigns: Campaign[]): void {
+  saveUserCampaigns(userId: string, campaigns: Campaign[]): void {
+    if (!userId) return;
+    const storageKey = `grimorio_user_${userId}_campaigns`;
     try {
-      localStorage.setItem(CAMPAIGNS_STORAGE_KEY, JSON.stringify(campaigns));
+      localStorage.setItem(storageKey, JSON.stringify(campaigns));
     } catch (e) {
-      console.error('Falha ao salvar campanhas no LocalStorage:', e);
+      console.error(`Falha ao salvar campanhas do usuário ${userId}:`, e);
     }
   },
 
-  clearCampaigns(): void {
+  clearUserCampaigns(userId: string): void {
+    if (!userId) return;
+    const storageKey = `grimorio_user_${userId}_campaigns`;
     try {
-      localStorage.setItem(CAMPAIGNS_STORAGE_KEY, JSON.stringify([]));
+      localStorage.setItem(storageKey, JSON.stringify([]));
     } catch (e) {
-      console.error('Falha ao limpar campanhas no LocalStorage:', e);
+      console.error(`Falha ao limpar campanhas do usuário ${userId}:`, e);
     }
   },
 
-  getCharacters(): CharacterSheet[] {
+  // --- USER SPECIFIC CHARACTERS ---
+  getUserCharacters(userId: string): CharacterSheet[] {
+    if (!userId) return [];
+    const storageKey = `grimorio_user_${userId}_characters`;
     try {
-      const data = localStorage.getItem(CHARACTERS_STORAGE_KEY);
-      if (!data) {
-        this.saveCharacters(DEFAULT_CHARACTERS);
+      const data = localStorage.getItem(storageKey);
+      if (data) {
+        return JSON.parse(data);
+      }
+
+      if (userId === 'usr_mestre' || userId === 'shared') {
+        const legacyData = localStorage.getItem(CHARACTERS_STORAGE_KEY);
+        if (legacyData) {
+          try {
+            const parsedLegacy = JSON.parse(legacyData);
+            if (Array.isArray(parsedLegacy) && parsedLegacy.length > 0) {
+              this.saveUserCharacters(userId, parsedLegacy);
+              return parsedLegacy;
+            }
+          } catch {
+            // ignore
+          }
+        }
+        this.saveUserCharacters(userId, DEFAULT_CHARACTERS);
         return DEFAULT_CHARACTERS;
       }
-      return JSON.parse(data);
+
+      if (userId === 'usr_narradora') {
+        this.saveUserCharacters(userId, NARRADORA_CHARACTERS);
+        return NARRADORA_CHARACTERS;
+      }
+
+      return [];
     } catch {
-      return DEFAULT_CHARACTERS;
+      return [];
     }
   },
 
-  saveCharacters(characters: CharacterSheet[]): void {
+  saveUserCharacters(userId: string, characters: CharacterSheet[]): void {
+    if (!userId) return;
+    const storageKey = `grimorio_user_${userId}_characters`;
     try {
-      localStorage.setItem(CHARACTERS_STORAGE_KEY, JSON.stringify(characters));
+      localStorage.setItem(storageKey, JSON.stringify(characters));
     } catch (e) {
-      console.error('Falha ao salvar fichas no LocalStorage:', e);
+      console.error(`Falha ao salvar fichas do usuário ${userId}:`, e);
     }
   },
 
-  getCampaignChatMessages(campaignId: string): ChatMessage[] {
-    if (!campaignId) return [];
+  clearUserCharacters(userId: string): void {
+    if (!userId) return;
+    const storageKey = `grimorio_user_${userId}_characters`;
     try {
-      const raw = localStorage.getItem(`${CHAT_STORAGE_PREFIX}${campaignId}`);
-      if (!raw) return [];
+      localStorage.removeItem(storageKey);
+    } catch (e) {
+      console.error(`Falha ao limpar fichas do usuário ${userId}:`, e);
+    }
+  },
+
+  // --- USER ACTIVE CAMPAIGN ID ---
+  getUserActiveCampaignId(userId: string): string {
+    if (!userId) return '';
+    const key = `grimorio_user_${userId}_active_camp`;
+    try {
+      const stored = localStorage.getItem(key);
+      if (stored) return stored;
+    } catch {
+      // ignore
+    }
+    const userCamps = this.getUserCampaigns(userId);
+    const fallback = userCamps[0]?.id || '';
+    if (fallback) {
+      this.saveUserActiveCampaignId(userId, fallback);
+    }
+    return fallback;
+  },
+
+  saveUserActiveCampaignId(userId: string, campaignId: string): void {
+    if (!userId) return;
+    const key = `grimorio_user_${userId}_active_camp`;
+    try {
+      localStorage.setItem(key, campaignId);
+    } catch {
+      // ignore
+    }
+  },
+
+  // --- USER & CAMPAIGN CHAT MESSAGES ---
+  getUserCampaignChatMessages(userId: string, campaignId: string): ChatMessage[] {
+    if (!campaignId) return [];
+    const key = userId
+      ? `grimorio_user_${userId}_chat_${campaignId}`
+      : `${CHAT_STORAGE_PREFIX}${campaignId}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) {
+        // Fallback check legacy
+        const legacyRaw = localStorage.getItem(`${CHAT_STORAGE_PREFIX}${campaignId}`);
+        if (legacyRaw) {
+          const parsedLegacy = JSON.parse(legacyRaw);
+          return Array.isArray(parsedLegacy) ? parsedLegacy : [];
+        }
+        return [];
+      }
       const parsed = JSON.parse(raw);
       return Array.isArray(parsed) ? parsed : [];
     } catch {
@@ -240,10 +415,12 @@ export const storageService = {
     }
   },
 
-  saveCampaignChatMessages(campaignId: string, messages: ChatMessage[]): void {
+  saveUserCampaignChatMessages(userId: string, campaignId: string, messages: ChatMessage[]): void {
     if (!campaignId) return;
+    const key = userId
+      ? `grimorio_user_${userId}_chat_${campaignId}`
+      : `${CHAT_STORAGE_PREFIX}${campaignId}`;
     try {
-      // Filter out streaming placeholders
       const cleanMessages = messages
         .filter((m) => !m.isStreaming || m.content.trim().length > 0)
         .map((m) => ({
@@ -252,19 +429,74 @@ export const storageService = {
           content: m.content,
           timestamp: m.timestamp,
         }));
-      localStorage.setItem(`${CHAT_STORAGE_PREFIX}${campaignId}`, JSON.stringify(cleanMessages));
+      localStorage.setItem(key, JSON.stringify(cleanMessages));
     } catch (e) {
-      console.error('Falha ao salvar mensagens de chat da campanha no LocalStorage:', e);
+      console.error('Falha ao salvar chat no LocalStorage:', e);
     }
   },
 
-  clearCampaignChatMessages(campaignId: string): void {
+  clearUserCampaignChatMessages(userId: string, campaignId: string): void {
     if (!campaignId) return;
+    const key = userId
+      ? `grimorio_user_${userId}_chat_${campaignId}`
+      : `${CHAT_STORAGE_PREFIX}${campaignId}`;
     try {
-      localStorage.removeItem(`${CHAT_STORAGE_PREFIX}${campaignId}`);
+      localStorage.removeItem(key);
     } catch (e) {
-      console.error('Falha ao limpar chat da campanha no LocalStorage:', e);
+      console.error('Falha ao limpar chat no LocalStorage:', e);
     }
+  },
+
+  // --- GLOBAL DELEGATES (Using active user) ---
+  getCampaigns(): Campaign[] {
+    const user = authService.getCurrentUser();
+    return this.getUserCampaigns(user.id);
+  },
+
+  saveCampaigns(campaigns: Campaign[]): void {
+    const user = authService.getCurrentUser();
+    this.saveUserCampaigns(user.id, campaigns);
+    // Also mirror to legacy key for backwards safety
+    try {
+      localStorage.setItem(CAMPAIGNS_STORAGE_KEY, JSON.stringify(campaigns));
+    } catch {
+      // ignore
+    }
+  },
+
+  clearCampaigns(): void {
+    const user = authService.getCurrentUser();
+    this.clearUserCampaigns(user.id);
+  },
+
+  getCharacters(): CharacterSheet[] {
+    const user = authService.getCurrentUser();
+    return this.getUserCharacters(user.id);
+  },
+
+  saveCharacters(characters: CharacterSheet[]): void {
+    const user = authService.getCurrentUser();
+    this.saveUserCharacters(user.id, characters);
+    try {
+      localStorage.setItem(CHARACTERS_STORAGE_KEY, JSON.stringify(characters));
+    } catch {
+      // ignore
+    }
+  },
+
+  getCampaignChatMessages(campaignId: string): ChatMessage[] {
+    const user = authService.getCurrentUser();
+    return this.getUserCampaignChatMessages(user.id, campaignId);
+  },
+
+  saveCampaignChatMessages(campaignId: string, messages: ChatMessage[]): void {
+    const user = authService.getCurrentUser();
+    this.saveUserCampaignChatMessages(user.id, campaignId, messages);
+  },
+
+  clearCampaignChatMessages(campaignId: string): void {
+    const user = authService.getCurrentUser();
+    this.clearUserCampaignChatMessages(user.id, campaignId);
   },
 
   getSettings(): AppSettings {
@@ -273,7 +505,6 @@ export const storageService = {
       if (!data) return DEFAULT_SETTINGS;
       const parsed = JSON.parse(data);
       const settings = { ...DEFAULT_SETTINGS, ...parsed };
-      // Migrate legacy/deprecated model
       if (settings.model === 'gemini-2.5-flash' || !settings.model) {
         settings.model = 'gemini-3.6-flash';
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
@@ -293,12 +524,19 @@ export const storageService = {
   },
 
   exportBackup(): string {
+    const user = authService.getCurrentUser();
     const payload = {
-      version: 1,
+      version: 2,
       appName: 'Grimorio',
       exportedAt: new Date().toISOString(),
-      campaigns: this.getCampaigns(),
-      characters: this.getCharacters(),
+      user: {
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        role: user.role,
+      },
+      campaigns: this.getUserCampaigns(user.id),
+      characters: this.getUserCharacters(user.id),
       settings: this.getSettings(),
     };
     return JSON.stringify(payload, null, 2);
@@ -307,11 +545,12 @@ export const storageService = {
   importBackup(jsonString: string): boolean {
     try {
       const parsed = JSON.parse(jsonString);
+      const user = authService.getCurrentUser();
       if (Array.isArray(parsed.campaigns)) {
-        this.saveCampaigns(parsed.campaigns);
+        this.saveUserCampaigns(user.id, parsed.campaigns);
       }
       if (Array.isArray(parsed.characters)) {
-        this.saveCharacters(parsed.characters);
+        this.saveUserCharacters(user.id, parsed.characters);
       }
       if (parsed.settings && typeof parsed.settings === 'object') {
         this.saveSettings(parsed.settings);

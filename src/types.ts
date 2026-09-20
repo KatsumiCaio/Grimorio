@@ -71,3 +71,23 @@ export interface AppSettings {
 }
 
 export type MainTab = 'campaign' | 'characters' | 'bestiary';
+
+export type UserRole =
+  | 'Mestre da Masmorra'
+  | 'Narrador'
+  | 'Guardião de Segredos'
+  | 'Jogador'
+  | 'Criador de Mundos';
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  displayName: string;
+  role: UserRole;
+  avatarId: string; // e.g. 'd20' | 'wizard' | 'dragon' | 'warrior' | 'rogue' | 'skull' | 'crown' | 'shield' | 'flame' | custom URL
+  color: 'cyan' | 'amber' | 'emerald' | 'purple' | 'rose' | 'indigo';
+  bio?: string;
+  createdAt: number;
+  lastLoginAt: number;
+  passwordHash?: string;
+}

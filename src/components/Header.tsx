@@ -15,10 +15,9 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { FlamingD20Logo } from './FlamingD20Logo';
-import { MainTab, Campaign } from '../types';
+import { MainTab, Campaign, UserProfile } from '../types';
 import { DiceRoller } from './DiceRoller';
-import type { User } from 'firebase/auth';
-import { isInsideIframe } from '../services/firebase';
+import { UserAvatar } from './UserAvatar';
 
 interface HeaderProps {
   currentTab: MainTab;
@@ -28,9 +27,8 @@ interface HeaderProps {
   campaignsCount?: number;
   onOpenCampaignMenu?: () => void;
   syncStatus?: 'synced' | 'syncing' | 'offline' | 'error';
-  user?: User | null;
-  onSignInGoogle?: () => void;
-  isLoggingIn?: boolean;
+  currentUser?: UserProfile;
+  onOpenAuthModal?: () => void;
   onOpenSettings: () => void;
   onOpenSearch: () => void;
   customLogoUrl?: string;
@@ -44,9 +42,8 @@ export const Header: React.FC<HeaderProps> = ({
   campaignsCount = 0,
   onOpenCampaignMenu,
   syncStatus = 'synced',
-  user,
-  onSignInGoogle,
-  isLoggingIn = false,
+  currentUser,
+  onOpenAuthModal,
   onOpenSettings,
   onOpenSearch,
   customLogoUrl,
@@ -180,68 +177,31 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* User Account / Google Sign-in */}
-        {user && !user.isAnonymous ? (
+        {/* User Account / Profile Switcher Button */}
+        {currentUser && (
           <button
-            onClick={onOpenSettings}
-            className="flex items-center gap-1.5 p-1 sm:px-2 sm:py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs transition-colors"
-            title={`Conectado como ${user.displayName || user.email || 'Usuário Google'}`}
+            id="header-user-profile-btn"
+            onClick={onOpenAuthModal}
+            className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-cyan-500/50 text-xs transition-all cursor-pointer group shadow-xs"
+            title={`Perfil ativo: ${currentUser.displayName} (@${currentUser.username}) - Clique para alternar ou gerenciar contas`}
           >
-            {user.photoURL ? (
-              <img
-                src={user.photoURL}
-                alt="Foto"
-                referrerPolicy="no-referrer"
-                className="w-5 h-5 rounded-full object-cover border border-cyan-500/40"
-              />
-            ) : (
-              <UserIcon className="w-3.5 h-3.5 text-cyan-400" />
-            )}
-            <span className="hidden lg:inline text-[11px] text-zinc-200 font-medium max-w-[90px] truncate">
-              {user.displayName?.split(' ')[0] || 'Google'}
-            </span>
+            <UserAvatar
+              avatarId={currentUser.avatarId}
+              color={currentUser.color}
+              size="xs"
+              showGlow={true}
+            />
+            <div className="flex flex-col text-left min-w-0">
+              <span className="font-semibold text-zinc-100 text-[11px] leading-tight truncate max-w-[80px] sm:max-w-[115px]">
+                {currentUser.displayName}
+              </span>
+              <span className="text-[9px] text-cyan-400 font-mono leading-none truncate max-w-[80px] sm:max-w-[115px]">
+                {currentUser.role.split(' ')[0]}
+              </span>
+            </div>
+            <ChevronDown className="w-3 h-3 text-zinc-500 group-hover:text-cyan-400 shrink-0 transition-colors" />
           </button>
-        ) : onSignInGoogle ? (
-          <div className="flex items-center gap-1">
-            <button
-              id="google-signin-btn"
-              disabled={isLoggingIn}
-              onClick={() => {
-                void onSignInGoogle();
-              }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-medium transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait"
-              title={
-                isInsideIframe()
-                  ? 'Conectar com o Google (Caso o visualizador embutido bloqueie o pop-up, utilize o botão ao lado para abrir em nova aba)'
-                  : 'Conectar com o Google para sincronizar suas campanhas em qualquer dispositivo'
-              }
-            >
-              {isLoggingIn ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-                  <span className="text-cyan-300 font-medium">Conectando...</span>
-                </>
-              ) : (
-                <>
-                  <LogIn className="w-3.5 h-3.5 text-cyan-400" />
-                  <span className="hidden sm:inline">Conectar Google</span>
-                </>
-              )}
-            </button>
-
-            {/* In iframe preview, provide a fast 1-click escape to an unrestricted browser tab */}
-            {isInsideIframe() && (
-              <button
-                type="button"
-                onClick={() => window.open(window.location.href, '_blank')}
-                className="p-1.5 text-zinc-400 hover:text-cyan-300 hover:bg-zinc-800 rounded-lg border border-transparent hover:border-zinc-700 transition-colors cursor-pointer"
-                title="Abrir Grimório em Nova Aba (Permite login Google sem restrições de iframe do navegador)"
-              >
-                <ExternalLink className="w-3.5 h-3.5 text-cyan-400/80" />
-              </button>
-            )}
-          </div>
-        ) : null}
+        )}
 
         {/* Global Search Button */}
         <button

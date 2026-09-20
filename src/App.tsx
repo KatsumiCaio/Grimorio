@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Campaign, CharacterSheet, MainTab, AppSettings, BestiaryMonster } from './types';
+import { useState, useEffect, useCallback } from 'react';
+import { Campaign, CharacterSheet, MainTab, AppSettings, BestiaryMonster, UserProfile } from './types';
 import { storageService } from './services/storage';
+import { authService } from './services/auth';
 import { Header } from './components/Header';
 import { CampaignCopilotView } from './components/CampaignCopilotView';
 import { CharacterSheetsView } from './components/CharacterSheetsView';
@@ -8,14 +9,11 @@ import { BestiaryView } from './components/BestiaryView';
 import { SettingsModal } from './components/SettingsModal';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { CampaignMenuModal } from './components/CampaignMenuModal';
+import { AuthModal } from './components/AuthModal';
 import { BottomNav } from './components/BottomNav';
-import type { User } from 'firebase/auth';
 import {
-  signInWithGoogleAccount,
-  logoutUser,
-  onAuthStatusChange,
-  subscribeToCampaigns,
-  subscribeToCharacters,
+  subscribeToUserCampaigns,
+  subscribeToUserCharacters,
   saveCampaignToFirestore,
   deleteCampaignFromFirestore,
   deleteAllCampaignsFromFirestore,
@@ -24,69 +22,98 @@ import {
   deleteAllCharactersFromFirestore,
   checkAndSeedCloudData,
   testFirestoreConnection,
-  AuthErrorInfo,
 } from './services/firebase';
 
 export default function App() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>(() => storageService.getCampaigns());
-  const [characters, setCharacters] = useState<CharacterSheet[]>(() => storageService.getCharacters());
+  const [currentUser, setCurrentUser] = useState<UserProfile>(() => authService.getCurrentUser());
+  const [campaigns, setCampaigns] = useState<Campaign[]>(() =>
+    storageService.getUserCampaigns(authService.getCurrentUser().id)
+  );
+  const [characters, setCharacters] = useState<CharacterSheet[]>(() =>
+    storageService.getUserCharacters(authService.getCurrentUser().id)
+  );
   const [settings, setSettings] = useState<AppSettings>(() => storageService.getSettings());
   const [activeCampaignId, setActiveCampaignId] = useState<string>(() => {
-    const loaded = storageService.getCampaigns();
-    return loaded[0]?.id || '';
+    const userId = authService.getCurrentUser().id;
+    return storageService.getUserActiveCampaignId(userId);
   });
   const [currentTab, setCurrentTab] = useState<MainTab>('campaign');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCampaignMenuOpen, setIsCampaignMenuOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | undefined>(undefined);
   const [isFullScreenNotes, setIsFullScreenNotes] = useState(false);
 
-  // Firebase Auth & Cloud Sync States
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline' | 'error'>('syncing');
+  // Cloud Sync Status
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline' | 'error'>('synced');
   const [isSyncingManual, setIsSyncingManual] = useState(false);
-  const [authNotice, setAuthNotice] = useState<string | null>(null);
-  const [authErrorInfo, setAuthErrorInfo] = useState<AuthErrorInfo | null>(null);
-  const [isLoggingInGoogle, setIsLoggingInGoogle] = useState(false);
-  const isCloudLoadedRef = useRef(false);
 
-  // Initialize Firebase Auth & Universal Realtime Database Subscriptions
+  // Handle switching or updating user accounts
+  const handleUserChanged = useCallback((newUser: UserProfile) => {
+    setCurrentUser(newUser);
+    const userCamps = storageService.getUserCampaigns(newUser.id);
+    const userChars = storageService.getUserCharacters(newUser.id);
+    const userActiveId = storageService.getUserActiveCampaignId(newUser.id);
+
+    setCampaigns(userCamps);
+    setCharacters(userChars);
+    setActiveCampaignId(userActiveId);
+
+    const firstChar = userChars.find((c) => c.campaignId === userActiveId);
+    setSelectedCharacterId(firstChar?.id);
+  }, []);
+
+  // Sync active campaign changes to user storage
+  const handleSelectCampaign = useCallback(
+    (id: string) => {
+      setActiveCampaignId(id);
+      storageService.saveUserActiveCampaignId(currentUser.id, id);
+    },
+    [currentUser.id]
+  );
+
+  // Initialize Realtime Database Subscriptions for the Active User
   useEffect(() => {
     let unsubCampaigns: (() => void) | null = null;
     let unsubCharacters: (() => void) | null = null;
+    const userId = currentUser.id;
 
     // 1. Verify Firestore connectivity & seed initial data if remote database is empty
     const initCloud = async () => {
       setSyncStatus('syncing');
       try {
-        await testFirestoreConnection();
-        const localCamps = storageService.getCampaigns();
-        const localChars = storageService.getCharacters();
-        await checkAndSeedCloudData(localCamps, localChars);
+        const isOnline = await testFirestoreConnection();
+        if (isOnline) {
+          const localCamps = storageService.getUserCampaigns(userId);
+          const localChars = storageService.getUserCharacters(userId);
+          await checkAndSeedCloudData(userId, localCamps, localChars);
+          setSyncStatus('synced');
+        } else {
+          setSyncStatus('offline');
+        }
       } catch (err) {
         console.warn('Verificação inicial do Firestore:', err);
+        setSyncStatus('offline');
       }
     };
 
     void initCloud();
 
-    // 2. Universal realtime listener for all campaigns across all versions
-    unsubCampaigns = subscribeToCampaigns(
+    // 2. Realtime listener for user-specific campaigns
+    unsubCampaigns = subscribeToUserCampaigns(
+      userId,
       (cloudCampaigns) => {
         if (cloudCampaigns.length > 0) {
           setCampaigns(cloudCampaigns);
-          storageService.saveCampaigns(cloudCampaigns);
+          storageService.saveUserCampaigns(userId, cloudCampaigns);
           setActiveCampaignId((prev) => {
             if (prev && cloudCampaigns.some((c) => c.id === prev)) return prev;
-            return cloudCampaigns[0]?.id || '';
+            const newActive = cloudCampaigns[0]?.id || '';
+            storageService.saveUserActiveCampaignId(userId, newActive);
+            return newActive;
           });
-        } else if (isCloudLoadedRef.current) {
-          setCampaigns([]);
-          storageService.clearCampaigns();
-          setActiveCampaignId('');
         }
-        isCloudLoadedRef.current = true;
         setSyncStatus('synced');
       },
       (err) => {
@@ -95,15 +122,13 @@ export default function App() {
       }
     );
 
-    // 3. Universal realtime listener for all characters across all versions
-    unsubCharacters = subscribeToCharacters(
+    // 3. Realtime listener for user-specific characters
+    unsubCharacters = subscribeToUserCharacters(
+      userId,
       (cloudCharacters) => {
         if (cloudCharacters.length > 0) {
           setCharacters(cloudCharacters);
-          storageService.saveCharacters(cloudCharacters);
-        } else if (isCloudLoadedRef.current) {
-          setCharacters([]);
-          storageService.saveCharacters([]);
+          storageService.saveUserCharacters(userId, cloudCharacters);
         }
         setSyncStatus('synced');
       },
@@ -113,67 +138,33 @@ export default function App() {
       }
     );
 
-    // 4. Track auth status
-    const unsubscribeAuth = onAuthStatusChange((user) => {
-      setCurrentUser(user);
-    });
-
     return () => {
-      unsubscribeAuth();
       if (unsubCampaigns) unsubCampaigns();
       if (unsubCharacters) unsubCharacters();
     };
-  }, []);
-
-  // Google Login Handler
-  const handleSignInGoogle = useCallback(async () => {
-    if (isLoggingInGoogle) return;
-    setIsLoggingInGoogle(true);
-    setSyncStatus('syncing');
-    setAuthNotice(null);
-    setAuthErrorInfo(null);
-
-    const res = await signInWithGoogleAccount();
-    setIsLoggingInGoogle(false);
-
-    if (res.error) {
-      setAuthNotice(res.error);
-      setAuthErrorInfo(res.authError || null);
-      setIsSettingsOpen(true);
-    } else {
-      setAuthNotice(null);
-      setAuthErrorInfo(null);
-      setSyncStatus('synced');
-    }
-  }, [isLoggingInGoogle]);
-
-  // Logout Handler
-  const handleSignOut = useCallback(async () => {
-    await logoutUser();
-    setCurrentUser(null);
-  }, []);
+  }, [currentUser.id]);
 
   // Manual Full Cloud Sync Handler
   const handleManualSyncCloud = useCallback(async () => {
     setIsSyncingManual(true);
     setSyncStatus('syncing');
     try {
-      const currentUid = currentUser?.uid || 'shared';
+      const userId = currentUser.id;
       for (const camp of campaigns) {
-        await saveCampaignToFirestore(camp, currentUid);
+        await saveCampaignToFirestore(camp, userId);
       }
       for (const char of characters) {
-        await saveCharacterToFirestore(char, currentUid);
+        await saveCharacterToFirestore(char, userId);
       }
       setSyncStatus('synced');
     } catch (e) {
-      console.error('Erro na sincronização manual:', e);
-      setSyncStatus('error');
+      console.warn('Erro na sincronização manual:', e);
+      setSyncStatus('offline');
       throw e;
     } finally {
       setIsSyncingManual(false);
     }
-  }, [currentUser, campaigns, characters]);
+  }, [currentUser.id, campaigns, characters]);
 
   // Toggle full screen notes with optional browser Fullscreen API integration
   const handleToggleFullScreen = useCallback(() => {
@@ -226,121 +217,143 @@ export default function App() {
   }, [isFullScreenNotes]);
 
   // Quick navigation handlers from Global Search
-  const handleNavigateToCampaign = useCallback((campaignId: string) => {
-    setActiveCampaignId(campaignId);
-    setCurrentTab('campaign');
-  }, []);
+  const handleNavigateToCampaign = useCallback(
+    (campaignId: string) => {
+      handleSelectCampaign(campaignId);
+      setCurrentTab('campaign');
+    },
+    [handleSelectCampaign]
+  );
 
-  const handleNavigateToCharacter = useCallback((campaignId: string, charId: string) => {
-    setActiveCampaignId(campaignId);
-    setSelectedCharacterId(charId);
-    setCurrentTab('characters');
-  }, []);
+  const handleNavigateToCharacter = useCallback(
+    (campaignId: string, charId: string) => {
+      handleSelectCampaign(campaignId);
+      setSelectedCharacterId(charId);
+      setCurrentTab('characters');
+    },
+    [handleSelectCampaign]
+  );
 
   // Sync state with storage and Firestore whenever campaigns change
-  const handleUpdateCampaign = useCallback((updated: Partial<Campaign>) => {
-    setCampaigns((prev) => {
-      let updatedCamp: Campaign | null = null;
-      const next = prev.map((c) => {
-        if (c.id === activeCampaignId) {
-          updatedCamp = { ...c, ...updated, updatedAt: Date.now() };
-          return updatedCamp;
+  const handleUpdateCampaign = useCallback(
+    (updated: Partial<Campaign>) => {
+      setCampaigns((prev) => {
+        let updatedCamp: Campaign | null = null;
+        const next = prev.map((c) => {
+          if (c.id === activeCampaignId) {
+            updatedCamp = { ...c, ...updated, updatedAt: Date.now() };
+            return updatedCamp;
+          }
+          return c;
+        });
+        storageService.saveUserCampaigns(currentUser.id, next);
+
+        // Persist to Firestore
+        if (updatedCamp) {
+          saveCampaignToFirestore(updatedCamp, currentUser.id).catch((err) => {
+            console.warn('Erro ao sincronizar campanha no Firestore:', err);
+          });
         }
-        return c;
+
+        return next;
       });
-      storageService.saveCampaigns(next);
+    },
+    [activeCampaignId, currentUser.id]
+  );
+
+  const handleCreateCampaign = useCallback(
+    (title: string, system: string) => {
+      const newCamp: Campaign = {
+        id: `camp-${Date.now()}`,
+        title,
+        system: system || 'D&D 5e',
+        notes: `# ${title}\n\n## 📝 Rascunhos da Sessão\n- Escreva aqui ganchos, cenas e acontecimentos da aventura.\n`,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      setCampaigns((prev) => {
+        const next = [newCamp, ...prev];
+        storageService.saveUserCampaigns(currentUser.id, next);
+        return next;
+      });
+      handleSelectCampaign(newCamp.id);
 
       // Persist to Firestore
-      if (updatedCamp) {
-        saveCampaignToFirestore(updatedCamp, currentUser?.uid || 'shared').catch((err) => {
-          console.warn('Erro ao sincronizar campanha no Firestore:', err);
-        });
-      }
-
-      return next;
-    });
-  }, [activeCampaignId, currentUser]);
-
-  const handleCreateCampaign = useCallback((title: string, system: string) => {
-    const newCamp: Campaign = {
-      id: `camp-${Date.now()}`,
-      title,
-      system: system || 'D&D 5e',
-      notes: `# ${title}\n\n## 📝 Rascunhos da Sessão\n- Escreva aqui ganchos, cenas e acontecimentos da aventura.\n`,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-
-    setCampaigns((prev) => {
-      const next = [newCamp, ...prev];
-      storageService.saveCampaigns(next);
-      return next;
-    });
-    setActiveCampaignId(newCamp.id);
-
-    // Persist to Firestore
-    saveCampaignToFirestore(newCamp, currentUser?.uid || 'shared').catch((err) => {
-      console.warn('Erro ao salvar nova campanha no Firestore:', err);
-    });
-  }, [currentUser]);
-
-  const handleUpdateCampaignById = useCallback((id: string, updated: Partial<Campaign>) => {
-    setCampaigns((prev) => {
-      const next = prev.map((c) => {
-        if (c.id === id) {
-          return { ...c, ...updated, updatedAt: Date.now() };
-        }
-        return c;
+      saveCampaignToFirestore(newCamp, currentUser.id).catch((err) => {
+        console.warn('Erro ao salvar nova campanha no Firestore:', err);
       });
-      storageService.saveCampaigns(next);
+    },
+    [currentUser.id, handleSelectCampaign]
+  );
 
-      const found = next.find((c) => c.id === id);
-      if (found) {
-        saveCampaignToFirestore(found, currentUser?.uid || 'shared').catch((err) => {
-          console.warn('Erro ao atualizar campanha no Firestore:', err);
+  const handleUpdateCampaignById = useCallback(
+    (id: string, updated: Partial<Campaign>) => {
+      setCampaigns((prev) => {
+        const next = prev.map((c) => {
+          if (c.id === id) {
+            return { ...c, ...updated, updatedAt: Date.now() };
+          }
+          return c;
         });
-      }
-      return next;
-    });
-  }, [currentUser]);
+        storageService.saveUserCampaigns(currentUser.id, next);
 
-  const handleDeleteCampaign = useCallback((idToDelete: string) => {
-    setCampaigns((prev) => {
-      const next = prev.filter((c) => c.id !== idToDelete);
-      storageService.saveCampaigns(next);
-      if (activeCampaignId === idToDelete) {
-        setActiveCampaignId(next[0]?.id || '');
-      }
-      return next;
-    });
+        const found = next.find((c) => c.id === id);
+        if (found) {
+          saveCampaignToFirestore(found, currentUser.id).catch((err) => {
+            console.warn('Erro ao atualizar campanha no Firestore:', err);
+          });
+        }
+        return next;
+      });
+    },
+    [currentUser.id]
+  );
 
-    // Delete from Firestore
-    deleteCampaignFromFirestore(idToDelete).catch((err) => {
-      console.warn('Erro ao excluir campanha no Firestore:', err);
-    });
-  }, [activeCampaignId]);
+  const handleDeleteCampaign = useCallback(
+    (idToDelete: string) => {
+      setCampaigns((prev) => {
+        const next = prev.filter((c) => c.id !== idToDelete);
+        storageService.saveUserCampaigns(currentUser.id, next);
+        if (activeCampaignId === idToDelete) {
+          const nextActive = next[0]?.id || '';
+          handleSelectCampaign(nextActive);
+        }
+        return next;
+      });
 
-  const handleDeleteAllCampaigns = useCallback(async (options?: { deleteCharacters?: boolean }) => {
-    setCampaigns([]);
-    storageService.clearCampaigns();
-    setActiveCampaignId('');
+      // Delete from Firestore
+      deleteCampaignFromFirestore(idToDelete).catch((err) => {
+        console.warn('Erro ao excluir campanha no Firestore:', err);
+      });
+    },
+    [activeCampaignId, currentUser.id, handleSelectCampaign]
+  );
 
-    if (options?.deleteCharacters) {
-      setCharacters([]);
-      storageService.saveCharacters([]);
-      setSelectedCharacterId(undefined);
-    }
+  const handleDeleteAllCampaigns = useCallback(
+    async (options?: { deleteCharacters?: boolean }) => {
+      setCampaigns([]);
+      storageService.clearUserCampaigns(currentUser.id);
+      handleSelectCampaign('');
 
-    // Delete from Firestore
-    try {
-      await deleteAllCampaignsFromFirestore();
       if (options?.deleteCharacters) {
-        await deleteAllCharactersFromFirestore();
+        setCharacters([]);
+        storageService.saveUserCharacters(currentUser.id, []);
+        setSelectedCharacterId(undefined);
       }
-    } catch (err) {
-      console.warn('Erro ao excluir todas as campanhas no Firestore:', err);
-    }
-  }, []);
+
+      // Delete from Firestore
+      try {
+        await deleteAllCampaignsFromFirestore(currentUser.id);
+        if (options?.deleteCharacters) {
+          await deleteAllCharactersFromFirestore(currentUser.id);
+        }
+      } catch (err) {
+        console.warn('Erro ao excluir todas as campanhas no Firestore:', err);
+      }
+    },
+    [currentUser.id, handleSelectCampaign]
+  );
 
   // Character handlers
   const handleCreateCharacter = useCallback(
@@ -354,55 +367,61 @@ export default function App() {
 
       setCharacters((prev) => {
         const next = [...prev, newChar];
-        storageService.saveCharacters(next);
+        storageService.saveUserCharacters(currentUser.id, next);
         return next;
       });
 
       // Persist to Firestore
-      saveCharacterToFirestore(newChar, currentUser?.uid || 'shared').catch((err) => {
+      saveCharacterToFirestore(newChar, currentUser.id).catch((err) => {
         console.warn('Erro ao salvar ficha no Firestore:', err);
       });
 
       return newChar;
     },
-    [currentUser]
+    [currentUser.id]
   );
 
-  const handleUpdateCharacter = useCallback((id: string, updated: Partial<CharacterSheet>) => {
-    setCharacters((prev) => {
-      let updatedChar: CharacterSheet | null = null;
-      const next = prev.map((c) => {
-        if (c.id === id) {
-          updatedChar = { ...c, ...updated, updatedAt: Date.now() };
-          return updatedChar;
-        }
-        return c;
-      });
-      storageService.saveCharacters(next);
-
-      // Persist to Firestore
-      if (updatedChar) {
-        saveCharacterToFirestore(updatedChar, currentUser?.uid || 'shared').catch((err) => {
-          console.warn('Erro ao atualizar ficha no Firestore:', err);
+  const handleUpdateCharacter = useCallback(
+    (id: string, updated: Partial<CharacterSheet>) => {
+      setCharacters((prev) => {
+        let updatedChar: CharacterSheet | null = null;
+        const next = prev.map((c) => {
+          if (c.id === id) {
+            updatedChar = { ...c, ...updated, updatedAt: Date.now() };
+            return updatedChar;
+          }
+          return c;
         });
-      }
+        storageService.saveUserCharacters(currentUser.id, next);
 
-      return next;
-    });
-  }, [currentUser]);
+        // Persist to Firestore
+        if (updatedChar) {
+          saveCharacterToFirestore(updatedChar, currentUser.id).catch((err) => {
+            console.warn('Erro ao atualizar ficha no Firestore:', err);
+          });
+        }
 
-  const handleDeleteCharacter = useCallback((id: string) => {
-    setCharacters((prev) => {
-      const next = prev.filter((c) => c.id !== id);
-      storageService.saveCharacters(next);
-      return next;
-    });
+        return next;
+      });
+    },
+    [currentUser.id]
+  );
 
-    // Delete from Firestore
-    deleteCharacterFromFirestore(id).catch((err) => {
-      console.warn('Erro ao excluir ficha no Firestore:', err);
-    });
-  }, []);
+  const handleDeleteCharacter = useCallback(
+    (id: string) => {
+      setCharacters((prev) => {
+        const next = prev.filter((c) => c.id !== id);
+        storageService.saveUserCharacters(currentUser.id, next);
+        return next;
+      });
+
+      // Delete from Firestore
+      deleteCharacterFromFirestore(id).catch((err) => {
+        console.warn('Erro ao excluir ficha no Firestore:', err);
+      });
+    },
+    [currentUser.id]
+  );
 
   // Settings handlers
   const handleSaveSettings = useCallback((newSettings: AppSettings) => {
@@ -419,42 +438,43 @@ export default function App() {
   }, [settings.customLogoUrl]);
 
   const handleDataImported = useCallback(() => {
-    const freshCampaigns = storageService.getCampaigns();
-    const freshCharacters = storageService.getCharacters();
+    const freshCampaigns = storageService.getUserCampaigns(currentUser.id);
+    const freshCharacters = storageService.getUserCharacters(currentUser.id);
     const freshSettings = storageService.getSettings();
     setCampaigns(freshCampaigns);
     setCharacters(freshCharacters);
     setSettings(freshSettings);
     if (freshCampaigns.length > 0) {
-      setActiveCampaignId(freshCampaigns[0].id);
+      handleSelectCampaign(freshCampaigns[0].id);
     }
-    // If logged in, also sync imported data to Firestore
-    if (currentUser) {
-      for (const camp of freshCampaigns) {
-        saveCampaignToFirestore(currentUser.uid, camp);
-      }
-      for (const char of freshCharacters) {
-        saveCharacterToFirestore(currentUser.uid, char);
-      }
+    // Sync imported data to Firestore
+    for (const camp of freshCampaigns) {
+      saveCampaignToFirestore(camp, currentUser.id);
     }
-  }, [currentUser]);
+    for (const char of freshCharacters) {
+      saveCharacterToFirestore(char, currentUser.id);
+    }
+  }, [currentUser.id, handleSelectCampaign]);
 
   const currentCampaign = campaigns.find((c) => c.id === activeCampaignId) || campaigns[0];
   const activeCampaignCharacterCount = characters.filter((c) => c.campaignId === activeCampaignId).length;
 
-  const handleTabChange = useCallback((tab: MainTab) => {
-    if (tab !== 'campaign' && isFullScreenNotes) {
-      setIsFullScreenNotes(false);
-      if (document.fullscreenElement && document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
+  const handleTabChange = useCallback(
+    (tab: MainTab) => {
+      if (tab !== 'campaign' && isFullScreenNotes) {
+        setIsFullScreenNotes(false);
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
       }
-    }
-    setCurrentTab(tab);
-  }, [isFullScreenNotes]);
+      setCurrentTab(tab);
+    },
+    [isFullScreenNotes]
+  );
 
   return (
     <div className="h-screen w-screen flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden font-sans">
-      {/* Top Header Navigation (escondido no modo de tela cheia sem distrações) */}
+      {/* Top Header Navigation */}
       {!isFullScreenNotes && (
         <Header
           currentTab={currentTab}
@@ -464,9 +484,8 @@ export default function App() {
           campaignsCount={campaigns.length}
           onOpenCampaignMenu={() => setIsCampaignMenuOpen(true)}
           syncStatus={syncStatus}
-          user={currentUser}
-          onSignInGoogle={handleSignInGoogle}
-          isLoggingIn={isLoggingInGoogle}
+          currentUser={currentUser}
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenSearch={() => setIsSearchOpen(true)}
           customLogoUrl={settings.customLogoUrl}
@@ -479,7 +498,7 @@ export default function App() {
           <CampaignCopilotView
             campaigns={campaigns}
             activeCampaignId={activeCampaignId}
-            onSelectCampaign={setActiveCampaignId}
+            onSelectCampaign={handleSelectCampaign}
             onCreateCampaign={handleCreateCampaign}
             onUpdateCampaign={handleUpdateCampaign}
             onDeleteCampaign={handleDeleteCampaign}
@@ -492,7 +511,7 @@ export default function App() {
             customApiKey={settings.customApiKey}
             isFullScreen={isFullScreenNotes}
             onToggleFullScreen={handleToggleFullScreen}
-            userId={currentUser?.uid}
+            userId={currentUser.id}
           />
         ) : currentTab === 'bestiary' ? (
           <BestiaryView
@@ -559,7 +578,7 @@ export default function App() {
         activeCampaignId={activeCampaignId}
         characters={characters}
         onSelectCampaign={(id) => {
-          setActiveCampaignId(id);
+          handleSelectCampaign(id);
           const campChars = characters.filter((c) => c.campaignId === id);
           if (campChars.length > 0) {
             setSelectedCharacterId(campChars[0].id);
@@ -576,22 +595,14 @@ export default function App() {
       {/* Settings & Firebase Cloud Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
-        onClose={() => {
-          setIsSettingsOpen(false);
-          setAuthNotice(null);
-          setAuthErrorInfo(null);
-        }}
+        onClose={() => setIsSettingsOpen(false)}
         settings={settings}
         onSaveSettings={handleSaveSettings}
         onDataImported={handleDataImported}
-        user={currentUser}
-        onSignInGoogle={handleSignInGoogle}
-        isLoggingIn={isLoggingInGoogle}
-        onSignOut={handleSignOut}
+        currentUser={currentUser}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onSyncCloud={handleManualSyncCloud}
         isSyncing={isSyncingManual}
-        authNotice={authNotice}
-        authErrorInfo={authErrorInfo}
       />
 
       {/* Global Search Modal (Ctrl+K / ⌘K) */}
@@ -603,6 +614,15 @@ export default function App() {
         onNavigateToCampaign={handleNavigateToCampaign}
         onNavigateToCharacter={handleNavigateToCharacter}
       />
+
+      {/* User Accounts & Login Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        currentUser={currentUser}
+        onUserChanged={handleUserChanged}
+      />
     </div>
   );
 }
+
