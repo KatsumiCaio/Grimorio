@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { AlertTriangle, ExternalLink, X } from 'lucide-react';
 import { Campaign, CharacterSheet, MainTab, AppSettings, BestiaryMonster, UserProfile } from './types';
 import { storageService } from './services/storage';
 import { authService } from './services/auth';
@@ -23,6 +24,8 @@ import {
   deleteAllCharactersFromFirestore,
   checkAndSeedCloudData,
   testFirestoreConnection,
+  subscribeToQuotaStatus,
+  isQuotaExceeded,
 } from './services/firebase';
 
 export default function App() {
@@ -47,10 +50,23 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | undefined>(undefined);
   const [isFullScreenNotes, setIsFullScreenNotes] = useState(false);
+  const [quotaBannerDismissed, setQuotaBannerDismissed] = useState(false);
 
   // Cloud Sync Status
-  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline' | 'error'>('synced');
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline' | 'error' | 'quota'>(() =>
+    isQuotaExceeded() ? 'quota' : 'synced'
+  );
   const [isSyncingManual, setIsSyncingManual] = useState(false);
+
+  // Subscribe to quota exhaustion state
+  useEffect(() => {
+    const unsub = subscribeToQuotaStatus((exceeded) => {
+      if (exceeded) {
+        setSyncStatus('quota');
+      }
+    });
+    return () => unsub();
+  }, []);
 
   // Handle switching or updating user accounts
   const handleUserChanged = useCallback((newUser: UserProfile | null) => {
@@ -116,6 +132,10 @@ export default function App() {
 
     // 1. Verify Firestore connectivity & seed initial data if remote database is empty
     const initCloud = async () => {
+      if (isQuotaExceeded()) {
+        setSyncStatus('quota');
+        return;
+      }
       setSyncStatus('syncing');
       try {
         const isOnline = await testFirestoreConnection();
@@ -123,13 +143,13 @@ export default function App() {
           const localCamps = storageService.getUserCampaigns(userId);
           const localChars = storageService.getUserCharacters(userId);
           await checkAndSeedCloudData(userId, localCamps, localChars);
-          setSyncStatus('synced');
+          setSyncStatus(isQuotaExceeded() ? 'quota' : 'synced');
         } else {
-          setSyncStatus('offline');
+          setSyncStatus(isQuotaExceeded() ? 'quota' : 'offline');
         }
       } catch (err) {
         console.warn('Verificação inicial do Firestore:', err);
-        setSyncStatus('offline');
+        setSyncStatus(isQuotaExceeded() ? 'quota' : 'offline');
       }
     };
 
@@ -153,7 +173,9 @@ export default function App() {
           const localCamps = storageService.getUserCampaigns(userId);
           if (localCamps.length > 0) {
             setCampaigns(localCamps);
-            localCamps.forEach((c) => void saveCampaignToFirestore(c, userId));
+            if (!isQuotaExceeded()) {
+              localCamps.forEach((c) => void saveCampaignToFirestore(c, userId));
+            }
           } else {
             const starterCamp: Campaign = {
               id: `camp_${userId}_init`,
@@ -167,14 +189,16 @@ export default function App() {
             setActiveCampaignId(starterCamp.id);
             storageService.saveUserCampaigns(userId, [starterCamp]);
             storageService.saveUserActiveCampaignId(userId, starterCamp.id);
-            void saveCampaignToFirestore(starterCamp, userId);
+            if (!isQuotaExceeded()) {
+              void saveCampaignToFirestore(starterCamp, userId);
+            }
           }
         }
-        setSyncStatus('synced');
+        setSyncStatus((prev) => (prev === 'quota' || isQuotaExceeded() ? 'quota' : 'synced'));
       },
       (err) => {
         console.warn('Erro na sincronização de campanhas:', err);
-        setSyncStatus('offline');
+        setSyncStatus(isQuotaExceeded() ? 'quota' : 'offline');
       }
     );
 
@@ -186,11 +210,11 @@ export default function App() {
           setCharacters(cloudCharacters);
           storageService.saveUserCharacters(userId, cloudCharacters);
         }
-        setSyncStatus('synced');
+        setSyncStatus((prev) => (prev === 'quota' || isQuotaExceeded() ? 'quota' : 'synced'));
       },
       (err) => {
         console.warn('Erro na sincronização de fichas:', err);
-        setSyncStatus('offline');
+        setSyncStatus(isQuotaExceeded() ? 'quota' : 'offline');
       }
     );
 
@@ -560,6 +584,40 @@ export default function App() {
           onOpenSearch={() => setIsSearchOpen(true)}
           customLogoUrl={settings.customLogoUrl}
         />
+      )}
+
+      {/* Quota limit notification banner */}
+      {syncStatus === 'quota' && !quotaBannerDismissed && (
+        <div className="bg-amber-950/80 border-b border-amber-800/80 px-4 py-2.5 text-xs text-amber-200 flex items-center justify-between gap-3 shadow-md z-20 shrink-0">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-1.5 font-semibold text-amber-300">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Cota Diária Gratuita do Firestore Atingida</span>
+            </div>
+            <span className="text-amber-200/90 text-[11px] sm:text-xs">
+              O limite de 20.000 gravações/dia do plano Spark gratuito foi atingido. <strong>Seus dados estão 100% salvos e protegidos localmente no navegador</strong>. A cota será redefinida automaticamente à meia-noite pelo Google Cloud.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href="https://console.firebase.google.com/project/grimoriorpg-f0f90/firestore/databases/ai-studio-grimrio-8779fd65-3555-4c47-9ad8-07470a6512c4/data?openUpgradeDialog=true"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-900/70 hover:bg-amber-800 text-amber-200 text-[11px] font-medium transition-colors border border-amber-700/60"
+            >
+              <span>Ver no Console</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+            <button
+              type="button"
+              onClick={() => setQuotaBannerDismissed(true)}
+              className="p-1 text-amber-400 hover:text-amber-100 hover:bg-amber-900/60 rounded transition-colors"
+              title="Fechar aviso"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Main App Body */}

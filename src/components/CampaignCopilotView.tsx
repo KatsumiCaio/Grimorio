@@ -120,6 +120,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   const isLocalNotesEditRef = useRef(false);
   const isTextareaFocusedRef = useRef(false);
   const lastActiveCampaignIdRef = useRef<string>(activeCampaign?.id || '');
+  const lastKnownCampaignNotesRef = useRef<string>(activeCampaign?.notes || '');
   // Mobile responsive view tab: 'notes' or 'copilot'
   const [mobileTab, setMobileTab] = useState<'notes' | 'copilot'>('notes');
 
@@ -385,17 +386,23 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
 
     if (isCampaignSwitch) {
       isLocalNotesEditRef.current = false;
+      lastKnownCampaignNotesRef.current = activeCampaign.notes || '';
       setNotes(activeCampaign.notes || '');
       setSystem(activeCampaign.system || 'D&D 5e');
       setTitle(activeCampaign.title || 'Sem título');
     } else {
       // Remote real-time update on the same campaign (from Firestore / another device)
-      // Only update local notes if the user is not actively typing in the textarea on this device
-      if (!isTextareaFocusedRef.current && !isLocalNotesEditRef.current) {
-        if (activeCampaign.notes !== undefined && activeCampaign.notes !== notes) {
-          setNotes(activeCampaign.notes);
+      const incomingNotes = activeCampaign.notes || '';
+      const isRemoteNotesUpdate = incomingNotes !== lastKnownCampaignNotesRef.current;
+
+      if (isRemoteNotesUpdate) {
+        lastKnownCampaignNotesRef.current = incomingNotes;
+        // Only update local notes if user is not actively typing in the textarea
+        if (!isTextareaFocusedRef.current && !isLocalNotesEditRef.current) {
+          setNotes(incomingNotes);
         }
       }
+
       if (activeCampaign.system && activeCampaign.system !== system) {
         setSystem(activeCampaign.system);
       }
@@ -409,9 +416,6 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     activeCampaign?.notes,
     activeCampaign?.system,
     activeCampaign?.title,
-    notes,
-    system,
-    title,
     isEditingTitle,
   ]);
 
@@ -430,6 +434,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
         title !== activeCampaign.title
       ) {
         isLocalNotesEditRef.current = false;
+        lastKnownCampaignNotesRef.current = notes;
         onUpdateCampaign({
           notes,
           system,
@@ -437,7 +442,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
           updatedAt: Date.now(),
         });
       }
-    }, 400);
+    }, 1800);
 
     return () => clearTimeout(timeout);
   }, [notes, system, title, activeCampaign?.notes, activeCampaign?.system, activeCampaign?.title]);
@@ -538,18 +543,125 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
 
   // Quick Markdown formatting helpers
   const insertFormatting = (prefix: string, suffix: string = '') => {
-    const textarea = document.getElementById('campaign-notes-textarea') as HTMLTextAreaElement;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
+    // If in read mode, automatically switch to split (desktop) or edit (mobile) so user sees changes
+    if (editorMode === 'read') {
+      setEditorMode(window.innerWidth >= 850 ? 'split' : 'edit');
+    }
+
+    const textarea = document.getElementById('campaign-notes-textarea') as HTMLTextAreaElement | null;
+    let start = notes.length;
+    let end = notes.length;
+
+    if (textarea) {
+      start = textarea.selectionStart ?? notes.length;
+      end = textarea.selectionEnd ?? notes.length;
+    }
+
     const selected = notes.substring(start, end);
-    const replacement = `${prefix}${selected || 'texto'}${suffix}`;
+    let replacement = '';
+    let cursorSelectStart = 0;
+    let cursorSelectLength = 0;
+
+    if (prefix === '## ') {
+      const needsNewline = start > 0 && notes[start - 1] !== '\n';
+      const p = needsNewline ? '\n## ' : '## ';
+      const text = selected || 'Título de Seção';
+      replacement = `${p}${text}\n`;
+      cursorSelectStart = start + p.length;
+      cursorSelectLength = text.length;
+    } else if (prefix === '### ') {
+      const needsNewline = start > 0 && notes[start - 1] !== '\n';
+      const p = needsNewline ? '\n### ' : '### ';
+      const text = selected || 'Subtítulo';
+      replacement = `${p}${text}\n`;
+      cursorSelectStart = start + p.length;
+      cursorSelectLength = text.length;
+    } else if (prefix === '- ') {
+      if (selected.includes('\n')) {
+        const lines = selected.split('\n');
+        replacement = lines.map((l) => (l.startsWith('- ') ? l : `- ${l}`)).join('\n');
+        cursorSelectStart = start;
+        cursorSelectLength = replacement.length;
+      } else {
+        const needsNewline = start > 0 && notes[start - 1] !== '\n';
+        const p = needsNewline ? '\n- ' : '- ';
+        const text = selected || 'Item da lista';
+        replacement = `${p}${text}\n`;
+        cursorSelectStart = start + p.length;
+        cursorSelectLength = text.length;
+      }
+    } else if (prefix === '> ') {
+      if (selected.includes('\n')) {
+        const lines = selected.split('\n');
+        replacement = lines.map((l) => (l.startsWith('> ') ? l : `> ${l}`)).join('\n');
+        cursorSelectStart = start;
+        cursorSelectLength = replacement.length;
+      } else {
+        const needsNewline = start > 0 && notes[start - 1] !== '\n';
+        const p = needsNewline ? '\n> ' : '> ';
+        const text = selected || 'Citação ou diálogo do NPC';
+        replacement = `${p}${text}\n`;
+        cursorSelectStart = start + p.length;
+        cursorSelectLength = text.length;
+      }
+    } else if (prefix === '---') {
+      const needsLeading = start > 0 ? (notes.substring(0, start).endsWith('\n\n') ? '' : '\n\n') : '';
+      replacement = `${needsLeading}---\n\n`;
+      cursorSelectStart = start + replacement.length;
+      cursorSelectLength = 0;
+    } else {
+      // Inline formatting like **negrito** or *itálico*
+      const text = selected || (prefix === '**' ? 'texto em negrito' : 'texto em itálico');
+      replacement = `${prefix}${text}${suffix}`;
+      cursorSelectStart = start + prefix.length;
+      cursorSelectLength = text.length;
+    }
+
     const newText = notes.substring(0, start) + replacement + notes.substring(end);
+    isLocalNotesEditRef.current = true;
+    lastKnownCampaignNotesRef.current = newText;
     setNotes(newText);
+    onUpdateCampaign({ notes: newText, updatedAt: Date.now() });
+
     setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + prefix.length, start + prefix.length + (selected.length || 5));
-    }, 0);
+      const el = document.getElementById('campaign-notes-textarea') as HTMLTextAreaElement | null;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(cursorSelectStart, cursorSelectStart + cursorSelectLength);
+      }
+    }, 30);
+  };
+
+  // Insert standard Markdown table into notes
+  const insertTable = () => {
+    if (editorMode === 'read') {
+      setEditorMode(window.innerWidth >= 850 ? 'split' : 'edit');
+    }
+    const textarea = document.getElementById('campaign-notes-textarea') as HTMLTextAreaElement | null;
+    let start = notes.length;
+    let end = notes.length;
+    if (textarea) {
+      start = textarea.selectionStart ?? notes.length;
+      end = textarea.selectionEnd ?? notes.length;
+    }
+
+    const needsLeading = start > 0 ? (notes.substring(0, start).endsWith('\n\n') ? '' : '\n\n') : '';
+    const tableMarkdown = `${needsLeading}| Característica | Detalhe |\n| :--- | :--- |\n| Desafio / NPC | Dragão Vermelho Jovem |\n| CD do Teste | 15 (Destreza) |\n| Recompensa | 450 PO e Pergaminho Arcano |\n\n`;
+
+    const newText = notes.substring(0, start) + tableMarkdown + notes.substring(end);
+    isLocalNotesEditRef.current = true;
+    lastKnownCampaignNotesRef.current = newText;
+    setNotes(newText);
+    onUpdateCampaign({ notes: newText, updatedAt: Date.now() });
+
+    setTimeout(() => {
+      const el = document.getElementById('campaign-notes-textarea') as HTMLTextAreaElement | null;
+      if (el) {
+        el.focus();
+        const cursorAfter = start + tableMarkdown.length;
+        el.setSelectionRange(cursorAfter, cursorAfter);
+      }
+    }, 30);
   };
 
   // Insert character / monster sheet tag into notes at cursor position
@@ -1123,62 +1235,84 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
         {editorMode !== 'read' && (
           <div className={`px-4 py-1.5 bg-zinc-950/90 border-b border-zinc-800/40 flex items-center gap-1 overflow-x-auto text-xs text-zinc-400 ${isFullScreen && !isWideText ? 'max-w-4xl w-full mx-auto' : ''}`}>
             <button
+              type="button"
+              id="toolbar-btn-h2"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => insertFormatting('## ')}
-              className="px-2 py-0.5 rounded hover:bg-zinc-900 hover:text-zinc-200 font-bold"
-              title="Título H2"
+              className="px-2 py-0.5 rounded hover:bg-zinc-800 hover:text-cyan-300 text-zinc-300 font-bold transition-all cursor-pointer select-none active:scale-95"
+              title="Título H2 (## Título)"
             >
               H2
             </button>
             <button
+              type="button"
+              id="toolbar-btn-h3"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => insertFormatting('### ')}
-              className="px-2 py-0.5 rounded hover:bg-zinc-900 hover:text-zinc-200 font-semibold"
-              title="Título H3"
+              className="px-2 py-0.5 rounded hover:bg-zinc-800 hover:text-cyan-300 text-zinc-300 font-semibold transition-all cursor-pointer select-none active:scale-95"
+              title="Título H3 (### Subtítulo)"
             >
               H3
             </button>
             <span className="w-px h-3 bg-zinc-800 mx-1" />
             <button
+              type="button"
+              id="toolbar-btn-bold"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => insertFormatting('**', '**')}
-              className="px-2 py-0.5 rounded hover:bg-zinc-900 hover:text-zinc-200 font-bold"
-              title="Negrito"
+              className="px-2 py-0.5 rounded hover:bg-zinc-800 hover:text-cyan-300 text-zinc-300 font-bold transition-all cursor-pointer select-none active:scale-95"
+              title="Negrito (**texto**)"
             >
               B
             </button>
             <button
+              type="button"
+              id="toolbar-btn-italic"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => insertFormatting('*', '*')}
-              className="px-2 py-0.5 rounded hover:bg-zinc-900 hover:text-zinc-200 italic font-serif"
-              title="Itálico"
+              className="px-2 py-0.5 rounded hover:bg-zinc-800 hover:text-cyan-300 text-zinc-300 italic font-serif transition-all cursor-pointer select-none active:scale-95"
+              title="Itálico (*texto*)"
             >
               I
             </button>
             <span className="w-px h-3 bg-zinc-800 mx-1" />
             <button
+              type="button"
+              id="toolbar-btn-list"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => insertFormatting('- ')}
-              className="px-2 py-0.5 rounded hover:bg-zinc-900 hover:text-zinc-200"
-              title="Lista com marcadores"
+              className="px-2 py-0.5 rounded hover:bg-zinc-800 hover:text-cyan-300 text-zinc-300 transition-all cursor-pointer select-none active:scale-95"
+              title="Lista com marcadores (- item)"
             >
               • Lista
             </button>
             <button
+              type="button"
+              id="toolbar-btn-quote"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => insertFormatting('> ')}
-              className="px-2 py-0.5 rounded hover:bg-zinc-900 hover:text-zinc-200"
-              title="Citação / Fala"
+              className="px-2 py-0.5 rounded hover:bg-zinc-800 hover:text-cyan-300 text-zinc-300 transition-all cursor-pointer select-none active:scale-95"
+              title="Citação / Diálogo de Personagem (> fala)"
             >
               " Citação
             </button>
             <button
-              onClick={() => insertFormatting('\n---\n')}
-              className="px-2 py-0.5 rounded hover:bg-zinc-900 hover:text-zinc-200"
-              title="Divisor de Sessão"
+              type="button"
+              id="toolbar-btn-divider"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => insertFormatting('---')}
+              className="px-2 py-0.5 rounded hover:bg-zinc-800 hover:text-cyan-300 text-zinc-300 transition-all cursor-pointer select-none active:scale-95"
+              title="Divisor de Seção / Cena (---)"
             >
               — Divisor
             </button>
             <button
-              onClick={() =>
-                insertFormatting('\n| Característica | Detalhe |\n| :--- | :--- |\n| CD do Teste | 15 |\n')
-              }
-              className="px-2 py-0.5 rounded hover:bg-zinc-900 hover:text-zinc-200"
-              title="Tabela de Estatísticas"
+              type="button"
+              id="toolbar-btn-table"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={insertTable}
+              className="px-2 py-0.5 rounded hover:bg-zinc-800 hover:text-cyan-300 text-zinc-300 transition-all cursor-pointer select-none active:scale-95"
+              title="Tabela de Estatísticas / Encontros"
             >
               Tabela
             </button>
@@ -1369,6 +1503,16 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                   }}
                   onBlur={() => {
                     isTextareaFocusedRef.current = false;
+                    if (isLocalNotesEditRef.current) {
+                      isLocalNotesEditRef.current = false;
+                      lastKnownCampaignNotesRef.current = notes;
+                      onUpdateCampaign({
+                        notes,
+                        system,
+                        title,
+                        updatedAt: Date.now(),
+                      });
+                    }
                   }}
                   placeholder="# Anotações da Sessão... Use '+ Ficha / Bestiário' para incorporar fichas no texto"
                   className={`w-full h-full bg-zinc-950 leading-relaxed text-zinc-200 placeholder:text-zinc-700 font-sans focus:outline-none resize-none overflow-y-auto selection:bg-cyan-500/20 selection:text-cyan-200 ${

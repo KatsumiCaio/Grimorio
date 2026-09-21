@@ -29,6 +29,8 @@ import { UserAvatar } from './UserAvatar';
 import {
   FIRESTORE_DATABASE_ID,
   FIREBASE_PROJECT_ID,
+  isQuotaExceeded,
+  resetQuotaExceeded,
 } from '../services/firebase';
 
 interface SettingsModalProps {
@@ -269,6 +271,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="p-2 rounded-lg text-xs bg-rose-950/40 border border-rose-800/50 text-rose-300 flex items-center gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
                   <span>{syncErrorMessage}</span>
+                </div>
+              )}
+
+              {isQuotaExceeded() && (
+                <div className="p-3 rounded-lg text-xs bg-amber-950/40 border border-amber-800/60 text-amber-200 space-y-2">
+                  <div className="flex items-center gap-1.5 font-semibold text-amber-300">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>Cota Diária Gratuita do Firestore Atingida</span>
+                  </div>
+                  <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                    O limite de 20.000 gravações diárias da cota Spark gratuita foi atingido hoje. Seus dados estão 100% salvos e seguros no armazenamento local do navegador. A cota gratuita é reiniciada automaticamente à meia-noite pelo Google Cloud.
+                  </p>
+                  <div className="flex items-center gap-3 pt-1">
+                    <a
+                      href={`https://console.firebase.google.com/project/${FIREBASE_PROJECT_ID}/firestore/databases/${FIRESTORE_DATABASE_ID}/data?openUpgradeDialog=true`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] text-amber-300 hover:text-amber-100 underline"
+                    >
+                      <span>Abrir Console do Firebase</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetQuotaExceeded();
+                        handleManualSync();
+                      }}
+                      className="text-[11px] px-2 py-0.5 rounded bg-amber-900/60 hover:bg-amber-800 border border-amber-700/50 text-amber-200"
+                    >
+                      Testar Novamente
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

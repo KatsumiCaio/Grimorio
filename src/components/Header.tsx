@@ -7,6 +7,7 @@ import {
   CloudCheck,
   RefreshCw,
   CloudOff,
+  AlertTriangle,
   LogIn,
   User as UserIcon,
   ChevronDown,
@@ -26,7 +27,7 @@ interface HeaderProps {
   activeCampaign?: Campaign;
   campaignsCount?: number;
   onOpenCampaignMenu?: () => void;
-  syncStatus?: 'synced' | 'syncing' | 'offline' | 'error';
+  syncStatus?: 'synced' | 'syncing' | 'offline' | 'error' | 'quota';
   currentUser?: UserProfile;
   onOpenAuthModal?: () => void;
   onOpenSettings: () => void;
@@ -158,6 +159,11 @@ export const Header: React.FC<HeaderProps> = ({
             <>
               <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
               <span className="text-zinc-400">Sincronizando...</span>
+            </>
+          ) : syncStatus === 'quota' ? (
+            <>
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-amber-300 font-medium">Cota Gratuita Atingida (Salvo Localmente)</span>
             </>
           ) : syncStatus === 'offline' ? (
             <>

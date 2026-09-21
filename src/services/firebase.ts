@@ -23,6 +23,8 @@ import {
   orderBy,
   limit,
   Firestore,
+  disableNetwork,
+  enableNetwork,
 } from 'firebase/firestore';
 import { Campaign, CharacterSheet, ChatMessage, UserProfile } from '../types';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -100,6 +102,99 @@ export function isPermissionError(error: unknown): boolean {
   );
 }
 
+const getTodayDateString = () => new Date().toISOString().slice(0, 10);
+
+export function isQuotaError(error: unknown): boolean {
+  if (!error) return false;
+  const msg = error instanceof Error ? error.message : String(error);
+  const code = (error as any)?.code;
+  const status = (error as any)?.status;
+  return (
+    code === 'resource-exhausted' ||
+    code === 8 ||
+    status === 8 ||
+    msg.toLowerCase().includes('quota limit exceeded') ||
+    msg.toLowerCase().includes('quota exceeded') ||
+    msg.toLowerCase().includes('resource_exhausted') ||
+    msg.toLowerCase().includes('free daily write units') ||
+    msg.toLowerCase().includes('maximum backoff delay')
+  );
+}
+
+let quotaExceededState = false;
+if (typeof window !== 'undefined') {
+  try {
+    const savedDay = localStorage.getItem('grimorio_firestore_quota_exceeded_day');
+    if (savedDay === getTodayDateString()) {
+      quotaExceededState = true;
+    }
+  } catch (_e) {}
+}
+
+const quotaListeners = new Set<(exceeded: boolean) => void>();
+
+export const isQuotaExceeded = () => quotaExceededState;
+
+export const markQuotaExceeded = () => {
+  if (!quotaExceededState) {
+    quotaExceededState = true;
+    try {
+      localStorage.setItem('grimorio_firestore_quota_exceeded_day', getTodayDateString());
+    } catch (_e) {}
+    disableNetwork(db).catch(() => {});
+    quotaListeners.forEach((fn) => fn(true));
+  }
+};
+
+export const resetQuotaExceeded = async () => {
+  quotaExceededState = false;
+  try {
+    localStorage.removeItem('grimorio_firestore_quota_exceeded_day');
+  } catch (_e) {}
+  try {
+    await enableNetwork(db);
+  } catch (_e) {}
+  quotaListeners.forEach((fn) => fn(false));
+};
+
+export const subscribeToQuotaStatus = (listener: (exceeded: boolean) => void) => {
+  quotaListeners.add(listener);
+  listener(quotaExceededState);
+  return () => {
+    quotaListeners.delete(listener);
+  };
+};
+
+if (typeof window !== 'undefined') {
+  if (quotaExceededState) {
+    disableNetwork(db).catch(() => {});
+  }
+
+  const originalConsoleError = console.error;
+  console.error = (...args: any[]) => {
+    const text = args
+      .map((a) => (a instanceof Error ? a.message : typeof a === 'object' ? JSON.stringify(a) : String(a || '')))
+      .join(' ');
+    if (
+      text.includes('resource-exhausted') ||
+      text.includes('RESOURCE_EXHAUSTED') ||
+      text.includes('Free daily write units') ||
+      text.includes('Using maximum backoff delay to prevent overloading the backend')
+    ) {
+      markQuotaExceeded();
+      return;
+    }
+    originalConsoleError(...args);
+  };
+
+  window.addEventListener('unhandledrejection', (event) => {
+    if (isQuotaError(event.reason)) {
+      event.preventDefault();
+      markQuotaExceeded();
+    }
+  });
+}
+
 export function handleFirestoreError(
   error: unknown,
   operationType: OperationType,
@@ -131,6 +226,11 @@ export function handleOperationError(
   operationType: OperationType,
   path: string | null
 ): void {
+  if (isQuotaError(error)) {
+    markQuotaExceeded();
+    console.warn(`[Firestore Cota Diária Atingida] Operação em ${path} salva localmente. A cota gratuita diária será reiniciada à meia-noite.`);
+    return;
+  }
   if (isPermissionError(error)) {
     handleFirestoreError(error, operationType, path);
   } else {
@@ -155,6 +255,16 @@ export async function checkCloudDbStatus(): Promise<CloudDbStatus> {
   try {
     const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/test?key=${firebaseConfig.apiKey}`;
     const res = await fetch(url);
+    if (res.status === 429) {
+      markQuotaExceeded();
+      return {
+        status: 'offline',
+        projectId,
+        databaseId,
+        message: 'Cota diária gratuita do Firestore atingida. Operando com armazenamento local.',
+        consoleUrl,
+      };
+    }
     if (res.status === 200 || res.status === 403 || res.status === 400) {
       return {
         status: 'online',
@@ -205,6 +315,9 @@ export async function checkCloudDbStatus(): Promise<CloudDbStatus> {
 
 // Test connection to Firestore on boot (as required by Firebase skill)
 export async function testFirestoreConnection(): Promise<boolean> {
+  if (quotaExceededState) {
+    return false;
+  }
   try {
     const status = await checkCloudDbStatus();
     return status.status === 'online';
@@ -456,7 +569,7 @@ export const subscribeToCampaigns = (
 // ==========================================
 
 export const saveUserToFirestore = async (user: UserProfile): Promise<void> => {
-  if (!user || !user.id) return;
+  if (!user || !user.id || quotaExceededState) return;
   const path = `users/${user.id}`;
   const docRef = doc(db, 'users', user.id);
   try {
@@ -482,7 +595,7 @@ export const saveUserToFirestore = async (user: UserProfile): Promise<void> => {
 };
 
 export const deleteUserFromFirestore = async (userId: string): Promise<void> => {
-  if (!userId) return;
+  if (!userId || quotaExceededState) return;
   const path = `users/${userId}`;
   const docRef = doc(db, 'users', userId);
   try {
@@ -739,6 +852,7 @@ export const saveCampaignToFirestore = async (
   arg1: string | Campaign,
   arg2?: Campaign | string
 ): Promise<void> => {
+  if (quotaExceededState) return;
   const campaign: Campaign =
     typeof arg1 === 'object' ? arg1 : (arg2 as Campaign);
   const userId: string =
@@ -772,6 +886,7 @@ export const saveCampaignToFirestore = async (
 };
 
 export const deleteCampaignFromFirestore = async (campaignId: string): Promise<void> => {
+  if (!campaignId || quotaExceededState) return;
   const path = `campaigns/${campaignId}`;
   const docRef = doc(db, 'campaigns', campaignId);
   try {
@@ -782,6 +897,7 @@ export const deleteCampaignFromFirestore = async (campaignId: string): Promise<v
 };
 
 export const deleteAllCampaignsFromFirestore = async (_userId?: string): Promise<void> => {
+  if (quotaExceededState) return;
   const path = 'campaigns';
   try {
     const snapshot = await getDocs(collection(db, path));
@@ -796,6 +912,7 @@ export const saveCharacterToFirestore = async (
   arg1: string | CharacterSheet,
   arg2?: CharacterSheet | string
 ): Promise<void> => {
+  if (quotaExceededState) return;
   const character: CharacterSheet =
     typeof arg1 === 'object' ? arg1 : (arg2 as CharacterSheet);
   const userId: string =
@@ -835,6 +952,7 @@ export const saveCharacterToFirestore = async (
 };
 
 export const deleteCharacterFromFirestore = async (characterId: string): Promise<void> => {
+  if (!characterId || quotaExceededState) return;
   const path = `characters/${characterId}`;
   const docRef = doc(db, 'characters', characterId);
   try {
@@ -845,6 +963,7 @@ export const deleteCharacterFromFirestore = async (characterId: string): Promise
 };
 
 export const deleteAllCharactersFromFirestore = async (_userId?: string): Promise<void> => {
+  if (quotaExceededState) return;
   const path = 'characters';
   try {
     const snapshot = await getDocs(collection(db, path));
@@ -861,6 +980,7 @@ export const checkAndSeedCloudData = async (
   arg2?: Campaign[] | CharacterSheet[],
   arg3?: CharacterSheet[]
 ): Promise<boolean> => {
+  if (quotaExceededState) return false;
   let initialCampaigns: Campaign[] = [];
   let initialCharacters: CharacterSheet[] = [];
   let effectiveUserId = auth.currentUser?.uid || 'shared';
@@ -996,7 +1116,7 @@ export const saveCampaignChatMessage = async (
     if (typeof arg4 === 'string') systemName = arg4;
   }
 
-  if (!campaignId || !message || !message.id) return;
+  if (!campaignId || !message || !message.id || quotaExceededState) return;
   if (message.isStreaming && !message.content) return;
 
   const path = `campaigns/${campaignId}/messages/${message.id}`;
@@ -1021,7 +1141,7 @@ export const saveCampaignChatMessage = async (
 };
 
 export const clearCampaignChatInFirestore = async (campaignId: string): Promise<void> => {
-  if (!campaignId) return;
+  if (!campaignId || quotaExceededState) return;
   const path = `campaigns/${campaignId}/messages`;
   try {
     const messagesCol = collection(db, 'campaigns', campaignId, 'messages');
