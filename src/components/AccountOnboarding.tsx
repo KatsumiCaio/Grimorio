@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   UserPlus,
   LogIn,
@@ -10,11 +10,15 @@ import {
   Loader2,
   RefreshCw,
   RotateCcw,
+  ExternalLink,
+  AlertTriangle,
+  ArrowLeftRight,
+  Check,
 } from 'lucide-react';
 import { UserProfile, UserRole, Campaign } from '../types';
 import { authService } from '../services/auth';
 import { storageService } from '../services/storage';
-import { saveCampaignToFirestore } from '../services/firebase';
+import { saveCampaignToFirestore, checkCloudDbStatus, CloudDbStatus } from '../services/firebase';
 import { FlamingD20Logo } from './FlamingD20Logo';
 import { UserAvatar, AVATAR_OPTIONS, COLOR_OPTIONS } from './UserAvatar';
 
@@ -23,7 +27,8 @@ interface AccountOnboardingProps {
 }
 
 export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserReady }) => {
-  const [activeTab, setActiveTab] = useState<'register' | 'login'>('register');
+  const [activeTab, setActiveTab] = useState<'register' | 'login' | 'transfer'>('register');
+  const [cloudStatus, setCloudStatus] = useState<CloudDbStatus | null>(null);
 
   // Register Form State
   const [regName, setRegName] = useState('');
@@ -40,9 +45,24 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
 
+  // Transfer / Import State
+  const [transferCode, setTransferCode] = useState('');
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const [transferSuccess, setTransferSuccess] = useState<string | null>(null);
+
   // Loading States
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRestoringDemo, setIsRestoringDemo] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    checkCloudDbStatus().then((status) => {
+      if (mounted) setCloudStatus(status);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const ROLES: UserRole[] = [
     'Mestre da Masmorra',
@@ -121,6 +141,30 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
     }
   };
 
+  // Handler: Import Account via Transfer Code
+  const handleImportTransferCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    setTransferError(null);
+    setTransferSuccess(null);
+    setIsSubmitting(true);
+
+    try {
+      const res = storageService.importAccountTransferCode(transferCode);
+      if (res.success && res.user) {
+        setTransferSuccess(`Conta de "${res.user.displayName}" importada com sucesso!`);
+        setTimeout(() => {
+          onUserReady(res.user!);
+        }, 500);
+      } else {
+        setTransferError(res.error || 'Código de transferência inválido.');
+      }
+    } catch (err: any) {
+      setTransferError(err?.message || 'Erro ao processar código de transferência.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Handler: Restore Sample Accounts (Optional test convenience)
   const handleRestoreDemo = async () => {
     setIsRestoringDemo(true);
@@ -159,31 +203,79 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
           </p>
         </div>
 
+        {/* Cloud Status Notice (Explaining Cross-Device Synchronization) */}
+        {cloudStatus && cloudStatus.status === 'not_created' && (
+          <div className="mb-5 p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs flex flex-col gap-2">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-amber-300 font-semibold block">
+                  Sincronização em Nuvem (Multi-Dispositivo)
+                </strong>
+                <p className="text-[11px] text-amber-200/90 mt-0.5 leading-relaxed">
+                  O banco de dados <strong>Cloud Firestore</strong> ainda não foi criado no Firebase Console do projeto <code className="text-amber-300 font-mono px-1 py-0.5 bg-zinc-950/60 rounded border border-amber-500/20">{cloudStatus.projectId}</code>. Contas criadas antes da ativação ficam salvas apenas no navegador atual.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-amber-500/20 text-[11px]">
+              <a
+                href={cloudStatus.consoleUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-cyan-400 hover:text-cyan-300 underline font-medium inline-flex items-center gap-1"
+              >
+                <span>Ativar Firestore no Console (1 clique)</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              <span className="text-zinc-600">•</span>
+              <button
+                type="button"
+                onClick={() => setActiveTab('transfer')}
+                className="text-amber-300 hover:text-amber-200 underline font-medium cursor-pointer inline-flex items-center gap-1"
+              >
+                <span>Transferir conta por Código</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Tab Switcher */}
         <div className="flex rounded-xl bg-zinc-950/80 p-1 border border-zinc-800 mb-6">
           <button
             type="button"
             onClick={() => setActiveTab('register')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
               activeTab === 'register'
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            <UserPlus className="w-4 h-4" />
-            <span>Criar Nova Conta</span>
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Criar Conta</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('login')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
               activeTab === 'login'
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            <LogIn className="w-4 h-4" />
-            <span>Entrar com Login</span>
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Entrar</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('transfer')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+              activeTab === 'transfer'
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <ArrowLeftRight className="w-3.5 h-3.5" />
+            <span>Transferir</span>
           </button>
         </div>
 
@@ -337,9 +429,20 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
         {activeTab === 'login' && (
           <form onSubmit={handleLogin} className="space-y-4">
             {loginError && (
-              <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{loginError}</span>
+              <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex flex-col gap-2">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">{loginError}</span>
+                </div>
+                <div className="flex items-center gap-3 pt-1 border-t border-rose-500/20 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('transfer')}
+                    className="text-cyan-300 hover:text-cyan-200 underline font-medium cursor-pointer"
+                  >
+                    Transferir conta do outro dispositivo por Código
+                  </button>
+                </div>
               </div>
             )}
 
@@ -356,7 +459,7 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
                 className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-cyan-500 font-mono"
               />
               <p className="text-[10px] text-zinc-500 mt-1">
-                Se você criou sua conta em outro computador, ela será baixada da nuvem automaticamente.
+                Ao ativar o Cloud Firestore, as contas criadas em qualquer dispositivo são baixadas automaticamente.
               </p>
             </div>
 
@@ -381,13 +484,76 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Conectando à nuvem...</span>
+                  <span>Consultando contas...</span>
                 </>
               ) : (
                 <>
                   <LogIn className="w-4 h-4" />
                   <span>Entrar no Grimório</span>
                   <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+        )}
+
+        {/* TAB 3: TRANSFER / IMPORT CODE */}
+        {activeTab === 'transfer' && (
+          <form onSubmit={handleImportTransferCode} className="space-y-4">
+            {transferError && (
+              <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{transferError}</span>
+              </div>
+            )}
+            {transferSuccess && (
+              <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+                <Check className="w-4 h-4 shrink-0" />
+                <span>{transferSuccess}</span>
+              </div>
+            )}
+
+            <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 text-xs text-zinc-300 space-y-1.5">
+              <div className="font-semibold text-cyan-300 flex items-center gap-1.5">
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Como transferir sua conta entre aparelhos:</span>
+              </div>
+              <ol className="list-decimal list-inside text-[11px] text-zinc-400 space-y-1">
+                <li>No computador ou celular onde a conta foi criada, abra o Grimório.</li>
+                <li>Clique no avatar / ícone de usuário no canto superior direito.</li>
+                <li>Clique em <strong>"Copiar Código da Conta"</strong>.</li>
+                <li>Cole o código gerado no campo abaixo e clique em Importar!</li>
+              </ol>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-zinc-300 mb-1">
+                Código de Transferência da Conta
+              </label>
+              <textarea
+                required
+                rows={4}
+                placeholder="Cole aqui o código de transferência gerado no outro dispositivo..."
+                value={transferCode}
+                onChange={(e) => setTransferCode(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-cyan-500 font-mono resize-none"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting || !transferCode.trim()}
+              className="w-full py-2.5 px-4 bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Importando conta e campanhas...</span>
+                </>
+              ) : (
+                <>
+                  <ArrowLeftRight className="w-4 h-4" />
+                  <span>Importar Conta para este Navegador</span>
                 </>
               )}
             </button>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   UserCheck,
@@ -17,14 +17,18 @@ import {
   ArrowRight,
   LogOut,
   AlertCircle,
+  AlertTriangle,
   Cloud,
   RefreshCw,
   Loader2,
+  ExternalLink,
+  KeyRound,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { Campaign, UserProfile, UserRole } from '../types';
 import { authService } from '../services/auth';
 import { storageService } from '../services/storage';
-import { saveCampaignToFirestore, fetchUsersFromFirestore } from '../services/firebase';
+import { saveCampaignToFirestore, fetchUsersFromFirestore, checkCloudDbStatus, CloudDbStatus } from '../services/firebase';
 import { UserAvatar, AVATAR_OPTIONS, COLOR_OPTIONS } from './UserAvatar';
 
 interface AuthModalProps {
@@ -32,7 +36,7 @@ interface AuthModalProps {
   onClose: () => void;
   currentUser: UserProfile | null;
   onUserChanged: (user: UserProfile | null) => void;
-  initialTab?: 'profiles' | 'login' | 'register' | 'edit';
+  initialTab?: 'profiles' | 'login' | 'register' | 'edit' | 'transfer';
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -42,7 +46,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onUserChanged,
   initialTab = 'profiles',
 }) => {
-  const [activeTab, setActiveTab] = useState<'profiles' | 'login' | 'register' | 'edit'>(
+  const [activeTab, setActiveTab] = useState<'profiles' | 'login' | 'register' | 'edit' | 'transfer'>(
     !currentUser && initialTab === 'edit' ? 'register' : initialTab
   );
 
@@ -81,11 +85,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Loading & Cloud state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRefreshingCloud, setIsRefreshingCloud] = useState(false);
+  const [cloudStatus, setCloudStatus] = useState<CloudDbStatus | null>(null);
+  const [copiedAccId, setCopiedAccId] = useState<string | null>(null);
+
+  // Transfer code state
+  const [transferCode, setTransferCode] = useState('');
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const [transferSuccess, setTransferSuccess] = useState<string | null>(null);
 
   // Quick switch password prompt state
   const [selectedQuickUser, setSelectedQuickUser] = useState<UserProfile | null>(null);
   const [quickPassword, setQuickPassword] = useState('');
   const [quickError, setQuickError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      checkCloudDbStatus().then(setCloudStatus).catch(() => {});
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -323,6 +340,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
+  // Handler: Copy account transfer code
+  const handleCopyTransferCode = (account: UserProfile) => {
+    try {
+      const code = storageService.exportAccountTransferCode(account.id);
+      navigator.clipboard.writeText(code);
+      setCopiedAccId(account.id);
+      setTimeout(() => setCopiedAccId(null), 3500);
+    } catch (e) {
+      console.error('Erro ao copiar código de transferência:', e);
+    }
+  };
+
+  // Handler: Import transfer code
+  const handleImportTransferCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTransferError(null);
+    setTransferSuccess(null);
+    if (!transferCode.trim()) {
+      setTransferError('Por favor, cole o código de transferência.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = storageService.importAccountTransferCode(transferCode.trim());
+      if (res.success && res.user) {
+        setTransferSuccess(`Conta "${res.user.displayName}" importada com sucesso!`);
+        onUserChanged(res.user);
+        setTimeout(() => {
+          setActiveTab('profiles');
+          setTransferCode('');
+          setTransferSuccess(null);
+        }, 1800);
+      } else {
+        setTransferError(res.error || 'Código de transferência inválido.');
+      }
+    } catch (err: any) {
+      setTransferError(err?.message || 'Falha ao processar código de transferência.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const ROLES: UserRole[] = [
     'Mestre da Masmorra',
     'Narrador',
@@ -401,6 +461,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <span>Entrar com Login</span>
           </button>
 
+          <button
+            onClick={() => {
+              setActiveTab('transfer');
+              setTransferError(null);
+              setTransferSuccess(null);
+            }}
+            className={`flex items-center gap-2 px-3 py-2 text-xs font-medium border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'transfer'
+                ? 'border-cyan-400 text-cyan-300 font-semibold'
+                : 'border-transparent text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <ArrowLeftRight className="w-3.5 h-3.5" />
+            <span>Transferir Conta</span>
+          </button>
+
           {currentUser && (
             <button
               onClick={() => {
@@ -426,32 +502,64 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* Modal Body */}
         <div className="p-5 overflow-y-auto flex-1 space-y-4">
           {/* Cloud Cross-Device Sync Banner */}
-          <div className="flex items-center justify-between p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-cyan-200">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shrink-0">
-                <Cloud className="w-4 h-4" />
+          {cloudStatus?.status === 'not_created' ? (
+            <div className="flex flex-col gap-2 p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-xs text-amber-200">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0 mt-0.5">
+                    <AlertTriangle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-amber-300 flex items-center gap-2">
+                      <span>Sincronização em Nuvem Aguardando Ativação</span>
+                    </div>
+                    <div className="text-[11px] text-zinc-300 mt-1 leading-relaxed">
+                      O projeto Firebase <code className="font-mono text-amber-300 px-1 py-0.5 bg-zinc-950/60 rounded border border-amber-500/20">{cloudStatus.projectId}</code> ainda não possui o banco Firestore criado. Enquanto não for criado no console, as contas ficam salvas neste navegador.
+                    </div>
+                  </div>
+                </div>
+                <a
+                  href={cloudStatus.consoleUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-[11px] transition-colors shrink-0 shadow-md"
+                >
+                  <span>Ativar Firestore</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
               </div>
-              <div>
-                <div className="font-semibold text-cyan-300 flex items-center gap-1.5">
-                  <span>Sincronização em Nuvem (Multi-Dispositivos)</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                </div>
-                <div className="text-[11px] text-zinc-400">
-                  Crie seu login e acerte suas campanhas em qualquer computador ou dispositivo.
-                </div>
+              <div className="pt-2 border-t border-amber-500/20 text-[11px] text-zinc-400 flex items-center justify-between">
+                <span>💡 <strong>Dica:</strong> Clique no ícone de chave (<KeyRound className="w-3 h-3 inline text-cyan-400" />) ao lado de cada conta para transferir suas campanhas para outro computador diretamente!</span>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleRefreshCloud}
-              disabled={isRefreshingCloud}
-              title="Buscar contas recém-criadas em outros PCs na nuvem"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-700/50 text-[11px] font-medium text-cyan-300 transition-colors disabled:opacity-50 cursor-pointer shrink-0 ml-2"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingCloud ? 'animate-spin text-cyan-400' : ''}`} />
-              <span>{isRefreshingCloud ? 'Buscando...' : 'Sincronizar'}</span>
-            </button>
-          </div>
+          ) : (
+            <div className="flex items-center justify-between p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-cyan-200">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shrink-0">
+                  <Cloud className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-semibold text-cyan-300 flex items-center gap-1.5">
+                    <span>Sincronização em Nuvem (Multi-Dispositivos)</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  </div>
+                  <div className="text-[11px] text-zinc-400">
+                    Crie seu login e acerte suas campanhas em qualquer computador ou dispositivo.
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleRefreshCloud}
+                disabled={isRefreshingCloud}
+                title="Buscar contas recém-criadas em outros PCs na nuvem"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-700/50 text-[11px] font-medium text-cyan-300 transition-colors disabled:opacity-50 cursor-pointer shrink-0 ml-2"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingCloud ? 'animate-spin text-cyan-400' : ''}`} />
+                <span>{isRefreshingCloud ? 'Buscando...' : 'Sincronizar'}</span>
+              </button>
+            </div>
+          )}
 
           {/* TAB 1: PROFILES LIST & QUICK SWITCH */}
           {activeTab === 'profiles' && (
@@ -600,6 +708,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyTransferCode(acc);
+                          }}
+                          className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs ${
+                            copiedAccId === acc.id
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                              : 'text-zinc-400 hover:text-cyan-300 hover:bg-zinc-800'
+                          }`}
+                          title="Copiar código de transferência desta conta para outro PC"
+                        >
+                          {copiedAccId === acc.id ? (
+                            <>
+                              <Check className="w-3.5 h-3.5" />
+                              <span className="text-[10px] font-semibold">Copiado!</span>
+                            </>
+                          ) : (
+                            <KeyRound className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+
                         {isCurrent ? (
                           <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-semibold">
                             <Check className="w-3.5 h-3.5" />
@@ -1111,6 +1242,89 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <>
                       <Check className="w-4 h-4" />
                       <span>Salvar Alterações</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* TAB 5: TRANSFER / IMPORT ACCOUNT CODE */}
+          {activeTab === 'transfer' && (
+            <form onSubmit={handleImportTransferCode} className="space-y-4">
+              <div className="border-b border-zinc-800 pb-2">
+                <h3 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-cyan-400" />
+                  <span>Transferência de Conta por Código</span>
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  Migre sua conta e campanhas de outro dispositivo diretamente, sem depender de ativação de nuvem.
+                </p>
+              </div>
+
+              {transferError && (
+                <div className="p-3 text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>{transferError}</span>
+                </div>
+              )}
+
+              {transferSuccess && (
+                <div className="p-3 text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-2">
+                  <Check className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>{transferSuccess}</span>
+                </div>
+              )}
+
+              <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 text-xs text-zinc-300 space-y-1.5">
+                <div className="font-semibold text-cyan-300 flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>Como gerar o código no outro computador:</span>
+                </div>
+                <ol className="list-decimal list-inside text-[11px] text-zinc-400 space-y-1">
+                  <li>No outro computador onde você criou a conta, abra o Grimório.</li>
+                  <li>Clique no perfil do mestre ou no ícone de usuário.</li>
+                  <li>Na lista de perfis, clique no ícone de chave (<KeyRound className="w-3 h-3 inline text-cyan-400" />) para copiar o código da conta.</li>
+                  <li>Cole o código abaixo e clique em <strong>Importar Conta</strong>.</li>
+                </ol>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-zinc-300">
+                  Código de Transferência da Conta
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Cole aqui o código gerado no outro dispositivo..."
+                  value={transferCode}
+                  onChange={(e) => setTransferCode(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-700 rounded-xl text-zinc-100 font-mono resize-none focus:outline-hidden focus:border-cyan-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('profiles')}
+                  className="px-4 py-2 text-xs text-zinc-400 hover:text-zinc-200"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !transferCode.trim()}
+                  className="px-5 py-2 text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-zinc-950 rounded-xl transition-all cursor-pointer shadow-lg shadow-cyan-500/20 flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Importando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowLeftRight className="w-4 h-4" />
+                      <span>Importar Conta para este Navegador</span>
                     </>
                   )}
                 </button>

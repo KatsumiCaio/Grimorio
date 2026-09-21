@@ -5,6 +5,7 @@ import {
   fetchUsersFromFirestore,
   findUserInFirestore,
   subscribeToUsers,
+  checkCloudDbStatus,
 } from './firebase';
 
 const ACCOUNTS_STORAGE_KEY = 'grimorio_accounts_v3';
@@ -292,6 +293,19 @@ export const authService = {
     }
 
     if (!target) {
+      const dbStatus = await checkCloudDbStatus();
+      if (dbStatus.status === 'not_created') {
+        return {
+          success: false,
+          error: `A conta "${usernameOrEmail}" não existe na memória deste navegador. O banco de dados Cloud Firestore ainda não foi criado no Firebase Console do projeto "${dbStatus.projectId}", por isso os dados criados no outro dispositivo não puderam sincronizar na nuvem. Você pode ativar o Firestore no Firebase Console ou transferir sua conta diretamente usando um Código de Transferência.`,
+        };
+      }
+      if (dbStatus.status === 'offline') {
+        return {
+          success: false,
+          error: `A conta "${usernameOrEmail}" não foi encontrada neste navegador e o servidor em nuvem (Firestore) está inacessível no momento. Use o Código de Transferência para migrar sua conta.`,
+        };
+      }
       return {
         success: false,
         error: `Nenhuma conta encontrada com o login "${usernameOrEmail}". Verifique se o nome de usuário está correto ou crie uma nova conta.`,

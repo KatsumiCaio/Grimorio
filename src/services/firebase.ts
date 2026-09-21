@@ -138,18 +138,78 @@ export function handleOperationError(
   }
 }
 
+export interface CloudDbStatus {
+  status: 'online' | 'not_created' | 'offline';
+  projectId: string;
+  databaseId: string;
+  message: string;
+  consoleUrl: string;
+}
+
+// Fast diagnostic to check if Cloud Firestore exists in Google Cloud / Firebase console
+export async function checkCloudDbStatus(): Promise<CloudDbStatus> {
+  const projectId = FIREBASE_PROJECT_ID;
+  const databaseId = FIRESTORE_DATABASE_ID;
+  const consoleUrl = `https://console.firebase.google.com/project/${projectId}/firestore`;
+
+  try {
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/test?key=${firebaseConfig.apiKey}`;
+    const res = await fetch(url);
+    if (res.status === 200 || res.status === 403 || res.status === 400) {
+      return {
+        status: 'online',
+        projectId,
+        databaseId,
+        message: 'Banco de dados Cloud Firestore ativo e sincronizando.',
+        consoleUrl,
+      };
+    }
+    if (res.status === 404) {
+      const data = await res.json().catch(() => ({}));
+      const msg = data?.error?.message || '';
+      if (msg.toLowerCase().includes('does not exist')) {
+        return {
+          status: 'not_created',
+          projectId,
+          databaseId,
+          message: `O banco de dados Firestore ainda não foi criado no console do projeto "${projectId}".`,
+          consoleUrl,
+        };
+      }
+      // If 404 is just "document not found", the database actually exists!
+      return {
+        status: 'online',
+        projectId,
+        databaseId,
+        message: 'Banco de dados Cloud Firestore ativo.',
+        consoleUrl,
+      };
+    }
+    return {
+      status: 'offline',
+      projectId,
+      databaseId,
+      message: 'Cloud Firestore temporariamente offline ou inacessível.',
+      consoleUrl,
+    };
+  } catch (_e) {
+    return {
+      status: 'offline',
+      projectId,
+      databaseId,
+      message: 'Não foi possível conectar ao Cloud Firestore.',
+      consoleUrl,
+    };
+  }
+}
+
 // Test connection to Firestore on boot (as required by Firebase skill)
 export async function testFirestoreConnection(): Promise<boolean> {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-    return true;
+    const status = await checkCloudDbStatus();
+    return status.status === 'online';
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase Firestore offline ou banco de dados ainda não inicializado no console.');
-      return false;
-    }
-    // If the server answered (even document not found), the connection is online and healthy
-    return true;
+    return false;
   }
 }
 

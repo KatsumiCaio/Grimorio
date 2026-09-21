@@ -1,4 +1,4 @@
-import { Campaign, CharacterSheet, AppSettings, ChatMessage } from '../types';
+import { Campaign, CharacterSheet, AppSettings, ChatMessage, UserProfile } from '../types';
 import { authService } from './auth';
 
 const CAMPAIGNS_STORAGE_KEY = 'grimorio_campaigns_v1';
@@ -525,6 +525,7 @@ export const storageService = {
 
   exportBackup(): string {
     const user = authService.getCurrentUser();
+    if (!user) return '{}';
     const payload = {
       version: 2,
       appName: 'Grimorio',
@@ -546,6 +547,7 @@ export const storageService = {
     try {
       const parsed = JSON.parse(jsonString);
       const user = authService.getCurrentUser();
+      if (!user) return false;
       if (Array.isArray(parsed.campaigns)) {
         this.saveUserCampaigns(user.id, parsed.campaigns);
       }
@@ -559,6 +561,65 @@ export const storageService = {
     } catch (e) {
       console.error('Erro ao importar backup:', e);
       return false;
+    }
+  },
+
+  // Direct Account Transfer Code (Transfer between PCs without needing active cloud setup)
+  exportAccountTransferCode(userId: string): string {
+    const accounts = authService.getAccounts();
+    const user = accounts.find((a) => a.id === userId) || authService.getCurrentUser();
+    if (!user) return '';
+    const payload = {
+      version: 2,
+      type: 'grimorio_account_transfer',
+      user,
+      campaigns: this.getUserCampaigns(user.id),
+      characters: this.getUserCharacters(user.id),
+      activeCampaignId: this.getUserActiveCampaignId(user.id),
+      exportedAt: Date.now(),
+    };
+    return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  },
+
+  importAccountTransferCode(codeOrJson: string): { success: boolean; user?: UserProfile; error?: string } {
+    try {
+      let raw = (codeOrJson || '').trim();
+      if (!raw) return { success: false, error: 'Por favor, cole o código de transferência.' };
+
+      if (!raw.startsWith('{')) {
+        try {
+          raw = decodeURIComponent(escape(atob(raw)));
+        } catch {
+          raw = atob(raw);
+        }
+      }
+
+      const data = JSON.parse(raw);
+      const user: UserProfile | undefined = data.user;
+      if (!user || !user.id || !user.username) {
+        return { success: false, error: 'Código inválido: dados da conta não encontrados.' };
+      }
+
+      // Add to accounts list
+      const accounts = authService.getAccounts().filter((a) => a.id !== user.id);
+      accounts.push(user);
+      authService.saveAccounts(accounts);
+
+      // Save user campaigns & characters
+      if (Array.isArray(data.campaigns)) {
+        this.saveUserCampaigns(user.id, data.campaigns);
+      }
+      if (Array.isArray(data.characters)) {
+        this.saveUserCharacters(user.id, data.characters);
+      }
+      if (data.activeCampaignId) {
+        this.saveUserActiveCampaignId(user.id, data.activeCampaignId);
+      }
+
+      authService.setCurrentUser(user.id);
+      return { success: true, user };
+    } catch (e: any) {
+      return { success: false, error: 'Código de transferência inválido ou corrompido.' };
     }
   },
 };
