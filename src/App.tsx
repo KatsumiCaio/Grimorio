@@ -10,6 +10,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { CampaignMenuModal } from './components/CampaignMenuModal';
 import { AuthModal } from './components/AuthModal';
+import { AccountOnboarding } from './components/AccountOnboarding';
 import { BottomNav } from './components/BottomNav';
 import {
   subscribeToUserCampaigns,
@@ -25,17 +26,19 @@ import {
 } from './services/firebase';
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<UserProfile>(() => authService.getCurrentUser());
-  const [campaigns, setCampaigns] = useState<Campaign[]>(() =>
-    storageService.getUserCampaigns(authService.getCurrentUser().id)
-  );
-  const [characters, setCharacters] = useState<CharacterSheet[]>(() =>
-    storageService.getUserCharacters(authService.getCurrentUser().id)
-  );
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => authService.getCurrentUser());
+  const [campaigns, setCampaigns] = useState<Campaign[]>(() => {
+    const u = authService.getCurrentUser();
+    return u ? storageService.getUserCampaigns(u.id) : [];
+  });
+  const [characters, setCharacters] = useState<CharacterSheet[]>(() => {
+    const u = authService.getCurrentUser();
+    return u ? storageService.getUserCharacters(u.id) : [];
+  });
   const [settings, setSettings] = useState<AppSettings>(() => storageService.getSettings());
   const [activeCampaignId, setActiveCampaignId] = useState<string>(() => {
-    const userId = authService.getCurrentUser().id;
-    return storageService.getUserActiveCampaignId(userId);
+    const u = authService.getCurrentUser();
+    return u ? storageService.getUserActiveCampaignId(u.id) : '';
   });
   const [currentTab, setCurrentTab] = useState<MainTab>('campaign');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -50,27 +53,36 @@ export default function App() {
   const [isSyncingManual, setIsSyncingManual] = useState(false);
 
   // Handle switching or updating user accounts
-  const handleUserChanged = useCallback((newUser: UserProfile) => {
+  const handleUserChanged = useCallback((newUser: UserProfile | null) => {
     setCurrentUser(newUser);
-    const userCamps = storageService.getUserCampaigns(newUser.id);
-    const userChars = storageService.getUserCharacters(newUser.id);
-    const userActiveId = storageService.getUserActiveCampaignId(newUser.id);
+    if (newUser) {
+      const userCamps = storageService.getUserCampaigns(newUser.id);
+      const userChars = storageService.getUserCharacters(newUser.id);
+      const userActiveId = storageService.getUserActiveCampaignId(newUser.id);
 
-    setCampaigns(userCamps);
-    setCharacters(userChars);
-    setActiveCampaignId(userActiveId);
+      setCampaigns(userCamps);
+      setCharacters(userChars);
+      setActiveCampaignId(userActiveId);
 
-    const firstChar = userChars.find((c) => c.campaignId === userActiveId);
-    setSelectedCharacterId(firstChar?.id);
+      const firstChar = userChars.find((c) => c.campaignId === userActiveId);
+      setSelectedCharacterId(firstChar?.id);
+    } else {
+      setCampaigns([]);
+      setCharacters([]);
+      setActiveCampaignId('');
+      setSelectedCharacterId(undefined);
+    }
   }, []);
 
   // Sync active campaign changes to user storage
   const handleSelectCampaign = useCallback(
     (id: string) => {
       setActiveCampaignId(id);
-      storageService.saveUserActiveCampaignId(currentUser.id, id);
+      if (currentUser) {
+        storageService.saveUserActiveCampaignId(currentUser.id, id);
+      }
     },
-    [currentUser.id]
+    [currentUser]
   );
 
   // Initialize Cloud Sync for all User Accounts
@@ -78,11 +90,13 @@ export default function App() {
     const unsubCloudAuth = authService.initCloudSync();
     const unsubAuthChange = authService.onAuthChange((user) => {
       if (user) {
-        if (user.id !== currentUser.id) {
+        if (!currentUser || user.id !== currentUser.id) {
           handleUserChanged(user);
         } else {
           setCurrentUser(user);
         }
+      } else {
+        handleUserChanged(null);
       }
     });
 
@@ -90,10 +104,12 @@ export default function App() {
       unsubCloudAuth();
       unsubAuthChange();
     };
-  }, [currentUser.id, handleUserChanged]);
+  }, [currentUser, handleUserChanged]);
 
   // Initialize Realtime Database Subscriptions for the Active User
   useEffect(() => {
+    if (!currentUser) return;
+
     let unsubCampaigns: (() => void) | null = null;
     let unsubCharacters: (() => void) | null = null;
     const userId = currentUser.id;
@@ -182,10 +198,11 @@ export default function App() {
       if (unsubCampaigns) unsubCampaigns();
       if (unsubCharacters) unsubCharacters();
     };
-  }, [currentUser.id, currentUser.displayName]);
+  }, [currentUser?.id, currentUser?.displayName]);
 
   // Manual Full Cloud Sync Handler
   const handleManualSyncCloud = useCallback(async () => {
+    if (!currentUser) return;
     setIsSyncingManual(true);
     setSyncStatus('syncing');
     try {
@@ -204,7 +221,7 @@ export default function App() {
     } finally {
       setIsSyncingManual(false);
     }
-  }, [currentUser.id, campaigns, characters]);
+  }, [currentUser, campaigns, characters]);
 
   // Toggle full screen notes with optional browser Fullscreen API integration
   const handleToggleFullScreen = useCallback(() => {
@@ -277,6 +294,7 @@ export default function App() {
   // Sync state with storage and Firestore whenever campaigns change
   const handleUpdateCampaign = useCallback(
     (updated: Partial<Campaign>) => {
+      if (!currentUser) return;
       setCampaigns((prev) => {
         let updatedCamp: Campaign | null = null;
         const next = prev.map((c) => {
@@ -298,11 +316,12 @@ export default function App() {
         return next;
       });
     },
-    [activeCampaignId, currentUser.id]
+    [activeCampaignId, currentUser]
   );
 
   const handleCreateCampaign = useCallback(
     (title: string, system: string) => {
+      if (!currentUser) return;
       const newCamp: Campaign = {
         id: `camp-${Date.now()}`,
         title,
@@ -324,11 +343,12 @@ export default function App() {
         console.warn('Erro ao salvar nova campanha no Firestore:', err);
       });
     },
-    [currentUser.id, handleSelectCampaign]
+    [currentUser, handleSelectCampaign]
   );
 
   const handleUpdateCampaignById = useCallback(
     (id: string, updated: Partial<Campaign>) => {
+      if (!currentUser) return;
       setCampaigns((prev) => {
         const next = prev.map((c) => {
           if (c.id === id) {
@@ -347,11 +367,12 @@ export default function App() {
         return next;
       });
     },
-    [currentUser.id]
+    [currentUser]
   );
 
   const handleDeleteCampaign = useCallback(
     (idToDelete: string) => {
+      if (!currentUser) return;
       setCampaigns((prev) => {
         const next = prev.filter((c) => c.id !== idToDelete);
         storageService.saveUserCampaigns(currentUser.id, next);
@@ -367,11 +388,12 @@ export default function App() {
         console.warn('Erro ao excluir campanha no Firestore:', err);
       });
     },
-    [activeCampaignId, currentUser.id, handleSelectCampaign]
+    [activeCampaignId, currentUser, handleSelectCampaign]
   );
 
   const handleDeleteAllCampaigns = useCallback(
     async (options?: { deleteCharacters?: boolean }) => {
+      if (!currentUser) return;
       setCampaigns([]);
       storageService.clearUserCampaigns(currentUser.id);
       handleSelectCampaign('');
@@ -392,12 +414,13 @@ export default function App() {
         console.warn('Erro ao excluir todas as campanhas no Firestore:', err);
       }
     },
-    [currentUser.id, handleSelectCampaign]
+    [currentUser, handleSelectCampaign]
   );
 
   // Character handlers
   const handleCreateCharacter = useCallback(
     (charData: Omit<CharacterSheet, 'createdAt' | 'updatedAt'> & { id?: string }) => {
+      if (!currentUser) return {} as CharacterSheet;
       const newChar: CharacterSheet = {
         ...charData,
         id: charData.id || `char-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -418,11 +441,12 @@ export default function App() {
 
       return newChar;
     },
-    [currentUser.id]
+    [currentUser]
   );
 
   const handleUpdateCharacter = useCallback(
     (id: string, updated: Partial<CharacterSheet>) => {
+      if (!currentUser) return;
       setCharacters((prev) => {
         let updatedChar: CharacterSheet | null = null;
         const next = prev.map((c) => {
@@ -444,11 +468,12 @@ export default function App() {
         return next;
       });
     },
-    [currentUser.id]
+    [currentUser]
   );
 
   const handleDeleteCharacter = useCallback(
     (id: string) => {
+      if (!currentUser) return;
       setCharacters((prev) => {
         const next = prev.filter((c) => c.id !== id);
         storageService.saveUserCharacters(currentUser.id, next);
@@ -460,7 +485,7 @@ export default function App() {
         console.warn('Erro ao excluir ficha no Firestore:', err);
       });
     },
-    [currentUser.id]
+    [currentUser]
   );
 
   // Settings handlers
@@ -478,6 +503,7 @@ export default function App() {
   }, [settings.customLogoUrl]);
 
   const handleDataImported = useCallback(() => {
+    if (!currentUser) return;
     const freshCampaigns = storageService.getUserCampaigns(currentUser.id);
     const freshCharacters = storageService.getUserCharacters(currentUser.id);
     const freshSettings = storageService.getSettings();
@@ -494,7 +520,7 @@ export default function App() {
     for (const char of freshCharacters) {
       saveCharacterToFirestore(char, currentUser.id);
     }
-  }, [currentUser.id, handleSelectCampaign]);
+  }, [currentUser, handleSelectCampaign]);
 
   const currentCampaign = campaigns.find((c) => c.id === activeCampaignId) || campaigns[0];
   const activeCampaignCharacterCount = characters.filter((c) => c.campaignId === activeCampaignId).length;
@@ -511,6 +537,10 @@ export default function App() {
     },
     [isFullScreenNotes]
   );
+
+  if (!currentUser) {
+    return <AccountOnboarding onUserReady={(user) => handleUserChanged(user)} />;
+  }
 
   return (
     <div className="h-screen w-screen flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden font-sans">

@@ -7,8 +7,9 @@ import {
   subscribeToUsers,
 } from './firebase';
 
-const ACCOUNTS_STORAGE_KEY = 'grimorio_accounts_v2';
-const CURRENT_USER_ID_KEY = 'grimorio_current_user_id_v2';
+const ACCOUNTS_STORAGE_KEY = 'grimorio_accounts_v3';
+const CURRENT_USER_ID_KEY = 'grimorio_current_user_id_v3';
+const ACCOUNTS_CLEARED_FLAG = 'grimorio_accounts_explicitly_cleared_v3';
 
 // Simple deterministic hash for local client profile protection
 export function hashPassword(plain: string): string {
@@ -73,7 +74,7 @@ export const authService = {
     }
     isCloudInitialized = true;
 
-    // 1. Initial fetch from Firestore and seed if necessary
+    // 1. Initial fetch from Firestore
     const syncInitial = async () => {
       try {
         const cloudUsers = await fetchUsersFromFirestore();
@@ -99,12 +100,8 @@ export const authService = {
           const currentId = localStorage.getItem(CURRENT_USER_ID_KEY);
           if (currentId && mergedMap.has(currentId)) {
             notifyListeners(mergedMap.get(currentId)!);
-          }
-        } else {
-          // Firestore users collection is empty: seed default accounts so any other PC will see them
-          const currentLocal = this.getAccounts();
-          for (const acc of currentLocal) {
-            await saveUserToFirestore(acc);
+          } else if (merged.length > 0 && !currentId) {
+            this.setCurrentUser(merged[0].id);
           }
         }
       } catch (err) {
@@ -136,7 +133,11 @@ export const authService = {
         const currentId = localStorage.getItem(CURRENT_USER_ID_KEY);
         if (currentId && mergedMap.has(currentId)) {
           notifyListeners(mergedMap.get(currentId)!);
+        } else if (merged.length > 0 && !currentId) {
+          this.setCurrentUser(merged[0].id);
         }
+      } else {
+        // If cloud users is empty, keep local accounts as is
       }
     });
 
@@ -153,17 +154,15 @@ export const authService = {
     try {
       const data = localStorage.getItem(ACCOUNTS_STORAGE_KEY);
       if (!data) {
-        this.saveAccounts(DEFAULT_ACCOUNTS);
-        return DEFAULT_ACCOUNTS;
+        return [];
       }
       const parsed: UserProfile[] = JSON.parse(data);
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        this.saveAccounts(DEFAULT_ACCOUNTS);
-        return DEFAULT_ACCOUNTS;
+      if (!Array.isArray(parsed)) {
+        return [];
       }
       return parsed;
     } catch {
-      return DEFAULT_ACCOUNTS;
+      return [];
     }
   },
 
@@ -175,8 +174,12 @@ export const authService = {
     }
   },
 
-  getCurrentUser(): UserProfile {
+  getCurrentUser(): UserProfile | null {
     const accounts = this.getAccounts();
+    if (accounts.length === 0) {
+      return null;
+    }
+
     try {
       const currentId = localStorage.getItem(CURRENT_USER_ID_KEY);
       if (currentId) {
@@ -184,19 +187,27 @@ export const authService = {
         if (found) return found;
       }
     } catch {
-      // fallback to first account
+      // fallback
     }
 
-    const defaultUser = accounts[0] || DEFAULT_ACCOUNTS[0];
+    const first = accounts[0];
     try {
-      localStorage.setItem(CURRENT_USER_ID_KEY, defaultUser.id);
+      localStorage.setItem(CURRENT_USER_ID_KEY, first.id);
     } catch {
       // ignore
     }
-    return defaultUser;
+    return first;
   },
 
-  setCurrentUser(userId: string): UserProfile | null {
+  setCurrentUser(userId: string | null): UserProfile | null {
+    if (!userId) {
+      try {
+        localStorage.removeItem(CURRENT_USER_ID_KEY);
+      } catch {}
+      notifyListeners(null);
+      return null;
+    }
+
     const accounts = this.getAccounts();
     const target = accounts.find((a) => a.id === userId);
     if (!target) return null;
@@ -443,7 +454,7 @@ export const authService = {
 
     // If updating currently logged in user, notify
     const current = this.getCurrentUser();
-    if (current.id === userId) {
+    if (current && current.id === userId) {
       notifyListeners(target);
     }
 
@@ -452,13 +463,6 @@ export const authService = {
 
   async deleteAccount(userId: string): Promise<{ success: boolean; error?: string }> {
     const accounts = this.getAccounts();
-    if (accounts.length <= 1) {
-      return {
-        success: false,
-        error: 'Você não pode excluir a única conta restante do Grimório.',
-      };
-    }
-
     const filtered = accounts.filter((a) => a.id !== userId);
     this.saveAccounts(filtered);
 
@@ -469,13 +473,59 @@ export const authService = {
       console.warn('Erro ao remover usuário da nuvem:', err);
     }
 
-    // If deleted user was active, switch to first available
-    const current = this.getCurrentUser();
-    if (current.id === userId) {
-      this.setCurrentUser(filtered[0].id);
+    if (filtered.length === 0) {
+      try {
+        localStorage.removeItem(CURRENT_USER_ID_KEY);
+        localStorage.setItem(ACCOUNTS_CLEARED_FLAG, 'true');
+      } catch {}
+      notifyListeners(null);
+    } else {
+      const current = this.getCurrentUser();
+      if (!current || current.id === userId) {
+        this.setCurrentUser(filtered[0].id);
+      }
     }
 
     return { success: true };
+  },
+
+  async clearAllAccounts(): Promise<{ success: boolean; count: number }> {
+    const accounts = this.getAccounts();
+    const count = accounts.length;
+
+    for (const acc of accounts) {
+      try {
+        await deleteUserFromFirestore(acc.id);
+      } catch (err) {
+        console.warn('Erro ao excluir usuário da nuvem:', err);
+      }
+    }
+
+    try {
+      localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify([]));
+      localStorage.removeItem(CURRENT_USER_ID_KEY);
+      localStorage.setItem(ACCOUNTS_CLEARED_FLAG, 'true');
+    } catch {}
+
+    notifyListeners(null);
+    return { success: true, count };
+  },
+
+  async restoreSampleAccounts(): Promise<UserProfile[]> {
+    try {
+      localStorage.removeItem(ACCOUNTS_CLEARED_FLAG);
+    } catch {}
+
+    this.saveAccounts(DEFAULT_ACCOUNTS);
+    for (const acc of DEFAULT_ACCOUNTS) {
+      try {
+        await saveUserToFirestore(acc);
+      } catch (e) {
+        console.warn('Erro ao restaurar conta na nuvem:', e);
+      }
+    }
+    this.setCurrentUser(DEFAULT_ACCOUNTS[0].id);
+    return DEFAULT_ACCOUNTS;
   },
 
   onAuthChange(listener: AuthChangeListener): () => void {

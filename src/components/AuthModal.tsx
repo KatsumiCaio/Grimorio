@@ -30,8 +30,8 @@ import { UserAvatar, AVATAR_OPTIONS, COLOR_OPTIONS } from './UserAvatar';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentUser: UserProfile;
-  onUserChanged: (user: UserProfile) => void;
+  currentUser: UserProfile | null;
+  onUserChanged: (user: UserProfile | null) => void;
   initialTab?: 'profiles' | 'login' | 'register' | 'edit';
 }
 
@@ -42,7 +42,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onUserChanged,
   initialTab = 'profiles',
 }) => {
-  const [activeTab, setActiveTab] = useState<'profiles' | 'login' | 'register' | 'edit'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'profiles' | 'login' | 'register' | 'edit'>(
+    !currentUser && initialTab === 'edit' ? 'register' : initialTab
+  );
 
   // Switch / Login state
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -62,15 +64,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [regError, setRegError] = useState<string | null>(null);
 
   // Edit Profile state
-  const [editName, setEditName] = useState(currentUser.displayName);
-  const [editRole, setEditRole] = useState<UserRole>(currentUser.role);
-  const [editAvatar, setEditAvatar] = useState(currentUser.avatarId);
-  const [editColor, setEditColor] = useState(currentUser.color);
+  const [editName, setEditName] = useState(currentUser?.displayName || '');
+  const [editRole, setEditRole] = useState<UserRole>(currentUser?.role || 'Mestre da Masmorra');
+  const [editAvatar, setEditAvatar] = useState(currentUser?.avatarId || 'd20');
+  const [editColor, setEditColor] = useState<UserProfile['color']>(currentUser?.color || 'cyan');
   const [editCustomAvatarUrl, setEditCustomAvatarUrl] = useState(
-    currentUser.avatarId.startsWith('http') || currentUser.avatarId.startsWith('data:') ? currentUser.avatarId : ''
+    currentUser?.avatarId && (currentUser.avatarId.startsWith('http') || currentUser.avatarId.startsWith('data:'))
+      ? currentUser.avatarId
+      : ''
   );
   const [editPassword, setEditPassword] = useState('');
-  const [editBio, setEditBio] = useState(currentUser.bio || '');
+  const [editBio, setEditBio] = useState(currentUser?.bio || '');
   const [editError, setEditError] = useState<string | null>(null);
   const [editSuccess, setEditSuccess] = useState<string | null>(null);
 
@@ -233,6 +237,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Handler: Save edited profile (async cloud persist)
   const handleSaveEditProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser) return;
     setEditError(null);
     setEditSuccess(null);
     setIsSubmitting(true);
@@ -265,14 +270,56 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Handler: Delete account (local & cloud)
   const handleDeleteAccount = async (account: UserProfile) => {
-    if (confirm(`Tem certeza que deseja excluir a conta de "${account.displayName}" e todas as suas campanhas tanto neste dispositivo quanto na nuvem?`)) {
+    if (
+      confirm(
+        `Tem certeza que deseja excluir a conta de "${account.displayName}" e todas as suas campanhas tanto neste dispositivo quanto na nuvem?`
+      )
+    ) {
       storageService.clearUserCampaigns(account.id);
       storageService.clearUserCharacters(account.id);
       const res = await authService.deleteAccount(account.id);
       if (res.success) {
         const next = authService.getCurrentUser();
         onUserChanged(next);
+        if (!next) {
+          onClose();
+        }
       }
+    }
+  };
+
+  // Handler: Clear All Accounts
+  const handleClearAllAccounts = async () => {
+    if (
+      confirm(
+        'ATENÇÃO: Deseja realmente APAGAR TODAS AS CONTAS e dados de todos os mestres? Esta ação apagará os perfis e campanhas deste dispositivo e da nuvem.'
+      )
+    ) {
+      setIsSubmitting(true);
+      try {
+        await authService.clearAllAccounts();
+        onUserChanged(null);
+        onClose();
+      } catch (err) {
+        console.error('Erro ao limpar contas:', err);
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+  };
+
+  // Handler: Restore Sample Accounts
+  const handleRestoreSampleAccounts = async () => {
+    setIsSubmitting(true);
+    try {
+      const restored = await authService.restoreSampleAccounts();
+      if (restored.length > 0) {
+        onUserChanged(restored[0]);
+      }
+    } catch (err) {
+      console.error('Erro ao restaurar contas demo:', err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -291,8 +338,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800 bg-zinc-950/80">
           <div className="flex items-center gap-3">
             <UserAvatar
-              avatarId={currentUser.avatarId}
-              color={currentUser.color}
+              avatarId={currentUser?.avatarId || 'd20'}
+              color={currentUser?.color || 'cyan'}
               size="sm"
               showGlow={true}
             />
@@ -354,24 +401,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <span>Entrar com Login</span>
           </button>
 
-          <button
-            onClick={() => {
-              setActiveTab('edit');
-              setEditName(currentUser.displayName);
-              setEditRole(currentUser.role);
-              setEditAvatar(currentUser.avatarId);
-              setEditColor(currentUser.color);
-              setEditBio(currentUser.bio || '');
-            }}
-            className={`flex items-center gap-2 px-3 py-2 text-xs font-medium border-b-2 transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'edit'
-                ? 'border-cyan-400 text-cyan-300 font-semibold'
-                : 'border-transparent text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-            <span>Editar Meu Perfil</span>
-          </button>
+          {currentUser && (
+            <button
+              onClick={() => {
+                setActiveTab('edit');
+                setEditName(currentUser.displayName);
+                setEditRole(currentUser.role);
+                setEditAvatar(currentUser.avatarId);
+                setEditColor(currentUser.color);
+                setEditBio(currentUser.bio || '');
+              }}
+              className={`flex items-center gap-2 px-3 py-2 text-xs font-medium border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === 'edit'
+                  ? 'border-cyan-400 text-cyan-300 font-semibold'
+                  : 'border-transparent text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Editar Meu Perfil</span>
+            </button>
+          )}
         </div>
 
         {/* Modal Body */}
@@ -503,7 +552,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {/* Accounts Cards Grid */}
               <div className="grid grid-cols-1 gap-2.5">
                 {accounts.map((acc) => {
-                  const isCurrent = acc.id === currentUser.id;
+                  const isCurrent = currentUser ? acc.id === currentUser.id : false;
                   const userCamps = storageService.getUserCampaigns(acc.id);
                   const userChars = storageService.getUserCharacters(acc.id);
 
@@ -566,24 +615,73 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           </button>
                         )}
 
-                        {accounts.length > 1 && !isCurrent && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteAccount(acc);
-                            }}
-                            className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded-lg transition-colors"
-                            title="Excluir esta conta de usuário"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteAccount(acc);
+                          }}
+                          className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                          title="Excluir esta conta de usuário"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   );
                 })}
               </div>
+
+              {accounts.length === 0 && (
+                <div className="p-8 text-center bg-zinc-950/40 rounded-xl border border-dashed border-zinc-800">
+                  <p className="text-sm font-semibold text-zinc-300">Nenhuma conta cadastrada</p>
+                  <p className="text-xs text-zinc-500 mt-1 mb-4">Crie sua primeira conta de mestre para salvar campanhas.</p>
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('register')}
+                      className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>Criar Conta</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRestoreSampleAccounts}
+                      disabled={isSubmitting}
+                      className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Carregar Exemplos</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons: Clear All or Restore Demo */}
+              {accounts.length > 0 && (
+                <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-800/80">
+                  <button
+                    type="button"
+                    onClick={handleClearAllAccounts}
+                    disabled={isSubmitting}
+                    className="px-3 py-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 text-rose-300 hover:text-rose-200 text-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Apagar Todas as Contas & Dados</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleRestoreSampleAccounts}
+                    disabled={isSubmitting}
+                    className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Restaurar Exemplos</span>
+                  </button>
+                </div>
+              )}
 
               <div className="p-3 bg-zinc-950/70 border border-zinc-800/80 rounded-xl text-xs text-zinc-400 leading-relaxed flex items-start gap-2.5">
                 <Sparkles className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
