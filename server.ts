@@ -12,6 +12,18 @@ async function startServer() {
   const app = express();
   app.use(express.json({ limit: "10mb" }));
 
+  // Global CORS and preflight headers
+  app.use((req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, PATCH, DELETE");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+    if (req.method === "OPTIONS") {
+      res.sendStatus(204);
+      return;
+    }
+    next();
+  });
+
   // API Routes
   app.get("/api/health", (_req, res) => {
     res.json({
@@ -20,8 +32,18 @@ async function startServer() {
     });
   });
 
+  // Informative GET endpoint for /api/chat
+  app.get(["/api/chat", "/api/chat/"], (_req, res) => {
+    res.json({
+      status: "ok",
+      endpoint: "/api/chat",
+      methods: ["POST", "GET", "OPTIONS"],
+      message: "Grimório Copilot API ativa. Envie requisições POST com mensagens.",
+    });
+  });
+
   // Streaming chat endpoint with Gemini
-  app.post("/api/chat", async (req, res) => {
+  app.post(["/api/chat", "/api/chat/"], async (req, res) => {
     const { messages, systemInstruction, model, customApiKey, system, campaignTitle } = req.body;
     
     // Validate API key: prefer trimmed custom key if provided and valid, otherwise fallback to server environment key
@@ -179,6 +201,17 @@ async function startServer() {
         res.end();
       }
     }
+  });
+
+  // Explicit handler for non-POST methods on /api/chat
+  app.all(["/api/chat", "/api/chat/"], (req, res) => {
+    if (req.method === "OPTIONS") {
+      res.sendStatus(204);
+      return;
+    }
+    res.status(405).json({
+      error: `Método ${req.method} não suportado em /api/chat. O Copiloto aceita requisições POST para streaming.`,
+    });
   });
 
   // Vite middleware for development vs Static assets for production

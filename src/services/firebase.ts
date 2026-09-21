@@ -252,65 +252,33 @@ export async function checkCloudDbStatus(): Promise<CloudDbStatus> {
   const databaseId = FIRESTORE_DATABASE_ID;
   const consoleUrl = `https://console.firebase.google.com/project/${projectId}/firestore`;
 
-  try {
-    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/test?key=${firebaseConfig.apiKey}`;
-    const res = await fetch(url);
-    if (res.status === 429) {
-      markQuotaExceeded();
-      return {
-        status: 'offline',
-        projectId,
-        databaseId,
-        message: 'Cota diária gratuita do Firestore atingida. Operando com armazenamento local.',
-        consoleUrl,
-      };
-    }
-    if (res.status === 200 || res.status === 403 || res.status === 400) {
-      return {
-        status: 'online',
-        projectId,
-        databaseId,
-        message: 'Banco de dados Cloud Firestore ativo e sincronizando.',
-        consoleUrl,
-      };
-    }
-    if (res.status === 404) {
-      const data = await res.json().catch(() => ({}));
-      const msg = data?.error?.message || '';
-      if (msg.toLowerCase().includes('does not exist')) {
-        return {
-          status: 'not_created',
-          projectId,
-          databaseId,
-          message: `O banco de dados Firestore ainda não foi criado no console do projeto "${projectId}".`,
-          consoleUrl,
-        };
-      }
-      // If 404 is just "document not found", the database actually exists!
-      return {
-        status: 'online',
-        projectId,
-        databaseId,
-        message: 'Banco de dados Cloud Firestore ativo.',
-        consoleUrl,
-      };
-    }
+  if (isQuotaExceeded()) {
     return {
       status: 'offline',
       projectId,
       databaseId,
-      message: 'Cloud Firestore temporariamente offline ou inacessível.',
-      consoleUrl,
-    };
-  } catch (_e) {
-    return {
-      status: 'offline',
-      projectId,
-      databaseId,
-      message: 'Não foi possível conectar ao Cloud Firestore.',
+      message: 'Cota diária gratuita do Firestore atingida. Operando com armazenamento local.',
       consoleUrl,
     };
   }
+
+  if (db) {
+    return {
+      status: 'online',
+      projectId,
+      databaseId,
+      message: 'Banco de dados Cloud Firestore ativo e sincronizando.',
+      consoleUrl,
+    };
+  }
+
+  return {
+    status: 'offline',
+    projectId,
+    databaseId,
+    message: 'Cloud Firestore não inicializado.',
+    consoleUrl,
+  };
 }
 
 // Test connection to Firestore on boot (as required by Firebase skill)

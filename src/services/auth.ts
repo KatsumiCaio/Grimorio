@@ -133,7 +133,6 @@ export const authService = {
           if (!mergedMap.has(local.id)) {
             mergedMap.set(local.id, local);
             usernameToPrimary.set(uname, local);
-            void saveUserToFirestore(local);
           }
         }
       }

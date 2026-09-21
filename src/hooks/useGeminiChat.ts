@@ -107,28 +107,55 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
         const controller = new AbortController();
         abortControllerRef.current = controller;
 
-        const response = await fetch('/api/chat', {
+        const requestPayload = {
+          messages: updatedHistory.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+          systemInstruction,
+          system: context?.system || 'D&D 5e',
+          campaignTitle: context?.campaignTitle || 'Campanha Principal',
+          model: options.model && options.model !== 'gemini-2.5-flash' && options.model !== 'gemini-2.5-flash-lite' ? options.model : 'gemini-3.1-flash-lite',
+          customApiKey: options.customApiKey || undefined,
+        };
+
+        let response = await fetch('/api/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           signal: controller.signal,
-          body: JSON.stringify({
-            messages: updatedHistory.map((m) => ({
-              role: m.role,
-              content: m.content,
-            })),
-            systemInstruction,
-            system: context?.system || 'D&D 5e',
-            campaignTitle: context?.campaignTitle || 'Campanha Principal',
-            model: options.model && options.model !== 'gemini-2.5-flash' && options.model !== 'gemini-2.5-flash-lite' ? options.model : 'gemini-3.1-flash-lite',
-            customApiKey: options.customApiKey || undefined,
-          }),
+          body: JSON.stringify(requestPayload),
         });
+
+        // Transient recovery: If reverse proxy was reloading or returning a temporary 405/502/503, retry once
+        if ((response.status === 405 || response.status === 502 || response.status === 503) && !controller.signal.aborted) {
+          await new Promise((r) => setTimeout(r, 700));
+          if (!controller.signal.aborted) {
+            response = await fetch('/api/chat', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              signal: controller.signal,
+              body: JSON.stringify(requestPayload),
+            });
+          }
+        }
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Erro na requisição (${response.status})`);
+          let friendlyError = errorData.error;
+          if (!friendlyError) {
+            if (response.status === 405) {
+              friendlyError = 'O servidor está reiniciando ou indisponível temporariamente. Tente reenviar em alguns instantes.';
+            } else if (response.status === 503) {
+              friendlyError = 'Servidores com alta demanda. Tente novamente em alguns segundos.';
+            } else {
+              friendlyError = `Erro na requisição (${response.status})`;
+            }
+          }
+          throw new Error(friendlyError);
         }
 
         if (!response.body) {

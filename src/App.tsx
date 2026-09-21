@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, ExternalLink, X } from 'lucide-react';
+import { AlertTriangle, ExternalLink, X, RefreshCw } from 'lucide-react';
 import { Campaign, CharacterSheet, MainTab, AppSettings, BestiaryMonster, UserProfile } from './types';
 import { storageService } from './services/storage';
 import { authService } from './services/auth';
@@ -26,6 +26,7 @@ import {
   testFirestoreConnection,
   subscribeToQuotaStatus,
   isQuotaExceeded,
+  resetQuotaExceeded,
 } from './services/firebase';
 
 export default function App() {
@@ -57,6 +58,26 @@ export default function App() {
     isQuotaExceeded() ? 'quota' : 'synced'
   );
   const [isSyncingManual, setIsSyncingManual] = useState(false);
+  const [isRetryingConnection, setIsRetryingConnection] = useState(false);
+
+  // Retry/reconnect after quota check
+  const handleRetryConnect = useCallback(async () => {
+    setIsRetryingConnection(true);
+    try {
+      await resetQuotaExceeded();
+      setSyncStatus('syncing');
+      const isOnline = await testFirestoreConnection();
+      if (isOnline) {
+        setSyncStatus('synced');
+      } else {
+        setSyncStatus(isQuotaExceeded() ? 'quota' : 'offline');
+      }
+    } catch {
+      setSyncStatus(isQuotaExceeded() ? 'quota' : 'offline');
+    } finally {
+      setIsRetryingConnection(false);
+    }
+  }, []);
 
   // Subscribe to quota exhaustion state
   useEffect(() => {
@@ -169,13 +190,10 @@ export default function App() {
             return newActive;
           });
         } else {
-          // If no cloud campaigns exist yet for this user profile, check local cache or initialize
+          // If no cloud campaigns exist yet for this user profile, load local cache or initialize local starter
           const localCamps = storageService.getUserCampaigns(userId);
           if (localCamps.length > 0) {
             setCampaigns(localCamps);
-            if (!isQuotaExceeded()) {
-              localCamps.forEach((c) => void saveCampaignToFirestore(c, userId));
-            }
           } else {
             const starterCamp: Campaign = {
               id: `camp_${userId}_init`,
@@ -189,9 +207,6 @@ export default function App() {
             setActiveCampaignId(starterCamp.id);
             storageService.saveUserCampaigns(userId, [starterCamp]);
             storageService.saveUserActiveCampaignId(userId, starterCamp.id);
-            if (!isQuotaExceeded()) {
-              void saveCampaignToFirestore(starterCamp, userId);
-            }
           }
         }
         setSyncStatus((prev) => (prev === 'quota' || isQuotaExceeded() ? 'quota' : 'synced'));
@@ -599,6 +614,16 @@ export default function App() {
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleRetryConnect}
+              disabled={isRetryingConnection}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 text-[11px] font-medium transition-colors border border-amber-500/50 cursor-pointer disabled:opacity-50"
+              title="Testar se a cota do Firestore já foi restabelecida"
+            >
+              <RefreshCw className={`w-3 h-3 ${isRetryingConnection ? 'animate-spin' : ''}`} />
+              <span>{isRetryingConnection ? 'Testando...' : 'Tentar Reconectar'}</span>
+            </button>
             <a
               href="https://console.firebase.google.com/project/grimoriorpg-f0f90/firestore/databases/ai-studio-grimrio-8779fd65-3555-4c47-9ad8-07470a6512c4/data?openUpgradeDialog=true"
               target="_blank"
@@ -611,7 +636,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setQuotaBannerDismissed(true)}
-              className="p-1 text-amber-400 hover:text-amber-100 hover:bg-amber-900/60 rounded transition-colors"
+              className="p-1 text-amber-400 hover:text-amber-100 hover:bg-amber-900/60 rounded transition-colors cursor-pointer"
               title="Fechar aviso"
             >
               <X className="w-4 h-4" />
