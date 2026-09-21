@@ -115,6 +115,11 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [insertedMessageId, setInsertedMessageId] = useState<string | null>(null);
+
+  // Real-time synchronization tracking refs across devices
+  const isLocalNotesEditRef = useRef(false);
+  const isTextareaFocusedRef = useRef(false);
+  const lastActiveCampaignIdRef = useRef<string>(activeCampaign?.id || '');
   // Mobile responsive view tab: 'notes' or 'copilot'
   const [mobileTab, setMobileTab] = useState<'notes' | 'copilot'>('notes');
 
@@ -371,24 +376,60 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     }
   };
 
-  // Sync state when active campaign changes
+  // Sync state when active campaign changes OR when remote real-time updates arrive from another device
   useEffect(() => {
-    if (activeCampaign) {
+    if (!activeCampaign) return;
+
+    const isCampaignSwitch = lastActiveCampaignIdRef.current !== activeCampaign.id;
+    lastActiveCampaignIdRef.current = activeCampaign.id;
+
+    if (isCampaignSwitch) {
+      isLocalNotesEditRef.current = false;
       setNotes(activeCampaign.notes || '');
       setSystem(activeCampaign.system || 'D&D 5e');
       setTitle(activeCampaign.title || 'Sem título');
+    } else {
+      // Remote real-time update on the same campaign (from Firestore / another device)
+      // Only update local notes if the user is not actively typing in the textarea on this device
+      if (!isTextareaFocusedRef.current && !isLocalNotesEditRef.current) {
+        if (activeCampaign.notes !== undefined && activeCampaign.notes !== notes) {
+          setNotes(activeCampaign.notes);
+        }
+      }
+      if (activeCampaign.system && activeCampaign.system !== system) {
+        setSystem(activeCampaign.system);
+      }
+      if (!isEditingTitle && activeCampaign.title && activeCampaign.title !== title) {
+        setTitle(activeCampaign.title);
+      }
     }
-  }, [activeCampaign?.id]);
+  }, [
+    activeCampaign?.id,
+    activeCampaign?.updatedAt,
+    activeCampaign?.notes,
+    activeCampaign?.system,
+    activeCampaign?.title,
+    notes,
+    system,
+    title,
+    isEditingTitle,
+  ]);
 
   // Debounced continuous auto-save for notes and system
   useEffect(() => {
     if (!activeCampaign) return;
+    // Don't auto-save if this device hasn't made local edits
+    if (!isLocalNotesEditRef.current && system === activeCampaign.system && title === activeCampaign.title) {
+      return;
+    }
+
     const timeout = setTimeout(() => {
       if (
-        notes !== activeCampaign.notes ||
+        isLocalNotesEditRef.current ||
         system !== activeCampaign.system ||
         title !== activeCampaign.title
       ) {
+        isLocalNotesEditRef.current = false;
         onUpdateCampaign({
           notes,
           system,
@@ -399,7 +440,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     }, 400);
 
     return () => clearTimeout(timeout);
-  }, [notes, system, title, activeCampaign?.id]);
+  }, [notes, system, title, activeCampaign?.notes, activeCampaign?.system, activeCampaign?.title]);
 
   // Auto scroll chat to bottom on new messages
   useEffect(() => {
@@ -1319,7 +1360,16 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                 <textarea
                   id="campaign-notes-textarea"
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={(e) => {
+                    isLocalNotesEditRef.current = true;
+                    setNotes(e.target.value);
+                  }}
+                  onFocus={() => {
+                    isTextareaFocusedRef.current = true;
+                  }}
+                  onBlur={() => {
+                    isTextareaFocusedRef.current = false;
+                  }}
                   placeholder="# Anotações da Sessão... Use '+ Ficha / Bestiário' para incorporar fichas no texto"
                   className={`w-full h-full bg-zinc-950 leading-relaxed text-zinc-200 placeholder:text-zinc-700 font-sans focus:outline-none resize-none overflow-y-auto selection:bg-cyan-500/20 selection:text-cyan-200 ${
                     isFullScreen

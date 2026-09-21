@@ -153,7 +153,7 @@ export async function checkCloudDbStatus(): Promise<CloudDbStatus> {
   const consoleUrl = `https://console.firebase.google.com/project/${projectId}/firestore`;
 
   try {
-    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/test?key=${firebaseConfig.apiKey}`;
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/test?key=${firebaseConfig.apiKey}`;
     const res = await fetch(url);
     if (res.status === 200 || res.status === 403 || res.status === 400) {
       return {
@@ -638,7 +638,16 @@ export const subscribeToUserCampaigns = (
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const docUserId = data.userId || 'usr_mestre';
-        if (!userId || docUserId === userId || (userId === 'usr_mestre' && docUserId === 'shared')) {
+        const isUserMatch =
+          !userId ||
+          docUserId === userId ||
+          (userId === 'usr_mestre' && docUserId === 'shared') ||
+          (docUserId.startsWith('usr_') &&
+            userId.startsWith('usr_') &&
+            docUserId.split('_')[1] &&
+            docUserId.split('_')[1] === userId.split('_')[1]);
+
+        if (isUserMatch) {
           items.push({
             id: docSnap.id,
             title: data.title || 'Campanha sem título',
@@ -681,7 +690,16 @@ export const subscribeToUserCharacters = (
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const docUserId = data.userId || 'usr_mestre';
-        if (!userId || docUserId === userId || (userId === 'usr_mestre' && docUserId === 'shared')) {
+        const isUserMatch =
+          !userId ||
+          docUserId === userId ||
+          (userId === 'usr_mestre' && docUserId === 'shared') ||
+          (docUserId.startsWith('usr_') &&
+            userId.startsWith('usr_') &&
+            docUserId.split('_')[1] &&
+            docUserId.split('_')[1] === userId.split('_')[1]);
+
+        if (isUserMatch) {
           items.push({
             id: docSnap.id,
             campaignId: data.campaignId || '',

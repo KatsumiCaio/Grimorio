@@ -75,36 +75,98 @@ export const authService = {
     }
     isCloudInitialized = true;
 
+    const applyMergedUsers = (cloudUsers: UserProfile[]) => {
+      if (!cloudUsers || cloudUsers.length === 0) return;
+
+      const localAccounts = this.getAccounts();
+      const usernameToPrimary = new Map<string, UserProfile>();
+      const redirectUserIdMap = new Map<string, string>();
+
+      // 1. Group cloud users by normalized username and resolve duplicates
+      for (const cu of cloudUsers) {
+        const uname = cu.username.trim().toLowerCase();
+        const existing = usernameToPrimary.get(uname);
+        if (!existing) {
+          usernameToPrimary.set(uname, cu);
+        } else {
+          // Earlier created or more active account wins as primary
+          const primary = (cu.createdAt || Infinity) <= (existing.createdAt || Infinity) ? cu : existing;
+          const secondary = primary === cu ? existing : cu;
+          usernameToPrimary.set(uname, primary);
+          redirectUserIdMap.set(secondary.id, primary.id);
+          // Delete duplicate user from Firestore in background
+          void deleteUserFromFirestore(secondary.id);
+        }
+      }
+
+      // 2. Check local accounts against primary cloud accounts
+      const mergedMap = new Map<string, UserProfile>();
+      for (const primary of usernameToPrimary.values()) {
+        mergedMap.set(primary.id, primary);
+      }
+
+      for (const local of localAccounts) {
+        const uname = local.username.trim().toLowerCase();
+        const primaryForUser = usernameToPrimary.get(uname);
+
+        if (primaryForUser) {
+          if (local.id !== primaryForUser.id) {
+            redirectUserIdMap.set(local.id, primaryForUser.id);
+            // Migrate local cache keys to primary ID
+            try {
+              const oldCampKey = `grimorio_user_${local.id}_campaigns`;
+              const newCampKey = `grimorio_user_${primaryForUser.id}_campaigns`;
+              const oldCamps = localStorage.getItem(oldCampKey);
+              if (oldCamps && !localStorage.getItem(newCampKey)) {
+                localStorage.setItem(newCampKey, oldCamps);
+              }
+              const oldCharKey = `grimorio_user_${local.id}_characters`;
+              const newCharKey = `grimorio_user_${primaryForUser.id}_characters`;
+              const oldChars = localStorage.getItem(oldCharKey);
+              if (oldChars && !localStorage.getItem(newCharKey)) {
+                localStorage.setItem(newCharKey, oldChars);
+              }
+            } catch {}
+          }
+        } else {
+          // Local account not in cloud yet
+          if (!mergedMap.has(local.id)) {
+            mergedMap.set(local.id, local);
+            usernameToPrimary.set(uname, local);
+            void saveUserToFirestore(local);
+          }
+        }
+      }
+
+      const merged = Array.from(mergedMap.values());
+      this.saveAccounts(merged);
+
+      // 3. Handle active user redirect or smart auto-selection
+      let currentId = localStorage.getItem(CURRENT_USER_ID_KEY);
+      if (currentId && redirectUserIdMap.has(currentId)) {
+        const redirected = redirectUserIdMap.get(currentId)!;
+        currentId = redirected;
+        try {
+          localStorage.setItem(CURRENT_USER_ID_KEY, redirected);
+        } catch {}
+      }
+
+      // If on a new device with only default user or no user, auto-select the custom user account
+      const customUsers = merged.filter((u) => u.id !== 'usr_mestre' && u.id !== 'usr_narradora');
+      if (customUsers.length >= 1 && (!currentId || currentId === 'usr_mestre')) {
+        this.setCurrentUser(customUsers[0].id);
+      } else if (currentId && mergedMap.has(currentId)) {
+        notifyListeners(mergedMap.get(currentId)!);
+      } else if (merged.length > 0 && !currentId) {
+        this.setCurrentUser(merged[0].id);
+      }
+    };
+
     // 1. Initial fetch from Firestore
     const syncInitial = async () => {
       try {
         const cloudUsers = await fetchUsersFromFirestore();
-        if (cloudUsers.length > 0) {
-          const localAccounts = this.getAccounts();
-          const mergedMap = new Map<string, UserProfile>();
-
-          // Add cloud accounts
-          cloudUsers.forEach((u) => mergedMap.set(u.id, u));
-
-          // Merge any local-only accounts to map and upload them
-          for (const local of localAccounts) {
-            if (!mergedMap.has(local.id)) {
-              mergedMap.set(local.id, local);
-              void saveUserToFirestore(local);
-            }
-          }
-
-          const merged = Array.from(mergedMap.values());
-          this.saveAccounts(merged);
-
-          // If current user is in merged, ensure latest data is reflected
-          const currentId = localStorage.getItem(CURRENT_USER_ID_KEY);
-          if (currentId && mergedMap.has(currentId)) {
-            notifyListeners(mergedMap.get(currentId)!);
-          } else if (merged.length > 0 && !currentId) {
-            this.setCurrentUser(merged[0].id);
-          }
-        }
+        applyMergedUsers(cloudUsers);
       } catch (err) {
         console.warn('Sincronização inicial de contas na nuvem:', err);
       }
@@ -114,32 +176,7 @@ export const authService = {
 
     // 2. Real-time subscription to cloud users
     unsubscribeCloudUsers = subscribeToUsers((cloudUsers) => {
-      if (cloudUsers.length > 0) {
-        const localAccounts = this.getAccounts();
-        const mergedMap = new Map<string, UserProfile>();
-
-        // Add cloud accounts first (truth from cloud)
-        cloudUsers.forEach((u) => mergedMap.set(u.id, u));
-
-        // Preserve local accounts not yet synced
-        localAccounts.forEach((l) => {
-          if (!mergedMap.has(l.id)) {
-            mergedMap.set(l.id, l);
-          }
-        });
-
-        const merged = Array.from(mergedMap.values());
-        this.saveAccounts(merged);
-
-        const currentId = localStorage.getItem(CURRENT_USER_ID_KEY);
-        if (currentId && mergedMap.has(currentId)) {
-          notifyListeners(mergedMap.get(currentId)!);
-        } else if (merged.length > 0 && !currentId) {
-          this.setCurrentUser(merged[0].id);
-        }
-      } else {
-        // If cloud users is empty, keep local accounts as is
-      }
+      applyMergedUsers(cloudUsers);
     });
 
     return () => {
