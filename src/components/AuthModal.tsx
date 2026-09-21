@@ -112,6 +112,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleRefreshCloud = async () => {
     setIsRefreshingCloud(true);
     try {
+      const status = await checkCloudDbStatus();
+      setCloudStatus(status);
       const cloudUsers = await fetchUsersFromFirestore();
       if (cloudUsers.length > 0) {
         const localAccounts = authService.getAccounts();
@@ -503,7 +505,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <div className="p-5 overflow-y-auto flex-1 space-y-4">
           {/* Cloud Cross-Device Sync Banner */}
           {cloudStatus?.status === 'not_created' ? (
-            <div className="flex flex-col gap-2 p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-xs text-amber-200">
+            <div className="flex flex-col gap-2.5 p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-xs text-amber-200">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-2.5">
                   <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0 mt-0.5">
@@ -511,25 +513,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </div>
                   <div>
                     <div className="font-semibold text-amber-300 flex items-center gap-2">
-                      <span>Sincronização em Nuvem Aguardando Ativação</span>
+                      <span>Ativação do Banco Firestore no Console</span>
                     </div>
                     <div className="text-[11px] text-zinc-300 mt-1 leading-relaxed">
-                      O projeto Firebase <code className="font-mono text-amber-300 px-1 py-0.5 bg-zinc-950/60 rounded border border-amber-500/20">{cloudStatus.projectId}</code> ainda não possui o banco Firestore criado. Enquanto não for criado no console, as contas ficam salvas neste navegador.
+                      O projeto Firebase <code className="font-mono text-amber-300 px-1 py-0.5 bg-zinc-950/60 rounded border border-amber-500/20">{cloudStatus.projectId}</code> precisa que o banco seja criado no console uma única vez.
                     </div>
                   </div>
                 </div>
-                <a
-                  href={cloudStatus.consoleUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-[11px] transition-colors shrink-0 shadow-md"
-                >
-                  <span>Ativar Firestore</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleRefreshCloud}
+                    disabled={isRefreshingCloud}
+                    className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1"
+                    title="Verificar se o banco já foi ativado"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingCloud ? 'animate-spin' : ''}`} />
+                    <span>{isRefreshingCloud ? 'Verificando...' : 'Verificar Agora'}</span>
+                  </button>
+                  <a
+                    href={cloudStatus.consoleUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-[11px] transition-colors shrink-0 shadow-md"
+                  >
+                    <span>Criar no Console</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
               </div>
               <div className="pt-2 border-t border-amber-500/20 text-[11px] text-zinc-400 flex items-center justify-between">
-                <span>💡 <strong>Dica:</strong> Clique no ícone de chave (<KeyRound className="w-3 h-3 inline text-cyan-400" />) ao lado de cada conta para transferir suas campanhas para outro computador diretamente!</span>
+                <span>💡 <strong>Dica:</strong> Você também pode usar a aba <strong>Transferir Conta</strong> ou clicar no ícone de chave (<KeyRound className="w-3 h-3 inline text-cyan-400" />) para migrar sem precisar de nuvem.</span>
               </div>
             </div>
           ) : (

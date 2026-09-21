@@ -1,12 +1,12 @@
 {
   "projectId": "grimoriorpg-f0f90",
-  "appId": "1:159863512115:web:2b1cc06d69223f95c61746",
+  "appId": "1:159863512115:web:f47e466f6c57b0cdc61746",
   "apiKey": "AIzaSyCFwpXF3usIep3aS1kWuxjBDEhbHmR5sJM",
   "authDomain": "grimoriorpg-f0f90.firebaseapp.com",
-  "firestoreDatabaseId": "(default)",
+  "firestoreDatabaseId": "ai-studio-grimrio-8779fd65-3555-4c47-9ad8-07470a6512c4",
   "storageBucket": "grimoriorpg-f0f90.firebasestorage.app",
   "messagingSenderId": "159863512115",
-  "measurementId": "G-YPVPM7TJ1X",
-  "oAuthClientId": "",
+  "measurementId": "",
+  "oAuthClientId": "159863512115-94f3ialg145n6igmafvvu0ip09a7g1nl.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

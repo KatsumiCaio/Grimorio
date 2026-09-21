@@ -53,6 +53,17 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
   // Loading States
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRestoringDemo, setIsRestoringDemo] = useState(false);
+  const [isCheckingCloud, setIsCheckingCloud] = useState(false);
+
+  const handleRecheckCloud = async () => {
+    setIsCheckingCloud(true);
+    try {
+      const status = await checkCloudDbStatus();
+      setCloudStatus(status);
+    } finally {
+      setIsCheckingCloud(false);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -205,35 +216,53 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
 
         {/* Cloud Status Notice (Explaining Cross-Device Synchronization) */}
         {cloudStatus && cloudStatus.status === 'not_created' && (
-          <div className="mb-5 p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs flex flex-col gap-2">
-            <div className="flex items-start gap-2.5">
-              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <strong className="text-amber-300 font-semibold block">
-                  Sincronização em Nuvem (Multi-Dispositivo)
-                </strong>
-                <p className="text-[11px] text-amber-200/90 mt-0.5 leading-relaxed">
-                  O banco de dados <strong>Cloud Firestore</strong> ainda não foi criado no Firebase Console do projeto <code className="text-amber-300 font-mono px-1 py-0.5 bg-zinc-950/60 rounded border border-amber-500/20">{cloudStatus.projectId}</code>. Contas criadas antes da ativação ficam salvas apenas no navegador atual.
-                </p>
+          <div className="mb-5 p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs flex flex-col gap-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-amber-300 font-semibold block">
+                    Ativação do Banco Firestore no Console
+                  </strong>
+                  <p className="text-[11px] text-amber-200/90 mt-0.5 leading-relaxed">
+                    O Google Cloud exige que o dono do projeto confirme a criação do banco uma única vez:
+                  </p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={handleRecheckCloud}
+                disabled={isCheckingCloud}
+                className="shrink-0 p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-colors cursor-pointer flex items-center gap-1 text-[11px]"
+                title="Verificar se o banco já foi criado"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isCheckingCloud ? 'animate-spin text-amber-400' : ''}`} />
+                <span>{isCheckingCloud ? 'Verificando...' : 'Verificar Agora'}</span>
+              </button>
             </div>
-            <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-amber-500/20 text-[11px]">
+
+            <ol className="list-decimal list-inside text-[11px] text-amber-200/80 bg-zinc-950/50 p-2.5 rounded-lg border border-amber-500/20 space-y-1">
+              <li>Clique no botão abaixo para abrir o console do Firebase.</li>
+              <li>Clique em <strong>"Criar banco de dados"</strong> (escolha o local padrão e modo de teste).</li>
+              <li>Volte aqui e clique em <strong>"Verificar Agora"</strong> acima.</li>
+            </ol>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-amber-500/20 text-[11px]">
               <a
                 href={cloudStatus.consoleUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-cyan-400 hover:text-cyan-300 underline font-medium inline-flex items-center gap-1"
+                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold inline-flex items-center gap-1.5 transition-all shadow-sm"
               >
-                <span>Ativar Firestore no Console (1 clique)</span>
-                <ExternalLink className="w-3 h-3" />
+                <span>Abrir Firebase Console (Criar Banco)</span>
+                <ExternalLink className="w-3.5 h-3.5" />
               </a>
-              <span className="text-zinc-600">•</span>
               <button
                 type="button"
                 onClick={() => setActiveTab('transfer')}
-                className="text-amber-300 hover:text-amber-200 underline font-medium cursor-pointer inline-flex items-center gap-1"
+                className="text-cyan-400 hover:text-cyan-300 underline font-medium cursor-pointer inline-flex items-center gap-1"
               >
-                <span>Transferir conta por Código</span>
+                <span>Ou use o Código de Transferência</span>
               </button>
             </div>
           </div>
