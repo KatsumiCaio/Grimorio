@@ -83,7 +83,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   onCreateCharacter,
   onUpdateCharacter,
   onOpenBestiaryTab,
-  model = 'gemini-3.6-flash',
+  model = 'gemini-3.8-flash',
   customApiKey = '',
   isFullScreen = false,
   onToggleFullScreen,
@@ -291,6 +291,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     isStreaming,
     error,
     sendMessage,
+    retryMessage,
     clearMessages,
     stopStreaming,
     setMessages,
@@ -514,6 +515,15 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
+  };
+
+  const handleRetryMessage = (failedMessageId?: string) => {
+    retryMessage(failedMessageId, {
+      system,
+      campaignTitle: title,
+      notes,
+      charactersSummary: getCharactersSummary(),
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1791,7 +1801,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs font-semibold text-zinc-100">Copiloto do Mestre</span>
                 <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 font-mono">
-                  {model || 'gemini-3.6-flash'}
+                  {model || 'gemini-3.1-flash-lite'}
                 </span>
                 <button
                   onClick={() => setShowSystemRulesInfo(true)}
@@ -1911,42 +1921,57 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
 
                         {/* Actions for Assistant Message */}
                         {!msg.isStreaming && msg.content && (
-                          <div className="pt-2 mt-2 border-t border-zinc-800/80 flex items-center justify-end gap-2 text-[11px] text-zinc-400">
-                            <button
-                              onClick={() => handleInsertIntoNotes(msg.content, msg.id)}
-                              className="flex items-center gap-1 hover:text-cyan-400 transition-colors px-1.5 py-0.5 rounded hover:bg-zinc-800"
-                              title="Inserir texto diretamente no seu caderno"
-                            >
-                              {insertedMessageId === msg.id ? (
-                                <>
-                                  <Check className="w-3 h-3 text-emerald-400" />
-                                  <span className="text-emerald-400">Inserido!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <ArrowDownToLine className="w-3 h-3" />
-                                  <span>Inserir no caderno</span>
-                                </>
-                              )}
-                            </button>
+                          <div className="pt-2 mt-2 border-t border-zinc-800/80 flex items-center justify-between gap-2 text-[11px] text-zinc-400">
+                            {msg.error ? (
+                              <button
+                                onClick={() => handleRetryMessage(msg.id)}
+                                disabled={isStreaming}
+                                className="flex items-center gap-1 text-rose-400 hover:text-rose-300 transition-colors px-1.5 py-0.5 rounded hover:bg-rose-950/50 cursor-pointer"
+                                title="Tentar obter esta resposta novamente"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                <span>Tentar novamente</span>
+                              </button>
+                            ) : (
+                              <span />
+                            )}
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleInsertIntoNotes(msg.content, msg.id)}
+                                className="flex items-center gap-1 hover:text-cyan-400 transition-colors px-1.5 py-0.5 rounded hover:bg-zinc-800"
+                                title="Inserir texto diretamente no seu caderno"
+                              >
+                                {insertedMessageId === msg.id ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-emerald-400" />
+                                    <span className="text-emerald-400">Inserido!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <ArrowDownToLine className="w-3 h-3" />
+                                    <span>Inserir no caderno</span>
+                                  </>
+                                )}
+                              </button>
 
-                            <button
-                              onClick={() => handleCopy(msg.content, msg.id)}
-                              className="flex items-center gap-1 hover:text-zinc-200 transition-colors px-1.5 py-0.5 rounded hover:bg-zinc-800"
-                              title="Copiar texto"
-                            >
-                              {copiedMessageId === msg.id ? (
-                                <>
-                                  <Check className="w-3 h-3 text-emerald-400" />
-                                  <span className="text-emerald-400">Copiado</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-3 h-3" />
-                                  <span>Copiar</span>
-                                </>
-                              )}
-                            </button>
+                              <button
+                                onClick={() => handleCopy(msg.content, msg.id)}
+                                className="flex items-center gap-1 hover:text-zinc-200 transition-colors px-1.5 py-0.5 rounded hover:bg-zinc-800"
+                                title="Copiar texto"
+                              >
+                                {copiedMessageId === msg.id ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-emerald-400" />
+                                    <span className="text-emerald-400">Copiado</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copiar</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1958,11 +1983,22 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
           )}
 
           {error && (
-            <div className="p-3 bg-rose-950/40 border border-rose-800/60 rounded-xl text-rose-300 text-xs flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
-              <div className="flex-1">
-                <span className="font-semibold">Erro no Copiloto:</span> {error}
+            <div className="p-3 bg-rose-950/40 border border-rose-800/60 rounded-xl text-rose-300 text-xs flex items-center justify-between gap-2">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                <div className="flex-1">
+                  <span className="font-semibold">Erro no Copiloto:</span> {error}
+                </div>
               </div>
+              <button
+                onClick={() => handleRetryMessage()}
+                disabled={isStreaming}
+                className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-900/80 hover:bg-rose-800 text-rose-200 border border-rose-700/50 transition-colors cursor-pointer text-xs"
+                title="Tentar enviar última pergunta novamente"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Tentar novamente</span>
+              </button>
             </div>
           )}
         </div>

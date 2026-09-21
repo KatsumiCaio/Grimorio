@@ -121,7 +121,7 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
             systemInstruction,
             system: context?.system || 'D&D 5e',
             campaignTitle: context?.campaignTitle || 'Campanha Principal',
-            model: options.model && options.model !== 'gemini-2.5-flash' ? options.model : 'gemini-3.6-flash',
+            model: options.model && options.model !== 'gemini-2.5-flash' && options.model !== 'gemini-2.5-flash-lite' ? options.model : 'gemini-3.1-flash-lite',
             customApiKey: options.customApiKey || undefined,
           }),
         });
@@ -167,7 +167,7 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === assistantMessageId
-                      ? { ...msg, content: accumulatedText, isStreaming: true }
+                      ? { ...msg, content: accumulatedText, isStreaming: true, error: undefined }
                       : msg
                   )
                 );
@@ -184,7 +184,7 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
         const finalizedAssistantMessage: ChatMessage = {
           id: assistantMessageId,
           role: 'assistant',
-          content: accumulatedText,
+          content: accumulatedText || 'O modelo concluiu a consulta sem texto adicional.',
           timestamp: Date.now(),
           isStreaming: false,
         };
@@ -234,11 +234,40 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
     [messages, isStreaming, options.customApiKey, options.model]
   );
 
+  const retryMessage = useCallback(
+    async (failedMessageId?: string, context?: ChatContext) => {
+      if (isStreaming) return;
+      // Find the message to retry or the last user message
+      let targetUserPrompt = '';
+      if (failedMessageId) {
+        const idx = messages.findIndex((m) => m.id === failedMessageId);
+        if (idx > 0 && messages[idx - 1].role === 'user') {
+          targetUserPrompt = messages[idx - 1].content;
+          // Remove the failed assistant message
+          setMessages((prev) => prev.filter((m) => m.id !== failedMessageId));
+        }
+      }
+
+      if (!targetUserPrompt) {
+        const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+        if (lastUser) {
+          targetUserPrompt = lastUser.content;
+        }
+      }
+
+      if (targetUserPrompt) {
+        await sendMessage(targetUserPrompt, context);
+      }
+    },
+    [messages, isStreaming, sendMessage]
+  );
+
   return {
     messages,
     isStreaming,
     error,
     sendMessage,
+    retryMessage,
     clearMessages,
     stopStreaming,
     setMessages,
