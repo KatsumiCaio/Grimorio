@@ -17,10 +17,14 @@ import {
   ArrowRight,
   LogOut,
   AlertCircle,
+  Cloud,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react';
-import { UserProfile, UserRole } from '../types';
+import { Campaign, UserProfile, UserRole } from '../types';
 import { authService } from '../services/auth';
 import { storageService } from '../services/storage';
+import { saveCampaignToFirestore, fetchUsersFromFirestore } from '../services/firebase';
 import { UserAvatar, AVATAR_OPTIONS, COLOR_OPTIONS } from './UserAvatar';
 
 interface AuthModalProps {
@@ -70,6 +74,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [editError, setEditError] = useState<string | null>(null);
   const [editSuccess, setEditSuccess] = useState<string | null>(null);
 
+  // Loading & Cloud state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRefreshingCloud, setIsRefreshingCloud] = useState(false);
+
   // Quick switch password prompt state
   const [selectedQuickUser, setSelectedQuickUser] = useState<UserProfile | null>(null);
   const [quickPassword, setQuickPassword] = useState('');
@@ -78,6 +86,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   if (!isOpen) return null;
 
   const accounts = authService.getAccounts();
+
+  // Handler: Manual refresh from cloud
+  const handleRefreshCloud = async () => {
+    setIsRefreshingCloud(true);
+    try {
+      const cloudUsers = await fetchUsersFromFirestore();
+      if (cloudUsers.length > 0) {
+        const localAccounts = authService.getAccounts();
+        const mergedMap = new Map<string, UserProfile>();
+        cloudUsers.forEach((u) => mergedMap.set(u.id, u));
+        localAccounts.forEach((l) => {
+          if (!mergedMap.has(l.id)) mergedMap.set(l.id, l);
+        });
+        authService.saveAccounts(Array.from(mergedMap.values()));
+      }
+    } catch (e) {
+      console.warn('Erro ao atualizar da nuvem:', e);
+    } finally {
+      setIsRefreshingCloud(false);
+    }
+  };
 
   // Handler: Switch user directly
   const handleDirectSwitch = (account: UserProfile) => {
@@ -102,112 +131,144 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   // Handler: Confirm switch with password
-  const handleConfirmQuickSwitch = (e: React.FormEvent) => {
+  const handleConfirmQuickSwitch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedQuickUser) return;
+    setIsSubmitting(true);
+    setQuickError(null);
 
-    const res = authService.login(selectedQuickUser.username, quickPassword);
-    if (res.success && res.user) {
-      onUserChanged(res.user);
-      setSelectedQuickUser(null);
-      setQuickPassword('');
-      onClose();
-    } else {
-      setQuickError(res.error || 'Senha incorreta.');
+    try {
+      const res = await authService.loginAsync(selectedQuickUser.username, quickPassword);
+      if (res.success && res.user) {
+        onUserChanged(res.user);
+        setSelectedQuickUser(null);
+        setQuickPassword('');
+        onClose();
+      } else {
+        setQuickError(res.error || 'Senha incorreta.');
+      }
+    } catch (err: any) {
+      setQuickError(err?.message || 'Erro ao autenticar.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Handler: Login submit
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  // Handler: Login submit (async cloud lookup)
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
-    const res = authService.login(loginIdentifier, loginPassword);
-    if (res.success && res.user) {
-      onUserChanged(res.user);
-      setLoginIdentifier('');
-      setLoginPassword('');
-      onClose();
-    } else {
-      setLoginError(res.error || 'Falha ao autenticar.');
+    setIsSubmitting(true);
+
+    try {
+      const res = await authService.loginAsync(loginIdentifier, loginPassword);
+      if (res.success && res.user) {
+        onUserChanged(res.user);
+        setLoginIdentifier('');
+        setLoginPassword('');
+        onClose();
+      } else {
+        setLoginError(res.error || 'Falha ao autenticar.');
+      }
+    } catch (err: any) {
+      setLoginError(err?.message || 'Erro ao conectar à nuvem.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Handler: Register submit
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  // Handler: Register submit (async cloud persist)
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegError(null);
+    setIsSubmitting(true);
 
-    const finalAvatar = regCustomAvatarUrl.trim() || regAvatar;
+    try {
+      const finalAvatar = regCustomAvatarUrl.trim() || regAvatar;
 
-    const res = authService.register({
-      displayName: regName,
-      username: regUsername,
-      role: regRole,
-      password: regPassword,
-      avatarId: finalAvatar,
-      color: regColor,
-    });
+      const res = await authService.register({
+        displayName: regName,
+        username: regUsername,
+        role: regRole,
+        password: regPassword,
+        avatarId: finalAvatar,
+        color: regColor,
+      });
 
-    if (res.success && res.user) {
-      // If user wants empty start or custom starter campaign
-      if (!regStarterCamp) {
-        storageService.saveUserCampaigns(res.user.id, []);
-        storageService.saveUserCharacters(res.user.id, []);
-      } else {
-        // Create initial starter adventure with user's name
-        const starter: any = [
-          {
-            id: `camp_${res.user.id}_init`,
+      if (res.success && res.user) {
+        const userId = res.user.id;
+        // If user wants starter campaign
+        if (!regStarterCamp) {
+          storageService.saveUserCampaigns(userId, []);
+          storageService.saveUserCharacters(userId, []);
+        } else {
+          // Create initial starter adventure with user's name
+          const starterCamp: Campaign = {
+            id: `camp_${userId}_init`,
             title: `Aventuras de ${res.user.displayName}`,
             system: 'D&D 5e',
             notes: `# Grimório de ${res.user.displayName}\n\n## ⚔️ Primeira Sessão\n- Registre aqui as ideias para a próxima aventura.\n- Use o Copiloto IA à direita para sugerir NPCs, masmorras e reviravoltas.\n`,
             createdAt: Date.now(),
             updatedAt: Date.now(),
-          },
-        ];
-        storageService.saveUserCampaigns(res.user.id, starter);
-        storageService.saveUserCharacters(res.user.id, []);
-      }
+          };
+          storageService.saveUserCampaigns(userId, [starterCamp]);
+          storageService.saveUserCharacters(userId, []);
+          storageService.saveUserActiveCampaignId(userId, starterCamp.id);
+          // Persist starter campaign to Firestore cloud immediately
+          await saveCampaignToFirestore(starterCamp, userId);
+        }
 
-      onUserChanged(res.user);
-      onClose();
-    } else {
-      setRegError(res.error || 'Erro ao criar conta.');
+        onUserChanged(res.user);
+        onClose();
+      } else {
+        setRegError(res.error || 'Erro ao criar conta.');
+      }
+    } catch (err: any) {
+      setRegError(err?.message || 'Erro ao registrar conta na nuvem.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Handler: Save edited profile
-  const handleSaveEditProfile = (e: React.FormEvent) => {
+  // Handler: Save edited profile (async cloud persist)
+  const handleSaveEditProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setEditError(null);
     setEditSuccess(null);
+    setIsSubmitting(true);
 
-    const finalAvatar = editCustomAvatarUrl.trim() || editAvatar;
+    try {
+      const finalAvatar = editCustomAvatarUrl.trim() || editAvatar;
 
-    const res = authService.updateProfile(currentUser.id, {
-      displayName: editName,
-      role: editRole,
-      avatarId: finalAvatar,
-      color: editColor,
-      bio: editBio,
-      ...(editPassword ? { newPassword: editPassword } : {}),
-    });
+      const res = await authService.updateProfile(currentUser.id, {
+        displayName: editName,
+        role: editRole,
+        avatarId: finalAvatar,
+        color: editColor,
+        bio: editBio,
+        ...(editPassword ? { newPassword: editPassword } : {}),
+      });
 
-    if (res.success && res.user) {
-      setEditSuccess('Perfil atualizado com sucesso!');
-      onUserChanged(res.user);
-      setTimeout(() => setEditSuccess(null), 2500);
-    } else {
-      setEditError(res.error || 'Erro ao atualizar perfil.');
+      if (res.success && res.user) {
+        setEditSuccess('Perfil atualizado com sucesso na nuvem!');
+        onUserChanged(res.user);
+        setTimeout(() => setEditSuccess(null), 2500);
+      } else {
+        setEditError(res.error || 'Erro ao atualizar perfil.');
+      }
+    } catch (err: any) {
+      setEditError(err?.message || 'Erro ao salvar alterações.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Handler: Delete account
-  const handleDeleteAccount = (account: UserProfile) => {
-    if (confirm(`Tem certeza que deseja excluir a conta de "${account.displayName}" e todas as suas campanhas e fichas?`)) {
+  // Handler: Delete account (local & cloud)
+  const handleDeleteAccount = async (account: UserProfile) => {
+    if (confirm(`Tem certeza que deseja excluir a conta de "${account.displayName}" e todas as suas campanhas tanto neste dispositivo quanto na nuvem?`)) {
       storageService.clearUserCampaigns(account.id);
       storageService.clearUserCharacters(account.id);
-      const res = authService.deleteAccount(account.id);
+      const res = await authService.deleteAccount(account.id);
       if (res.success) {
         const next = authService.getCurrentUser();
         onUserChanged(next);
@@ -315,6 +376,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-5 overflow-y-auto flex-1 space-y-4">
+          {/* Cloud Cross-Device Sync Banner */}
+          <div className="flex items-center justify-between p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-cyan-200">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shrink-0">
+                <Cloud className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-semibold text-cyan-300 flex items-center gap-1.5">
+                  <span>Sincronização em Nuvem (Multi-Dispositivos)</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                </div>
+                <div className="text-[11px] text-zinc-400">
+                  Crie seu login e acerte suas campanhas em qualquer computador ou dispositivo.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleRefreshCloud}
+              disabled={isRefreshingCloud}
+              title="Buscar contas recém-criadas em outros PCs na nuvem"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-700/50 text-[11px] font-medium text-cyan-300 transition-colors disabled:opacity-50 cursor-pointer shrink-0 ml-2"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingCloud ? 'animate-spin text-cyan-400' : ''}`} />
+              <span>{isRefreshingCloud ? 'Buscando...' : 'Sincronizar'}</span>
+            </button>
+          </div>
+
           {/* TAB 1: PROFILES LIST & QUICK SWITCH */}
           {activeTab === 'profiles' && (
             <div className="space-y-4">
@@ -392,10 +481,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-1.5 text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-zinc-950 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                      disabled={isSubmitting}
+                      className="px-4 py-1.5 text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-zinc-950 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                     >
-                      <span>Acessar Campanhas</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Verificando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Acessar Campanhas</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </>
+                      )}
                     </button>
                   </div>
                 </form>
@@ -662,10 +761,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-zinc-950 rounded-xl transition-all cursor-pointer shadow-lg shadow-cyan-500/20 flex items-center gap-1.5"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-zinc-950 rounded-xl transition-all cursor-pointer shadow-lg shadow-cyan-500/20 flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Criar Conta & Abrir Grimório</span>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Criando conta na nuvem...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      <span>Criar Conta & Abrir Grimório</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -722,10 +831,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-2.5 text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-zinc-950 rounded-xl transition-all cursor-pointer shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2"
+                disabled={isSubmitting}
+                className="w-full py-2.5 text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-zinc-950 rounded-xl transition-all cursor-pointer shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <LogIn className="w-4 h-4" />
-                <span>Entrar no Grimório</span>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Conectando à nuvem...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    <span>Entrar no Grimório</span>
+                  </>
+                )}
               </button>
 
               <div className="text-center pt-2">
@@ -882,9 +1001,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-zinc-950 rounded-xl transition-all cursor-pointer shadow-lg shadow-cyan-500/20"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-zinc-950 rounded-xl transition-all cursor-pointer shadow-lg shadow-cyan-500/20 flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  Salvar Alterações
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Salvando na nuvem...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Salvar Alterações</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

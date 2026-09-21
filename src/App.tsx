@@ -73,6 +73,25 @@ export default function App() {
     [currentUser.id]
   );
 
+  // Initialize Cloud Sync for all User Accounts
+  useEffect(() => {
+    const unsubCloudAuth = authService.initCloudSync();
+    const unsubAuthChange = authService.onAuthChange((user) => {
+      if (user) {
+        if (user.id !== currentUser.id) {
+          handleUserChanged(user);
+        } else {
+          setCurrentUser(user);
+        }
+      }
+    });
+
+    return () => {
+      unsubCloudAuth();
+      unsubAuthChange();
+    };
+  }, [currentUser.id, handleUserChanged]);
+
   // Initialize Realtime Database Subscriptions for the Active User
   useEffect(() => {
     let unsubCampaigns: (() => void) | null = null;
@@ -113,6 +132,27 @@ export default function App() {
             storageService.saveUserActiveCampaignId(userId, newActive);
             return newActive;
           });
+        } else {
+          // If no cloud campaigns exist yet for this user profile, check local cache or initialize
+          const localCamps = storageService.getUserCampaigns(userId);
+          if (localCamps.length > 0) {
+            setCampaigns(localCamps);
+            localCamps.forEach((c) => void saveCampaignToFirestore(c, userId));
+          } else {
+            const starterCamp: Campaign = {
+              id: `camp_${userId}_init`,
+              title: `Aventuras de ${currentUser.displayName}`,
+              system: 'D&D 5e',
+              notes: `# Grimório de ${currentUser.displayName}\n\n## ⚔️ Primeira Sessão\n- Registre aqui suas ideias para a próxima aventura.\n- Use o Copiloto IA à direita para gerar NPCs, encontros e regras.\n`,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            };
+            setCampaigns([starterCamp]);
+            setActiveCampaignId(starterCamp.id);
+            storageService.saveUserCampaigns(userId, [starterCamp]);
+            storageService.saveUserActiveCampaignId(userId, starterCamp.id);
+            void saveCampaignToFirestore(starterCamp, userId);
+          }
         }
         setSyncStatus('synced');
       },
@@ -142,7 +182,7 @@ export default function App() {
       if (unsubCampaigns) unsubCampaigns();
       if (unsubCharacters) unsubCharacters();
     };
-  }, [currentUser.id]);
+  }, [currentUser.id, currentUser.displayName]);
 
   // Manual Full Cloud Sync Handler
   const handleManualSyncCloud = useCallback(async () => {

@@ -24,7 +24,7 @@ import {
   limit,
   Firestore,
 } from 'firebase/firestore';
-import { Campaign, CharacterSheet, ChatMessage } from '../types';
+import { Campaign, CharacterSheet, ChatMessage, UserProfile } from '../types';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Configuration constants
@@ -381,6 +381,179 @@ export const subscribeToCampaigns = (
       if (isPermissionError(err)) {
         try {
           handleFirestoreError(err, OperationType.LIST, 'campaigns');
+        } catch (e: any) {
+          onError?.(e);
+        }
+      } else {
+        onError?.(err instanceof Error ? err : new Error(String(err)));
+      }
+    }
+  );
+};
+
+// ==========================================
+// Cloud User Profiles (Cross-Device Sync)
+// ==========================================
+
+export const saveUserToFirestore = async (user: UserProfile): Promise<void> => {
+  if (!user || !user.id) return;
+  const path = `users/${user.id}`;
+  const docRef = doc(db, 'users', user.id);
+  try {
+    await setDoc(
+      docRef,
+      {
+        id: user.id,
+        username: user.username.trim().toLowerCase(),
+        displayName: user.displayName.trim(),
+        role: user.role || 'Mestre da Masmorra',
+        avatarId: user.avatarId || 'd20',
+        color: user.color || 'cyan',
+        bio: user.bio || '',
+        passwordHash: user.passwordHash || '',
+        createdAt: user.createdAt || Date.now(),
+        lastLoginAt: user.lastLoginAt || Date.now(),
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    handleOperationError(error, OperationType.WRITE, path);
+  }
+};
+
+export const deleteUserFromFirestore = async (userId: string): Promise<void> => {
+  if (!userId) return;
+  const path = `users/${userId}`;
+  const docRef = doc(db, 'users', userId);
+  try {
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleOperationError(error, OperationType.DELETE, path);
+  }
+};
+
+export const fetchUsersFromFirestore = async (): Promise<UserProfile[]> => {
+  const path = 'users';
+  try {
+    const usersCol = collection(db, 'users');
+    const snapshot = await getDocs(usersCol);
+    const users: UserProfile[] = [];
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data && data.id && data.username) {
+        users.push({
+          id: data.id,
+          username: data.username,
+          displayName: data.displayName || data.username,
+          role: data.role || 'Mestre da Masmorra',
+          avatarId: data.avatarId || 'd20',
+          color: data.color || 'cyan',
+          bio: data.bio || '',
+          passwordHash: data.passwordHash || '',
+          createdAt: Number(data.createdAt) || Date.now(),
+          lastLoginAt: Number(data.lastLoginAt) || Date.now(),
+        });
+      }
+    });
+    return users;
+  } catch (error) {
+    handleOperationError(error, OperationType.LIST, path);
+    return [];
+  }
+};
+
+export const findUserInFirestore = async (
+  usernameOrLogin: string
+): Promise<UserProfile | null> => {
+  if (!usernameOrLogin) return null;
+  const clean = usernameOrLogin.trim().toLowerCase();
+  const path = 'users';
+  try {
+    // 1. Try direct document reference if identifier matches id
+    const directDoc = await getDocFromServer(doc(db, 'users', clean)).catch(() => null);
+    if (directDoc && directDoc.exists()) {
+      const data = directDoc.data();
+      return {
+        id: data.id || directDoc.id,
+        username: data.username,
+        displayName: data.displayName || data.username,
+        role: data.role || 'Mestre da Masmorra',
+        avatarId: data.avatarId || 'd20',
+        color: data.color || 'cyan',
+        bio: data.bio || '',
+        passwordHash: data.passwordHash || '',
+        createdAt: Number(data.createdAt) || Date.now(),
+        lastLoginAt: Number(data.lastLoginAt) || Date.now(),
+      };
+    }
+
+    // 2. Fetch all users from Firestore to find by username or displayName
+    const usersCol = collection(db, 'users');
+    const snapshot = await getDocs(usersCol);
+    let matched: UserProfile | null = null;
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (
+        data &&
+        (data.username?.toLowerCase() === clean ||
+          data.displayName?.toLowerCase() === clean ||
+          docSnap.id.toLowerCase() === clean)
+      ) {
+        matched = {
+          id: data.id || docSnap.id,
+          username: data.username,
+          displayName: data.displayName || data.username,
+          role: data.role || 'Mestre da Masmorra',
+          avatarId: data.avatarId || 'd20',
+          color: data.color || 'cyan',
+          bio: data.bio || '',
+          passwordHash: data.passwordHash || '',
+          createdAt: Number(data.createdAt) || Date.now(),
+          lastLoginAt: Number(data.lastLoginAt) || Date.now(),
+        };
+      }
+    });
+    return matched;
+  } catch (error) {
+    handleOperationError(error, OperationType.GET, path);
+    return null;
+  }
+};
+
+export const subscribeToUsers = (
+  onUpdate: (users: UserProfile[]) => void,
+  onError?: (err: Error) => void
+) => {
+  const usersCol = collection(db, 'users');
+  return onSnapshot(
+    usersCol,
+    (snapshot) => {
+      const items: UserProfile[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data && data.id && data.username) {
+          items.push({
+            id: data.id,
+            username: data.username,
+            displayName: data.displayName || data.username,
+            role: data.role || 'Mestre da Masmorra',
+            avatarId: data.avatarId || 'd20',
+            color: data.color || 'cyan',
+            bio: data.bio || '',
+            passwordHash: data.passwordHash || '',
+            createdAt: Number(data.createdAt) || Date.now(),
+            lastLoginAt: Number(data.lastLoginAt) || Date.now(),
+          });
+        }
+      });
+      items.sort((a, b) => (b.lastLoginAt || 0) - (a.lastLoginAt || 0));
+      onUpdate(items);
+    },
+    (err) => {
+      console.warn('Sincronização de usuários em segundo plano:', err?.message || err);
+      if (isPermissionError(err)) {
+        try {
+          handleFirestoreError(err, OperationType.LIST, 'users');
         } catch (e: any) {
           onError?.(e);
         }

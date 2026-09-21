@@ -2,18 +2,21 @@
   "entities": {
     "users": {
       "title": "User",
-      "description": "User profile and synchronization settings",
+      "description": "User profile and account synchronization across multiple PCs and devices",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "email": { "type": "string" },
+        "username": { "type": "string" },
         "displayName": { "type": "string" },
-        "photoURL": { "type": "string" },
-        "isAnonymous": { "type": "boolean" },
+        "role": { "type": "string" },
+        "avatarId": { "type": "string" },
+        "color": { "type": "string" },
+        "bio": { "type": "string" },
+        "passwordHash": { "type": "string" },
         "createdAt": { "type": "number" },
         "lastLoginAt": { "type": "number" }
       },
-      "required": ["id", "createdAt"]
+      "required": ["id", "username", "displayName", "createdAt"]
     },
     "campaigns": {
       "title": "Campaign",
