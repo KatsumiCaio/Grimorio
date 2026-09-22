@@ -30,6 +30,9 @@ import {
   Database,
   Skull,
   FileText,
+  PanelLeft,
+  PanelLeftClose,
+  ChevronRight,
 } from 'lucide-react';
 import { FloatingDiceWidget, CampaignRollResult } from './FloatingDiceWidget';
 import { Campaign, CampaignChapter, CharacterSheet, BestiaryMonster, CharacterType } from '../types';
@@ -38,6 +41,7 @@ import { MarkdownRenderer } from './MarkdownRenderer';
 import { EditCharacterModal } from './EditCharacterModal';
 import { InsertSheetModal } from './InsertSheetModal';
 import { CampaignChaptersBar } from './CampaignChaptersBar';
+import { CampaignChaptersSidebar } from './CampaignChaptersSidebar';
 import { storageService, ensureCampaignChapters } from '../services/storage';
 import { RPG_BESTIARY } from '../data/bestiary';
 import {
@@ -130,6 +134,28 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   const lastKnownActiveChapterIdRef = useRef<string>(activeCampaign?.activeChapterId || initialChapter?.id || '');
   // Mobile responsive view tab: 'notes' or 'copilot'
   const [mobileTab, setMobileTab] = useState<'notes' | 'copilot'>('notes');
+
+  // Dedicated Campaign Chapters Sidebar toggle (persisted in localStorage)
+  const [isChaptersSidebarOpen, setIsChaptersSidebarOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('grimorio_chapters_sidebar_open');
+      if (saved !== null) {
+        return saved === 'true';
+      }
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
+
+  const handleToggleChaptersSidebar = () => {
+    setIsChaptersSidebarOpen((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('grimorio_chapters_sidebar_open', String(next));
+      }
+      return next;
+    });
+  };
 
   // Dice roll handler for interactive cards in reading mode
   const handleRollDice = (diceExpression: string, label: string) => {
@@ -1243,6 +1269,25 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               </select>
             </div>
 
+            {/* Dedicated Chapters Sidebar Toggle Button */}
+            <button
+              type="button"
+              id="toggle-chapters-sidebar-top-btn"
+              onClick={handleToggleChaptersSidebar}
+              className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
+                isChaptersSidebarOpen
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-[0_0_10px_rgba(6,182,212,0.15)] font-bold'
+                  : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border-zinc-800 hover:border-zinc-700'
+              }`}
+              title={`${isChaptersSidebarOpen ? 'Ocultar' : 'Exibir'} Barra Lateral de Capítulos da Campanha`}
+            >
+              <PanelLeft className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">Capítulos</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-800 text-cyan-300 border border-zinc-700 font-mono">
+                {activeCampaign?.chapters?.length || 1}
+              </span>
+            </button>
+
             {/* Badge de Identificação do Sistema de RPG no Topo */}
             <button
               type="button"
@@ -1447,69 +1492,110 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
           </div>
         </div>
 
-        {/* Campaign Title Bar (Inline editable) */}
-        <div className={`px-5 py-2 bg-zinc-950 border-b border-zinc-800/40 flex items-center justify-between ${isFullScreen && !isWideText ? 'max-w-4xl w-full mx-auto' : ''}`}>
-          <div className="flex items-center gap-2 flex-1 mr-4">
-            {isEditingTitle ? (
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                onBlur={() => setIsEditingTitle(false)}
-                onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)}
-                autoFocus
-                className="bg-zinc-900 border border-cyan-500/50 text-sm font-semibold text-zinc-100 rounded px-2 py-0.5 w-full focus:outline-none"
-              />
-            ) : (
-              <div className="flex items-center gap-2.5 flex-wrap min-w-0">
-                <h2
-                  onClick={() => setIsEditingTitle(true)}
-                  className="text-sm font-semibold text-zinc-200 hover:text-cyan-400 cursor-pointer flex items-center gap-1.5 transition-colors group truncate"
-                  title="Clique para renomear"
-                >
-                  <span className="truncate">{title}</span>
-                  <Edit3 className="w-3 h-3 opacity-0 group-hover:opacity-60 text-zinc-400 shrink-0" />
-                </h2>
+        {/* Workspace Body: Dedicated Chapters Sidebar + Notes Editor / Reader */}
+        <div className="flex-1 flex overflow-hidden min-h-0 relative">
+          {/* Dedicated Campaign Chapters Sidebar */}
+          {activeCampaign && (
+            <CampaignChaptersSidebar
+              isOpen={isChaptersSidebarOpen}
+              onToggleOpen={handleToggleChaptersSidebar}
+              chapters={activeCampaign.chapters || []}
+              activeChapterId={activeCampaign.activeChapterId || activeCampaign.chapters?.[0]?.id || ''}
+              onSelectChapter={handleSelectChapter}
+              onCreateChapter={handleCreateChapter}
+              onUpdateChapter={handleUpdateChapter}
+              onDeleteChapter={handleDeleteChapter}
+              onDuplicateChapter={handleDuplicateChapter}
+              onReorderChapters={handleReorderChapters}
+              campaignTitle={title}
+              systemName={system}
+              isFullScreen={isFullScreen}
+            />
+          )}
 
-                {/* Badge do Sistema de RPG Ativo */}
-                <button
-                  type="button"
-                  id="campaign-active-system-badge"
-                  onClick={() => setShowSystemRulesInfo(true)}
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 hover:border-cyan-500/50 text-cyan-300 text-[11px] font-medium transition-all shadow-xs shrink-0 cursor-pointer group"
-                  title={`Sistema de RPG ativo: ${activeSystemKnowledge.name}\nConvenção de Dados: ${activeSystemKnowledge.diceConvention}\nClique para ver as regras e detalhes do sistema`}
-                >
-                  <Dices className="w-3 h-3 text-cyan-400 shrink-0 group-hover:rotate-12 transition-transform" />
-                  <span className="font-semibold">{activeSystemKnowledge.shortName}</span>
-                  <span className="text-[10px] text-cyan-400/80 font-normal px-1 py-0.2 rounded bg-cyan-500/10 border border-cyan-500/20 hidden sm:inline">
-                    {activeSystemKnowledge.badge}
-                  </span>
-                </button>
+          {/* Quick Expand Tab when sidebar is collapsed (Desktop) */}
+          {!isChaptersSidebarOpen && activeCampaign && (
+            <button
+              type="button"
+              id="sidebar-quick-expand-tab"
+              onClick={handleToggleChaptersSidebar}
+              className="hidden md:flex absolute left-0 top-12 z-20 items-center gap-1 px-1.5 py-2.5 bg-zinc-900/95 hover:bg-zinc-850 border-r border-y border-zinc-800 hover:border-cyan-500/50 text-zinc-400 hover:text-cyan-300 rounded-r-lg shadow-md transition-all text-[11px] group cursor-pointer"
+              title="Expandir Barra Lateral de Capítulos"
+            >
+              <ChevronRight className="w-3.5 h-3.5 text-cyan-400 group-hover:translate-x-0.5 transition-transform" />
+              <span className="[writing-mode:vertical-lr] font-semibold text-[10px] tracking-wider uppercase rotate-180">
+                Capítulos ({activeCampaign.chapters?.length || 1})
+              </span>
+            </button>
+          )}
+
+          {/* Main Content Area (Title Bar + Chapters Bar + Markdown Toolbar + Editor/Reader) */}
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            {/* Campaign Title Bar (Inline editable) */}
+            <div className={`px-5 py-2 bg-zinc-950 border-b border-zinc-800/40 flex items-center justify-between ${isFullScreen && !isWideText ? 'max-w-4xl w-full mx-auto' : ''}`}>
+              <div className="flex items-center gap-2 flex-1 mr-4">
+                {isEditingTitle ? (
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    onBlur={() => setIsEditingTitle(false)}
+                    onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)}
+                    autoFocus
+                    className="bg-zinc-900 border border-cyan-500/50 text-sm font-semibold text-zinc-100 rounded px-2 py-0.5 w-full focus:outline-none"
+                  />
+                ) : (
+                  <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+                    <h2
+                      onClick={() => setIsEditingTitle(true)}
+                      className="text-sm font-semibold text-zinc-200 hover:text-cyan-400 cursor-pointer flex items-center gap-1.5 transition-colors group truncate"
+                      title="Clique para renomear"
+                    >
+                      <span className="truncate">{title}</span>
+                      <Edit3 className="w-3 h-3 opacity-0 group-hover:opacity-60 text-zinc-400 shrink-0" />
+                    </h2>
+
+                    {/* Badge do Sistema de RPG Ativo */}
+                    <button
+                      type="button"
+                      id="campaign-active-system-badge"
+                      onClick={() => setShowSystemRulesInfo(true)}
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 hover:border-cyan-500/50 text-cyan-300 text-[11px] font-medium transition-all shadow-xs shrink-0 cursor-pointer group"
+                      title={`Sistema de RPG ativo: ${activeSystemKnowledge.name}\nConvenção de Dados: ${activeSystemKnowledge.diceConvention}\nClique para ver as regras e detalhes do sistema`}
+                    >
+                      <Dices className="w-3 h-3 text-cyan-400 shrink-0 group-hover:rotate-12 transition-transform" />
+                      <span className="font-semibold">{activeSystemKnowledge.shortName}</span>
+                      <span className="text-[10px] text-cyan-400/80 font-normal px-1 py-0.2 rounded bg-cyan-500/10 border border-cyan-500/20 hidden sm:inline">
+                        {activeSystemKnowledge.badge}
+                      </span>
+                    </button>
+                  </div>
+                )}
               </div>
+
+              <div className="text-[11px] text-zinc-500 font-mono flex items-center gap-3 shrink-0">
+                <span>{wordCount} palavras</span>
+                <span>{charCount} caracteres</span>
+              </div>
+            </div>
+
+            {/* Campaign Chapters Bar */}
+            {activeCampaign && (
+              <CampaignChaptersBar
+                chapters={activeCampaign.chapters || []}
+                activeChapterId={activeCampaign.activeChapterId || activeCampaign.chapters?.[0]?.id || ''}
+                onSelectChapter={handleSelectChapter}
+                onCreateChapter={handleCreateChapter}
+                onUpdateChapter={handleUpdateChapter}
+                onDeleteChapter={handleDeleteChapter}
+                onDuplicateChapter={handleDuplicateChapter}
+                onReorderChapters={handleReorderChapters}
+                isSidebarOpen={isChaptersSidebarOpen}
+                onToggleSidebar={handleToggleChaptersSidebar}
+                isFullScreen={isFullScreen}
+                isWideText={isWideText}
+              />
             )}
-          </div>
-
-          <div className="text-[11px] text-zinc-500 font-mono flex items-center gap-3 shrink-0">
-            <span>{wordCount} palavras</span>
-            <span>{charCount} caracteres</span>
-          </div>
-        </div>
-
-        {/* Campaign Chapters Bar */}
-        {activeCampaign && (
-          <CampaignChaptersBar
-            chapters={activeCampaign.chapters || []}
-            activeChapterId={activeCampaign.activeChapterId || activeCampaign.chapters?.[0]?.id || ''}
-            onSelectChapter={handleSelectChapter}
-            onCreateChapter={handleCreateChapter}
-            onUpdateChapter={handleUpdateChapter}
-            onDeleteChapter={handleDeleteChapter}
-            onDuplicateChapter={handleDuplicateChapter}
-            onReorderChapters={handleReorderChapters}
-            isFullScreen={isFullScreen}
-            isWideText={isWideText}
-          />
-        )}
 
         {/* Markdown Toolbar */}
         {editorMode !== 'read' && (
@@ -2054,6 +2140,8 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
             onSendToChat={handleSendRollToChat}
             className="bottom-16 md:bottom-4 right-3 md:right-4"
           />
+              </div>
+            </div>
           </div>
         </div>
       </div>

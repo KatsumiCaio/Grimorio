@@ -19,6 +19,7 @@ import {
   Compass,
   Swords,
   Search,
+  PanelLeft,
 } from 'lucide-react';
 import { CampaignChapter } from '../types';
 
@@ -31,6 +32,8 @@ interface CampaignChaptersBarProps {
   onDeleteChapter: (chapterId: string) => void;
   onDuplicateChapter: (chapterId: string) => void;
   onReorderChapters: (reordered: CampaignChapter[]) => void;
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
   isFullScreen?: boolean;
   isWideText?: boolean;
 }
@@ -44,6 +47,8 @@ export const CampaignChaptersBar: React.FC<CampaignChaptersBarProps> = ({
   onDeleteChapter,
   onDuplicateChapter,
   onReorderChapters,
+  isSidebarOpen,
+  onToggleSidebar,
   isFullScreen = false,
   isWideText = false,
 }) => {
@@ -137,6 +142,23 @@ export const CampaignChaptersBar: React.FC<CampaignChaptersBarProps> = ({
       <div className="px-3 sm:px-4 py-1.5 flex items-center justify-between gap-2">
         {/* Left Section: Section indicator & Table of contents button */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {onToggleSidebar && (
+            <button
+              type="button"
+              id="bar-toggle-chapters-sidebar-btn"
+              onClick={onToggleSidebar}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
+                isSidebarOpen
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 font-semibold'
+                  : 'bg-zinc-900 hover:bg-zinc-850 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+              }`}
+              title={`${isSidebarOpen ? 'Ocultar' : 'Exibir'} Barra Lateral de Capítulos`}
+            >
+              <PanelLeft className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden xl:inline text-[11px]">Barra Lateral</span>
+            </button>
+          )}
+
           <button
             type="button"
             id="open-chapters-index-btn"
