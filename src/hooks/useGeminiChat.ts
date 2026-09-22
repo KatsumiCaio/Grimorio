@@ -6,6 +6,8 @@ export interface ChatContext {
   system: string;
   campaignTitle: string;
   notes: string;
+  activeChapterTitle?: string;
+  chaptersSummary?: string;
   charactersSummary?: string;
 }
 
@@ -82,11 +84,12 @@ ESTRUTURA DE REGRAS: ${systemKnowledge.keyMechanics}
 DIRETRIZES TÉCNICAS E MECÂNICAS DESTE SISTEMA:
 ${systemKnowledge.aiSystemDirectives}
 
-CAMPANHA SELECIONADA: ${context?.campaignTitle || 'Campanha Principal'}
+CAMPANHA SELECIONADA: ${context?.campaignTitle || 'Campanha Principal'}${context?.activeChapterTitle ? ` (Capítulo Atual: ${context.activeChapterTitle})` : ''}
 
---- CADERNO DE ANOTAÇÕES DO MESTRE (CONTEXTO ATIVO) ---
+--- CADERNO DE ANOTAÇÕES DO MESTRE (${context?.activeChapterTitle ? `CAPÍTULO ATUAL: ${context.activeChapterTitle}` : 'CONTEXTO ATIVO'}) ---
 ${context?.notes ? context.notes.slice(0, 15000) : '(Nenhuma anotação registrada ainda no caderno da campanha)'}
 --------------------------------------------------------
+${context?.chaptersSummary ? `\n--- ÍNDICE DE CAPÍTULOS / SESSÕES DA CAMPANHA ---\n${context.chaptersSummary.slice(0, 3000)}\n-------------------------------------------------\n` : ''}
 ${
   context?.charactersSummary
     ? `\n--- FICHAS DA CAMPANHA (PERSONAGENS & NPCS) ---\n${context.charactersSummary.slice(0, 8000)}\n-------------------------------------------------\n`

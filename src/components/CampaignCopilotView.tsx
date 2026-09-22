@@ -32,12 +32,13 @@ import {
   FileText,
 } from 'lucide-react';
 import { FloatingDiceWidget, CampaignRollResult } from './FloatingDiceWidget';
-import { Campaign, CharacterSheet, BestiaryMonster, CharacterType } from '../types';
+import { Campaign, CampaignChapter, CharacterSheet, BestiaryMonster, CharacterType } from '../types';
 import { useGeminiChat } from '../hooks/useGeminiChat';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { EditCharacterModal } from './EditCharacterModal';
 import { InsertSheetModal } from './InsertSheetModal';
-import { storageService } from '../services/storage';
+import { CampaignChaptersBar } from './CampaignChaptersBar';
+import { storageService, ensureCampaignChapters } from '../services/storage';
 import { RPG_BESTIARY } from '../data/bestiary';
 import {
   subscribeToCampaignChat,
@@ -89,8 +90,9 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   onToggleFullScreen,
   userId,
 }) => {
-  const activeCampaign =
+  const rawCampaign =
     campaigns.find((c) => c.id === activeCampaignId) || campaigns[0];
+  const activeCampaign = rawCampaign ? ensureCampaignChapters(rawCampaign) : undefined;
 
   // Editor & Reader states
   const [editorMode, setEditorMode] = useState<'edit' | 'read' | 'split'>('edit');
@@ -109,7 +111,11 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   } | null>(null);
   const [copiedRollFeedback, setCopiedRollFeedback] = useState(false);
 
-  const [notes, setNotes] = useState(activeCampaign?.notes || '');
+  const initialChapter = activeCampaign?.chapters?.find(
+    (c) => c.id === activeCampaign.activeChapterId
+  ) || activeCampaign?.chapters?.[0];
+
+  const [notes, setNotes] = useState(initialChapter?.content || activeCampaign?.notes || '');
   const [system, setSystem] = useState(activeCampaign?.system || 'D&D 5e');
   const [title, setTitle] = useState(activeCampaign?.title || 'Campanha');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -120,7 +126,8 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   const isLocalNotesEditRef = useRef(false);
   const isTextareaFocusedRef = useRef(false);
   const lastActiveCampaignIdRef = useRef<string>(activeCampaign?.id || '');
-  const lastKnownCampaignNotesRef = useRef<string>(activeCampaign?.notes || '');
+  const lastKnownCampaignNotesRef = useRef<string>(initialChapter?.content || activeCampaign?.notes || '');
+  const lastKnownActiveChapterIdRef = useRef<string>(activeCampaign?.activeChapterId || initialChapter?.id || '');
   // Mobile responsive view tab: 'notes' or 'copilot'
   const [mobileTab, setMobileTab] = useState<'notes' | 'copilot'>('notes');
 
@@ -386,21 +393,45 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     lastActiveCampaignIdRef.current = activeCampaign.id;
 
     if (isCampaignSwitch) {
+      const curChap =
+        activeCampaign.chapters?.find((c) => c.id === activeCampaign.activeChapterId) ||
+        activeCampaign.chapters?.[0];
+      const initialContent = curChap?.content ?? activeCampaign.notes ?? '';
+
       isLocalNotesEditRef.current = false;
-      lastKnownCampaignNotesRef.current = activeCampaign.notes || '';
-      setNotes(activeCampaign.notes || '');
+      lastKnownCampaignNotesRef.current = initialContent;
+      lastKnownActiveChapterIdRef.current = activeCampaign.activeChapterId || curChap?.id || '';
+      setNotes(initialContent);
       setSystem(activeCampaign.system || 'D&D 5e');
       setTitle(activeCampaign.title || 'Sem título');
     } else {
-      // Remote real-time update on the same campaign (from Firestore / another device)
-      const incomingNotes = activeCampaign.notes || '';
-      const isRemoteNotesUpdate = incomingNotes !== lastKnownCampaignNotesRef.current;
+      // Check if activeChapterId changed
+      const isChapterSwitch =
+        activeCampaign.activeChapterId &&
+        activeCampaign.activeChapterId !== lastKnownActiveChapterIdRef.current;
 
-      if (isRemoteNotesUpdate) {
+      if (isChapterSwitch) {
+        lastKnownActiveChapterIdRef.current = activeCampaign.activeChapterId || '';
+        const targetChap = activeCampaign.chapters?.find(
+          (c) => c.id === activeCampaign.activeChapterId
+        );
+        const incomingNotes = targetChap?.content ?? activeCampaign.notes ?? '';
+        isLocalNotesEditRef.current = false;
         lastKnownCampaignNotesRef.current = incomingNotes;
-        // Only update local notes if user is not actively typing in the textarea
-        if (!isTextareaFocusedRef.current && !isLocalNotesEditRef.current) {
-          setNotes(incomingNotes);
+        setNotes(incomingNotes);
+      } else {
+        // Remote real-time update on the same chapter
+        const curChap =
+          activeCampaign.chapters?.find((c) => c.id === activeCampaign.activeChapterId) ||
+          activeCampaign.chapters?.[0];
+        const incomingNotes = curChap?.content ?? activeCampaign.notes ?? '';
+        const isRemoteNotesUpdate = incomingNotes !== lastKnownCampaignNotesRef.current;
+
+        if (isRemoteNotesUpdate) {
+          lastKnownCampaignNotesRef.current = incomingNotes;
+          if (!isTextareaFocusedRef.current && !isLocalNotesEditRef.current) {
+            setNotes(incomingNotes);
+          }
         }
       }
 
@@ -414,13 +445,15 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   }, [
     activeCampaign?.id,
     activeCampaign?.updatedAt,
+    activeCampaign?.activeChapterId,
     activeCampaign?.notes,
+    activeCampaign?.chapters,
     activeCampaign?.system,
     activeCampaign?.title,
     isEditingTitle,
   ]);
 
-  // Debounced continuous auto-save for notes and system
+  // Debounced continuous auto-save for notes, chapters, and system
   useEffect(() => {
     if (!activeCampaign) return;
     // Don't auto-save if this device hasn't made local edits
@@ -436,8 +469,16 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
       ) {
         isLocalNotesEditRef.current = false;
         lastKnownCampaignNotesRef.current = notes;
+
+        const currentChapId = activeCampaign.activeChapterId || activeCampaign.chapters?.[0]?.id;
+        const updatedChapters = (activeCampaign.chapters || []).map((ch) =>
+          ch.id === currentChapId ? { ...ch, content: notes, updatedAt: Date.now() } : ch
+        );
+
         onUpdateCampaign({
           notes,
+          chapters: updatedChapters,
+          activeChapterId: currentChapId,
           system,
           title,
           updatedAt: Date.now(),
@@ -446,7 +487,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     }, 1800);
 
     return () => clearTimeout(timeout);
-  }, [notes, system, title, activeCampaign?.notes, activeCampaign?.system, activeCampaign?.title]);
+  }, [notes, system, title, activeCampaign?.notes, activeCampaign?.system, activeCampaign?.title, activeCampaign?.activeChapterId]);
 
   // Auto scroll chat to bottom on new messages
   useEffect(() => {
@@ -500,6 +541,172 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
       .join('\n');
   };
 
+  const getChaptersSummary = () => {
+    const chaps = activeCampaign?.chapters || [];
+    if (chaps.length <= 1) return undefined;
+    return chaps
+      .map(
+        (c) =>
+          `- ${c.title}${c.sessionDate ? ` (${c.sessionDate})` : ''}: ${
+            c.summary || c.content.slice(0, 150).replace(/[#*`_]/g, '').trim()
+          }...`
+      )
+      .join('\n');
+  };
+
+  const getActiveChapterTitle = () => {
+    const curChap =
+      activeCampaign?.chapters?.find((c) => c.id === activeCampaign.activeChapterId) ||
+      activeCampaign?.chapters?.[0];
+    return curChap?.title;
+  };
+
+  // Chapter management handlers
+  const handleSelectChapter = (targetChapterId: string) => {
+    if (!activeCampaign) return;
+    if (targetChapterId === activeCampaign.activeChapterId) return;
+
+    // Immediately commit current notes to the outgoing chapter
+    const currentChapId = activeCampaign.activeChapterId || activeCampaign.chapters?.[0]?.id;
+    const currentChapters = activeCampaign.chapters || [];
+    const updatedChapters = currentChapters.map((ch) =>
+      ch.id === currentChapId ? { ...ch, content: notes, updatedAt: Date.now() } : ch
+    );
+
+    const targetChapter = updatedChapters.find((ch) => ch.id === targetChapterId) || updatedChapters[0];
+    if (!targetChapter) return;
+
+    isLocalNotesEditRef.current = false;
+    lastKnownCampaignNotesRef.current = targetChapter.content;
+    lastKnownActiveChapterIdRef.current = targetChapter.id;
+    setNotes(targetChapter.content);
+
+    onUpdateCampaign({
+      notes: targetChapter.content,
+      chapters: updatedChapters,
+      activeChapterId: targetChapter.id,
+      updatedAt: Date.now(),
+    });
+  };
+
+  const handleCreateChapter = (chapterTitle: string, sessionDate: string, templateType?: string) => {
+    if (!activeCampaign) return;
+
+    // First commit current notes
+    const currentChapId = activeCampaign.activeChapterId || activeCampaign.chapters?.[0]?.id;
+    const currentChapters = activeCampaign.chapters || [];
+    const updatedChapters = currentChapters.map((ch) =>
+      ch.id === currentChapId ? { ...ch, content: notes, updatedAt: Date.now() } : ch
+    );
+
+    let initialContent = `# ${chapterTitle}\n\n## 📝 Rascunhos da Sessão\n- Escreva aqui ganchos, cenas e acontecimentos.\n`;
+    if (templateType === 'standard') {
+      initialContent = `# ${chapterTitle}\n\n## 🎯 Objetivos da Sessão\n- Definir os rumos da jornada e investigar pistas recentes.\n\n## 🌒 Clima & Atmosfera\n- Temperatura, sons e sensações que envolvem os heróis.\n\n## ⚔️ Cenas & Ganchos Ativos\n1. Encontro ou revelação inicial.\n2. Escolha dramática ou obstáculo no caminho.\n3. Desfecho ou gancho para a próxima sessão.\n\n## 👥 Aliados & Ameaças\n- PJs e NPCs presentes.\n\n## 🏆 Tesouros & Conquistas\n- Experiência, itens e segredos revelados.\n`;
+    } else if (templateType === 'dungeon') {
+      initialContent = `# ${chapterTitle}\n\n## 🏰 Visão Geral da Masmorra\n- Localização, arquitetura e lendas sobre as ruínas.\n\n## 🚪 Salas & Exploração\n- **Área 1 — Entrada Principal**: Fendas úmidas e símbolos esculpidos na pedra.\n- **Área 2 — Corredor das Armadilhas**: Mecanismo de pressão ou teste de Percepção.\n- **Área 3 — Câmara Central**: O confronto decisivo ou o santuário guardado.\n\n## ⚔️ Guardiões & Monstros\n- Inimigos à espreita.\n\n## 💎 Tesouros & Recompensas\n- Ouro, pergaminhos e relíquias arcanas.\n`;
+    } else if (templateType === 'investigation') {
+      initialContent = `# ${chapterTitle}\n\n## 🕵️ O Mistério Central\n- Qual crime ou enigma o grupo precisa solucionar?\n\n## 🔍 Pistas & Evidências\n- **Pista 1**: Encontrada no local da cena.\n- **Pista 2**: Rumor sussurrado pelos moradores locais.\n- **Pista 3**: Detalhe criptografado ou documento selado.\n\n## 👥 Suspeitos & Depoimentos\n- Personagens de interesse e suas motivações.\n\n## 🗝️ Revelações & Consequências\n- O que acontece quando a verdade for descoberta?\n`;
+    } else if (templateType === 'blank') {
+      initialContent = `# ${chapterTitle}\n\n`;
+    }
+
+    const newChap: CampaignChapter = {
+      id: `chap-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: chapterTitle,
+      sessionDate: sessionDate || undefined,
+      order: updatedChapters.length,
+      content: initialContent,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    const finalChapters = [...updatedChapters, newChap];
+    isLocalNotesEditRef.current = false;
+    lastKnownCampaignNotesRef.current = newChap.content;
+    lastKnownActiveChapterIdRef.current = newChap.id;
+    setNotes(newChap.content);
+
+    onUpdateCampaign({
+      notes: newChap.content,
+      chapters: finalChapters,
+      activeChapterId: newChap.id,
+      updatedAt: Date.now(),
+    });
+  };
+
+  const handleUpdateChapter = (chapterId: string, updates: Partial<CampaignChapter>) => {
+    if (!activeCampaign) return;
+    const currentChapters = activeCampaign.chapters || [];
+    const updatedChapters = currentChapters.map((ch) =>
+      ch.id === chapterId ? { ...ch, ...updates, updatedAt: Date.now() } : ch
+    );
+    onUpdateCampaign({
+      chapters: updatedChapters,
+      updatedAt: Date.now(),
+    });
+  };
+
+  const handleDeleteChapter = (chapterId: string) => {
+    if (!activeCampaign) return;
+    const currentChapters = activeCampaign.chapters || [];
+    if (currentChapters.length <= 1) return;
+
+    const remaining = currentChapters
+      .filter((ch) => ch.id !== chapterId)
+      .map((ch, idx) => ({ ...ch, order: idx }));
+
+    let nextActiveId = activeCampaign.activeChapterId;
+    let nextNotes = notes;
+
+    if (activeCampaign.activeChapterId === chapterId) {
+      nextActiveId = remaining[0].id;
+      nextNotes = remaining[0].content;
+      isLocalNotesEditRef.current = false;
+      lastKnownCampaignNotesRef.current = nextNotes;
+      lastKnownActiveChapterIdRef.current = nextActiveId;
+      setNotes(nextNotes);
+    }
+
+    onUpdateCampaign({
+      notes: nextNotes,
+      chapters: remaining,
+      activeChapterId: nextActiveId,
+      updatedAt: Date.now(),
+    });
+  };
+
+  const handleDuplicateChapter = (chapterId: string) => {
+    if (!activeCampaign) return;
+    const currentChapters = activeCampaign.chapters || [];
+    const orig = currentChapters.find((c) => c.id === chapterId);
+    if (!orig) return;
+
+    const newChap: CampaignChapter = {
+      id: `chap-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: `${orig.title} (Cópia)`,
+      sessionDate: orig.sessionDate ? `${orig.sessionDate} (Cópia)` : undefined,
+      order: currentChapters.length,
+      content: orig.id === (activeCampaign.activeChapterId || currentChapters[0]?.id) ? notes : orig.content,
+      summary: orig.summary,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    const finalChapters = [...currentChapters, newChap];
+    onUpdateCampaign({
+      chapters: finalChapters,
+      updatedAt: Date.now(),
+    });
+  };
+
+  const handleReorderChapters = (reordered: CampaignChapter[]) => {
+    if (!activeCampaign) return;
+    onUpdateCampaign({
+      chapters: reordered,
+      updatedAt: Date.now(),
+    });
+  };
+
   const handleSendMessage = (textToSend?: string) => {
     const message = textToSend || inputPrompt;
     if (!message.trim() || isStreaming) return;
@@ -508,6 +715,8 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
       system,
       campaignTitle: title,
       notes,
+      activeChapterTitle: getActiveChapterTitle(),
+      chaptersSummary: getChaptersSummary(),
       charactersSummary: getCharactersSummary(),
     });
 
@@ -522,6 +731,8 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
       system,
       campaignTitle: title,
       notes,
+      activeChapterTitle: getActiveChapterTitle(),
+      chaptersSummary: getChaptersSummary(),
       charactersSummary: getCharactersSummary(),
     });
   };
@@ -538,7 +749,22 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     const separator = notes.trim() ? '\n\n---\n\n' : '';
     const newNotes = `${notes}${separator}### 💡 Sugestão do Copiloto\n${text}\n`;
     setNotes(newNotes);
-    onUpdateCampaign({ notes: newNotes, updatedAt: Date.now() });
+
+    if (activeCampaign) {
+      const currentChapId = activeCampaign.activeChapterId || activeCampaign.chapters?.[0]?.id;
+      const updatedChapters = (activeCampaign.chapters || []).map((ch) =>
+        ch.id === currentChapId ? { ...ch, content: newNotes, updatedAt: Date.now() } : ch
+      );
+      onUpdateCampaign({
+        notes: newNotes,
+        chapters: updatedChapters,
+        activeChapterId: currentChapId,
+        updatedAt: Date.now(),
+      });
+    } else {
+      onUpdateCampaign({ notes: newNotes, updatedAt: Date.now() });
+    }
+
     setInsertedMessageId(msgId);
     setMobileTab('notes');
     setTimeout(() => setInsertedMessageId(null), 2000);
@@ -678,20 +904,34 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   const handleInsertSheetIntoNotes = (charId: string, charName?: string) => {
     const textarea = document.getElementById('campaign-notes-textarea') as HTMLTextAreaElement;
     const embedCode = `\n\n{{ficha:${charId}}}\n\n`;
+    let newText = '';
     if (textarea) {
       const start = textarea.selectionStart ?? notes.length;
       const end = textarea.selectionEnd ?? notes.length;
-      const newText = notes.substring(0, start) + embedCode + notes.substring(end);
+      newText = notes.substring(0, start) + embedCode + notes.substring(end);
       setNotes(newText);
-      onUpdateCampaign({ notes: newText, updatedAt: Date.now() });
       setTimeout(() => {
         textarea.focus();
         const cursorAfter = start + embedCode.length;
         textarea.setSelectionRange(cursorAfter, cursorAfter);
       }, 50);
     } else {
-      const newText = `${notes.trimEnd()}${embedCode}`;
+      newText = `${notes.trimEnd()}${embedCode}`;
       setNotes(newText);
+    }
+
+    if (activeCampaign) {
+      const currentChapId = activeCampaign.activeChapterId || activeCampaign.chapters?.[0]?.id;
+      const updatedChapters = (activeCampaign.chapters || []).map((ch) =>
+        ch.id === currentChapId ? { ...ch, content: newText, updatedAt: Date.now() } : ch
+      );
+      onUpdateCampaign({
+        notes: newText,
+        chapters: updatedChapters,
+        activeChapterId: currentChapId,
+        updatedAt: Date.now(),
+      });
+    } else {
       onUpdateCampaign({ notes: newText, updatedAt: Date.now() });
     }
 
@@ -719,7 +959,21 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     );
     const newText = notes.replace(regex, '\n\n').trim();
     setNotes(newText);
-    onUpdateCampaign({ notes: newText, updatedAt: Date.now() });
+
+    if (activeCampaign) {
+      const currentChapId = activeCampaign.activeChapterId || activeCampaign.chapters?.[0]?.id;
+      const updatedChapters = (activeCampaign.chapters || []).map((ch) =>
+        ch.id === currentChapId ? { ...ch, content: newText, updatedAt: Date.now() } : ch
+      );
+      onUpdateCampaign({
+        notes: newText,
+        chapters: updatedChapters,
+        activeChapterId: currentChapId,
+        updatedAt: Date.now(),
+      });
+    } else {
+      onUpdateCampaign({ notes: newText, updatedAt: Date.now() });
+    }
   };
 
   // Add monster from Bestiary directly to campaign character sheets, with optional immediate note insertion
@@ -1240,6 +1494,22 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
             <span>{charCount} caracteres</span>
           </div>
         </div>
+
+        {/* Campaign Chapters Bar */}
+        {activeCampaign && (
+          <CampaignChaptersBar
+            chapters={activeCampaign.chapters || []}
+            activeChapterId={activeCampaign.activeChapterId || activeCampaign.chapters?.[0]?.id || ''}
+            onSelectChapter={handleSelectChapter}
+            onCreateChapter={handleCreateChapter}
+            onUpdateChapter={handleUpdateChapter}
+            onDeleteChapter={handleDeleteChapter}
+            onDuplicateChapter={handleDuplicateChapter}
+            onReorderChapters={handleReorderChapters}
+            isFullScreen={isFullScreen}
+            isWideText={isWideText}
+          />
+        )}
 
         {/* Markdown Toolbar */}
         {editorMode !== 'read' && (
