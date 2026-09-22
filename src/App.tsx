@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, ExternalLink, X, RefreshCw } from 'lucide-react';
-import { Campaign, CharacterSheet, MainTab, AppSettings, BestiaryMonster, UserProfile } from './types';
+import { Campaign, CharacterSheet, MainTab, AppSettings, BestiaryMonster, UserProfile, CampaignSharedItem } from './types';
 import { storageService } from './services/storage';
 import { authService } from './services/auth';
 import { Header } from './components/Header';
@@ -10,6 +10,8 @@ import { BestiaryView } from './components/BestiaryView';
 import { SettingsModal } from './components/SettingsModal';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { CampaignMenuModal } from './components/CampaignMenuModal';
+import { CampaignTableModal } from './components/CampaignTableModal';
+import { PlayerPortalView } from './components/PlayerPortalView';
 import { AuthModal } from './components/AuthModal';
 import { AccountOnboarding } from './components/AccountOnboarding';
 import { BottomNav } from './components/BottomNav';
@@ -27,6 +29,11 @@ import {
   subscribeToQuotaStatus,
   isQuotaExceeded,
   resetQuotaExceeded,
+  joinCampaignByInviteCode,
+  savePlayerCampaignNotes,
+  addSharedItemToCampaign,
+  removeSharedItemFromCampaign,
+  toggleCharacterSharedWithPlayers,
 } from './services/firebase';
 
 export default function App() {
@@ -52,6 +59,7 @@ export default function App() {
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | undefined>(undefined);
   const [isFullScreenNotes, setIsFullScreenNotes] = useState(false);
   const [quotaBannerDismissed, setQuotaBannerDismissed] = useState(false);
+  const [isTableModalOpen, setIsTableModalOpen] = useState(false);
 
   // Cloud Sync Status
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline' | 'error' | 'quota'>(() =>
@@ -575,6 +583,132 @@ export default function App() {
   const currentCampaign = campaigns.find((c) => c.id === activeCampaignId) || campaigns[0];
   const activeCampaignCharacterCount = characters.filter((c) => c.campaignId === activeCampaignId).length;
 
+  const isMaster = Boolean(
+    currentCampaign &&
+    currentUser &&
+    (currentCampaign.userId === currentUser.id ||
+     currentCampaign.masterId === currentUser.id ||
+     currentCampaign.members?.find((m) => m.userId === currentUser.id)?.role === 'master' ||
+     (!currentCampaign.userId && !currentCampaign.masterId))
+  );
+
+  // Collaboration handlers: Join campaign by code
+  const handleJoinCampaignByCode = useCallback(
+    async (code: string) => {
+      if (!currentUser) return { success: false, error: 'Usuário não conectado.' };
+      try {
+        const res = await joinCampaignByInviteCode(code, currentUser);
+        if (res.success && res.campaign) {
+          setCampaigns((prev) => {
+            const exists = prev.some((c) => c.id === res.campaign!.id);
+            const next = exists
+              ? prev.map((c) => (c.id === res.campaign!.id ? res.campaign! : c))
+              : [res.campaign!, ...prev];
+            storageService.saveUserCampaigns(currentUser.id, next);
+            return next;
+          });
+          handleSelectCampaign(res.campaign.id);
+          return { success: true };
+        }
+        return { success: false, error: res.error || 'Código inválido ou campanha não encontrada.' };
+      } catch (err: any) {
+        return { success: false, error: err?.message || 'Falha ao conectar à campanha.' };
+      }
+    },
+    [currentUser, handleSelectCampaign]
+  );
+
+  // Player notes saver
+  const handleSavePlayerNotes = useCallback(
+    async (notes: string) => {
+      if (!currentUser || !currentCampaign) return;
+      try {
+        await savePlayerCampaignNotes(currentCampaign.id, currentUser.id, notes);
+        setCampaigns((prev) => {
+          const next = prev.map((c) => {
+            if (c.id === currentCampaign.id) {
+              const nextMembers = (c.members || []).map((m) =>
+                m.userId === currentUser.id ? { ...m, notes } : m
+              );
+              return { ...c, members: nextMembers };
+            }
+            return c;
+          });
+          storageService.saveUserCampaigns(currentUser.id, next);
+          return next;
+        });
+      } catch (err) {
+        console.warn('Erro ao salvar anotações do jogador:', err);
+      }
+    },
+    [currentUser, currentCampaign]
+  );
+
+  // Add shared item (photo, map, handout)
+  const handleAddSharedItem = useCallback(
+    async (item: CampaignSharedItem) => {
+      if (!currentCampaign || !currentUser) return;
+      try {
+        await addSharedItemToCampaign(currentCampaign.id, item);
+        setCampaigns((prev) => {
+          const next = prev.map((c) => {
+            if (c.id === currentCampaign.id) {
+              const nextShared = [item, ...(c.sharedItems || [])];
+              return { ...c, sharedItems: nextShared };
+            }
+            return c;
+          });
+          storageService.saveUserCampaigns(currentUser.id, next);
+          return next;
+        });
+      } catch (err) {
+        console.warn('Erro ao adicionar item compartilhado:', err);
+      }
+    },
+    [currentCampaign, currentUser]
+  );
+
+  // Remove shared item
+  const handleRemoveSharedItem = useCallback(
+    async (itemId: string) => {
+      if (!currentCampaign || !currentUser) return;
+      try {
+        await removeSharedItemFromCampaign(currentCampaign.id, itemId);
+        setCampaigns((prev) => {
+          const next = prev.map((c) => {
+            if (c.id === currentCampaign.id) {
+              const nextShared = (c.sharedItems || []).filter((i) => i.id !== itemId);
+              return { ...c, sharedItems: nextShared };
+            }
+            return c;
+          });
+          storageService.saveUserCampaigns(currentUser.id, next);
+          return next;
+        });
+      } catch (err) {
+        console.warn('Erro ao remover item compartilhado:', err);
+      }
+    },
+    [currentCampaign, currentUser]
+  );
+
+  // Toggle character shared with players
+  const handleToggleCharacterShared = useCallback(
+    async (charId: string, shared: boolean) => {
+      try {
+        await toggleCharacterSharedWithPlayers(charId, shared);
+        setCharacters((prev) => {
+          const next = prev.map((c) => (c.id === charId ? { ...c, sharedWithPlayers: shared } : c));
+          if (currentUser) storageService.saveUserCharacters(currentUser.id, next);
+          return next;
+        });
+      } catch (err) {
+        console.warn('Erro ao alternar compartilhamento de ficha:', err);
+      }
+    },
+    [currentUser]
+  );
+
   const handleTabChange = useCallback(
     (tab: MainTab) => {
       if (tab !== 'campaign' && isFullScreenNotes) {
@@ -603,6 +737,8 @@ export default function App() {
           activeCampaign={currentCampaign}
           campaignsCount={campaigns.length}
           onOpenCampaignMenu={() => setIsCampaignMenuOpen(true)}
+          onOpenTableModal={() => setIsTableModalOpen(true)}
+          isMaster={isMaster}
           syncStatus={syncStatus}
           currentUser={currentUser}
           onOpenAuthModal={() => setIsAuthModalOpen(true)}
@@ -659,24 +795,37 @@ export default function App() {
       {/* Main App Body */}
       <main className={`flex-1 flex overflow-hidden ${!isFullScreenNotes ? 'pb-14 md:pb-0' : ''}`}>
         {currentTab === 'campaign' ? (
-          <CampaignCopilotView
-            campaigns={campaigns}
-            activeCampaignId={activeCampaignId}
-            onSelectCampaign={handleSelectCampaign}
-            onCreateCampaign={handleCreateCampaign}
-            onUpdateCampaign={handleUpdateCampaign}
-            onDeleteCampaign={handleDeleteCampaign}
-            onOpenCampaignMenu={() => setIsCampaignMenuOpen(true)}
-            characters={characters}
-            onCreateCharacter={handleCreateCharacter}
-            onUpdateCharacter={(updated) => handleUpdateCharacter(updated.id, updated)}
-            onOpenBestiaryTab={() => setCurrentTab('bestiary')}
-            model={settings.model}
-            customApiKey={settings.customApiKey}
-            isFullScreen={isFullScreenNotes}
-            onToggleFullScreen={handleToggleFullScreen}
-            userId={currentUser.id}
-          />
+          isMaster ? (
+            <CampaignCopilotView
+              campaigns={campaigns}
+              activeCampaignId={activeCampaignId}
+              onSelectCampaign={handleSelectCampaign}
+              onCreateCampaign={handleCreateCampaign}
+              onUpdateCampaign={handleUpdateCampaign}
+              onDeleteCampaign={handleDeleteCampaign}
+              onOpenCampaignMenu={() => setIsCampaignMenuOpen(true)}
+              characters={characters}
+              onCreateCharacter={handleCreateCharacter}
+              onUpdateCharacter={(updated) => handleUpdateCharacter(updated.id, updated)}
+              onOpenBestiaryTab={() => setCurrentTab('bestiary')}
+              model={settings.model}
+              customApiKey={settings.customApiKey}
+              isFullScreen={isFullScreenNotes}
+              onToggleFullScreen={handleToggleFullScreen}
+              userId={currentUser.id}
+            />
+          ) : (
+            <PlayerPortalView
+              campaign={currentCampaign}
+              currentUser={currentUser}
+              characters={characters}
+              onCreateCharacter={handleCreateCharacter}
+              onUpdateCharacter={(updated) => handleUpdateCharacter(updated.id, updated)}
+              onSavePlayerNotes={handleSavePlayerNotes}
+              onOpenTableModal={() => setIsTableModalOpen(true)}
+              onOpenCampaignMenu={() => setIsCampaignMenuOpen(true)}
+            />
+          )
         ) : currentTab === 'bestiary' ? (
           <BestiaryView
             activeCampaign={currentCampaign}
@@ -720,6 +869,8 @@ export default function App() {
             onDeleteCharacter={handleDeleteCharacter}
             onOpenCampaignMenu={() => setIsCampaignMenuOpen(true)}
             onOpenSettings={() => setIsSettingsOpen(true)}
+            isMaster={isMaster}
+            currentUserId={currentUser.id}
           />
         )}
       </main>
@@ -741,6 +892,7 @@ export default function App() {
         campaigns={campaigns}
         activeCampaignId={activeCampaignId}
         characters={characters}
+        currentUserId={currentUser.id}
         onSelectCampaign={(id) => {
           handleSelectCampaign(id);
           const campChars = characters.filter((c) => c.campaignId === id);
@@ -754,7 +906,28 @@ export default function App() {
         onUpdateCampaign={handleUpdateCampaignById}
         onDeleteCampaign={handleDeleteCampaign}
         onDeleteAllCampaigns={handleDeleteAllCampaigns}
+        onJoinCampaignByCode={handleJoinCampaignByCode}
       />
+
+      {/* Campaign Table & Party Collaboration Modal */}
+      {currentCampaign && currentUser && (
+        <CampaignTableModal
+          isOpen={isTableModalOpen}
+          onClose={() => setIsTableModalOpen(false)}
+          campaign={currentCampaign}
+          characters={characters}
+          currentUser={currentUser}
+          isMaster={isMaster}
+          onUpdateCampaign={handleUpdateCampaign}
+          onAddSharedItem={handleAddSharedItem}
+          onRemoveSharedItem={handleRemoveSharedItem}
+          onToggleCharacterShared={handleToggleCharacterShared}
+          onSelectCharacterToView={(charId) => {
+            setSelectedCharacterId(charId);
+            setCurrentTab('characters');
+          }}
+        />
+      )}
 
       {/* Settings & Firebase Cloud Modal */}
       <SettingsModal

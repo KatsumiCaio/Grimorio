@@ -17,7 +17,7 @@ service cloud.firestore {
       return data.id is string && data.id.size() <= 128
         && data.title is string && data.title.size() <= 300
         && data.system is string && data.system.size() <= 100
-        && data.notes is string && data.notes.size() <= 500000;
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 500000));
     }
 
     function isValidCharacter(data) {

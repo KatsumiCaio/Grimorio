@@ -27,6 +27,8 @@ interface HeaderProps {
   activeCampaign?: Campaign;
   campaignsCount?: number;
   onOpenCampaignMenu?: () => void;
+  onOpenTableModal?: () => void;
+  isMaster?: boolean;
   syncStatus?: 'synced' | 'syncing' | 'offline' | 'error' | 'quota';
   currentUser?: UserProfile;
   onOpenAuthModal?: () => void;
@@ -42,6 +44,8 @@ export const Header: React.FC<HeaderProps> = ({
   activeCampaign,
   campaignsCount = 0,
   onOpenCampaignMenu,
+  onOpenTableModal,
+  isMaster = true,
   syncStatus = 'synced',
   currentUser,
   onOpenAuthModal,
@@ -89,6 +93,23 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </div>
             <ChevronDown className="w-3 h-3 text-zinc-500 group-hover:text-cyan-400 shrink-0" />
+          </button>
+        )}
+
+        {/* Table & Party modal trigger */}
+        {activeCampaign && onOpenTableModal && (
+          <button
+            type="button"
+            id="header-table-modal-btn"
+            onClick={onOpenTableModal}
+            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-semibold transition-all cursor-pointer shadow-xs"
+            title={isMaster ? 'Mesa & Jogadores (Revelar fotos, fichas e ver anotações)' : 'Mesa & Conteúdo Revelado do Mestre'}
+          >
+            <Users className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="hidden sm:inline">{isMaster ? 'Mesa & Revelações' : 'Mural da Mesa'}</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-500/30 font-mono">
+              {activeCampaign.members?.length || 1}
+            </span>
           </button>
         )}
       </div>

@@ -17,6 +17,8 @@ export interface ResourceBar {
 export interface CharacterSheet {
   id: string;
   campaignId: string;
+  userId?: string; // ID do usuário que criou a ficha (Jogador ou Mestre)
+  creatorName?: string; // Nome de exibição do autor
   name: string;
   role: string; // e.g. "Ladino Assassino Nv 4" or "Taberneiro Suspeito" or "Dragão Ancião (ND 10)"
   type: CharacterType;
@@ -25,6 +27,7 @@ export interface CharacterSheet {
   notes: string; // Spells, equipment, secret GM notes, attacks
   avatarUrl?: string;
   challengeRating?: string; // e.g. "ND 10", "Ameaça 5", "VD 40", etc.
+  sharedWithPlayers?: boolean; // Se verdadeiro, o Mestre permitiu que os jogadores vejam esta ficha
   createdAt: number;
   updatedAt: number;
 }
@@ -54,13 +57,45 @@ export interface CampaignChapter {
   updatedAt: number;
 }
 
+export type CampaignRole = 'master' | 'player';
+
+export interface CampaignMember {
+  userId: string;
+  displayName: string;
+  role: CampaignRole;
+  avatarId?: string;
+  avatarUrl?: string;
+  joinedAt: number;
+  characterId?: string; // ID da ficha do personagem do jogador vinculada
+  notes?: string; // Anotações pessoais / diário do jogador nesta campanha (visíveis para o jogador e para o mestre!)
+}
+
+export interface CampaignSharedItem {
+  id: string;
+  campaignId: string;
+  title: string;
+  type: 'image' | 'handout' | 'sheet' | 'clue';
+  category?: 'map' | 'photo' | 'document' | 'npc' | 'lore';
+  url?: string; // URL da imagem, mapa ou foto
+  content?: string; // Texto formatado, carta, pista, descrição em markdown
+  characterId?: string; // Referência a ficha caso seja um NPC/Monstro compartilhado
+  sharedBy: string; // ID do Mestre
+  sharedAt: number;
+}
+
 export interface Campaign {
   id: string;
+  userId?: string; // ID do criador (Mestre)
+  masterId?: string; // ID do Mestre da campanha
+  masterName?: string; // Nome de exibição do Mestre
+  inviteCode?: string; // Código de 6 caracteres (e.g. "GRM-8X2L") para jogadores entrarem
   title: string;
   system: string; // e.g. "D&D 5e", "Call of Cthulhu", "Tormenta 20", "Sistema Próprio"
-  notes: string; // Active chapter notes or fallback content for legacy compat
-  chapters?: CampaignChapter[];
+  notes: string; // Anotações secretas do Mestre (exclusivas do Mestre)
+  chapters?: CampaignChapter[]; // Capítulos com anotações secretas do Mestre
   activeChapterId?: string;
+  members?: CampaignMember[]; // Membros da mesa (Mestre e Jogadores)
+  sharedItems?: CampaignSharedItem[]; // Fotos, mapas, handouts e cartas compartilhadas pelo Mestre com os jogadores
   createdAt: number;
   updatedAt: number;
 }

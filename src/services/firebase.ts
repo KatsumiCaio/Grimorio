@@ -26,8 +26,8 @@ import {
   disableNetwork,
   enableNetwork,
 } from 'firebase/firestore';
-import { Campaign, CharacterSheet, ChatMessage, UserProfile } from '../types';
-import { ensureCampaignChapters } from './storage';
+import { Campaign, CharacterSheet, ChatMessage, UserProfile, CampaignMember, CampaignSharedItem } from '../types';
+import { ensureCampaignChapters, generateCampaignInviteCode } from './storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Configuration constants
@@ -710,7 +710,7 @@ export const subscribeToUsers = (
   );
 };
 
-// Firestore Realtime Campaigns filtered for specific User Account
+// Firestore Realtime Campaigns filtered for specific User Account (as Master or joined Member/Player)
 export const subscribeToUserCampaigns = (
   userId: string,
   onUpdate: (campaigns: Campaign[]) => void,
@@ -724,9 +724,15 @@ export const subscribeToUserCampaigns = (
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const docUserId = data.userId || 'usr_mestre';
+        const masterId = data.masterId || docUserId;
+        const members: CampaignMember[] = Array.isArray(data.members) ? data.members : [];
+        const isMaster = docUserId === userId || masterId === userId;
+        const isMember = members.some((m) => m.userId === userId);
+
         const isUserMatch =
           !userId ||
-          docUserId === userId ||
+          isMaster ||
+          isMember ||
           (userId === 'usr_mestre' && docUserId === 'shared') ||
           (docUserId.startsWith('usr_') &&
             userId.startsWith('usr_') &&
@@ -737,11 +743,17 @@ export const subscribeToUserCampaigns = (
           items.push(
             ensureCampaignChapters({
               id: docSnap.id,
+              userId: docUserId,
+              masterId,
+              masterName: data.masterName || 'Mestre da Masmorra',
+              inviteCode: data.inviteCode || undefined,
               title: data.title || 'Campanha sem título',
               system: data.system || 'D&D 5e',
               notes: data.notes || '',
               chapters: Array.isArray(data.chapters) ? data.chapters : undefined,
               activeChapterId: data.activeChapterId || undefined,
+              members: members.length > 0 ? members : undefined,
+              sharedItems: Array.isArray(data.sharedItems) ? data.sharedItems : undefined,
               createdAt: data.createdAt || Date.now(),
               updatedAt: data.updatedAt || Date.now(),
             })
@@ -766,7 +778,7 @@ export const subscribeToUserCampaigns = (
   );
 };
 
-// Firestore Realtime Characters filtered for specific User Account
+// Firestore Realtime Characters filtered for specific User Account and Shared Table Sheets
 export const subscribeToUserCharacters = (
   userId: string,
   onUpdate: (characters: CharacterSheet[]) => void,
@@ -780,7 +792,7 @@ export const subscribeToUserCharacters = (
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const docUserId = data.userId || 'usr_mestre';
-        const isUserMatch =
+        const isAuthor =
           !userId ||
           docUserId === userId ||
           (userId === 'usr_mestre' && docUserId === 'shared') ||
@@ -788,11 +800,15 @@ export const subscribeToUserCharacters = (
             userId.startsWith('usr_') &&
             docUserId.split('_')[1] &&
             docUserId.split('_')[1] === userId.split('_')[1]);
+        const isSharedWithPlayers = Boolean(data.sharedWithPlayers);
 
-        if (isUserMatch) {
+        // Include character if user is the author/player OR if sheet is shared with players
+        if (isAuthor || isSharedWithPlayers) {
           items.push({
             id: docSnap.id,
             campaignId: data.campaignId || '',
+            userId: data.userId || docUserId,
+            creatorName: data.creatorName || undefined,
             name: data.name || 'Personagem',
             role: data.role || 'Aventureiro',
             type: data.type === 'NPC' ? 'NPC' : data.type === 'Monstro' ? 'Monstro' : 'PJ',
@@ -801,6 +817,7 @@ export const subscribeToUserCharacters = (
             notes: data.notes || '',
             avatarUrl: data.avatarUrl || undefined,
             challengeRating: data.challengeRating || undefined,
+            sharedWithPlayers: isSharedWithPlayers,
             createdAt: data.createdAt || Date.now(),
             updatedAt: data.updatedAt || Date.now(),
           });
@@ -853,9 +870,14 @@ export const saveCampaignToFirestore = async (
         notes: campaign.notes || '',
         chapters: campaign.chapters || [],
         activeChapterId: campaign.activeChapterId || null,
+        masterId: campaign.masterId || campaign.userId || userId,
+        masterName: campaign.masterName || 'Mestre da Masmorra',
+        inviteCode: campaign.inviteCode || generateCampaignInviteCode(),
+        members: campaign.members || [],
+        sharedItems: campaign.sharedItems || [],
         createdAt: campaign.createdAt || Date.now(),
         updatedAt: Date.now(),
-        userId,
+        userId: campaign.userId || userId,
       },
       { merge: true }
     );
@@ -919,14 +941,168 @@ export const saveCharacterToFirestore = async (
         notes: character.notes || '',
         avatarUrl: character.avatarUrl || null,
         challengeRating: character.challengeRating || null,
+        sharedWithPlayers: Boolean(character.sharedWithPlayers),
+        creatorName: character.creatorName || null,
         createdAt: character.createdAt || Date.now(),
         updatedAt: Date.now(),
-        userId,
+        userId: character.userId || userId,
       },
       { merge: true }
     );
   } catch (error) {
     handleOperationError(error, OperationType.WRITE, path);
+  }
+};
+
+// Player and Master Collaboration Functions
+export const joinCampaignByInviteCode = async (
+  inviteCode: string,
+  user: UserProfile
+): Promise<{ success: boolean; campaign?: Campaign; error?: string }> => {
+  if (!inviteCode || !user) {
+    return { success: false, error: 'Código de convite ou usuário inválido' };
+  }
+  const cleanCode = inviteCode.trim().toUpperCase();
+
+  try {
+    const campaignsCol = collection(db, 'campaigns');
+    const snapshot = await getDocs(campaignsCol);
+    let targetDoc: any = null;
+    let targetData: any = null;
+
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (
+        data.inviteCode &&
+        data.inviteCode.trim().toUpperCase() === cleanCode
+      ) {
+        targetDoc = docSnap;
+        targetData = data;
+      }
+    });
+
+    if (!targetDoc || !targetData) {
+      return { success: false, error: 'Campanha não encontrada. Verifique se o código de 6 dígitos está correto.' };
+    }
+
+    const currentMembers: CampaignMember[] = Array.isArray(targetData.members)
+      ? targetData.members
+      : [];
+
+    const existingIndex = currentMembers.findIndex((m) => m.userId === user.id);
+    const isMaster = targetData.userId === user.id || targetData.masterId === user.id;
+
+    const updatedMembers = [...currentMembers];
+    if (existingIndex >= 0) {
+      updatedMembers[existingIndex] = {
+        ...updatedMembers[existingIndex],
+        displayName: user.displayName || user.username,
+        avatarUrl: user.avatarId,
+      };
+    } else {
+      updatedMembers.push({
+        userId: user.id,
+        displayName: user.displayName || user.username,
+        role: isMaster ? 'master' : 'player',
+        avatarUrl: user.avatarId,
+        joinedAt: Date.now(),
+        notes: '',
+      });
+    }
+
+    const docRef = doc(db, 'campaigns', targetDoc.id);
+    await setDoc(
+      docRef,
+      {
+        members: updatedMembers,
+        updatedAt: Date.now(),
+      },
+      { merge: true }
+    );
+
+    const fullCampaign = ensureCampaignChapters({
+      ...targetData,
+      id: targetDoc.id,
+      members: updatedMembers,
+    });
+
+    return { success: true, campaign: fullCampaign };
+  } catch (error: any) {
+    console.error('Erro ao entrar na campanha por código:', error);
+    return { success: false, error: error?.message || 'Erro ao conectar à campanha' };
+  }
+};
+
+export const savePlayerCampaignNotes = async (
+  campaignId: string,
+  userId: string,
+  notes: string
+): Promise<void> => {
+  if (!campaignId || !userId) return;
+  const docRef = doc(db, 'campaigns', campaignId);
+  try {
+    const snap = await getDocFromServer(docRef).catch(() => null);
+    if (snap && snap.exists()) {
+      const data = snap.data();
+      const members: CampaignMember[] = Array.isArray(data.members) ? data.members : [];
+      const updatedMembers = members.map((m) =>
+        m.userId === userId ? { ...m, notes } : m
+      );
+      await setDoc(docRef, { members: updatedMembers, updatedAt: Date.now() }, { merge: true });
+    }
+  } catch (err) {
+    console.warn('Erro ao salvar anotações do jogador:', err);
+  }
+};
+
+export const addSharedItemToCampaign = async (
+  campaignId: string,
+  item: CampaignSharedItem
+): Promise<void> => {
+  if (!campaignId || !item) return;
+  const docRef = doc(db, 'campaigns', campaignId);
+  try {
+    const snap = await getDocFromServer(docRef).catch(() => null);
+    if (snap && snap.exists()) {
+      const data = snap.data();
+      const currentItems: CampaignSharedItem[] = Array.isArray(data.sharedItems) ? data.sharedItems : [];
+      const updatedItems = [item, ...currentItems.filter((i) => i.id !== item.id)];
+      await setDoc(docRef, { sharedItems: updatedItems, updatedAt: Date.now() }, { merge: true });
+    }
+  } catch (err) {
+    console.warn('Erro ao compartilhar item com jogadores:', err);
+  }
+};
+
+export const removeSharedItemFromCampaign = async (
+  campaignId: string,
+  itemId: string
+): Promise<void> => {
+  if (!campaignId || !itemId) return;
+  const docRef = doc(db, 'campaigns', campaignId);
+  try {
+    const snap = await getDocFromServer(docRef).catch(() => null);
+    if (snap && snap.exists()) {
+      const data = snap.data();
+      const currentItems: CampaignSharedItem[] = Array.isArray(data.sharedItems) ? data.sharedItems : [];
+      const updatedItems = currentItems.filter((i) => i.id !== itemId);
+      await setDoc(docRef, { sharedItems: updatedItems, updatedAt: Date.now() }, { merge: true });
+    }
+  } catch (err) {
+    console.warn('Erro ao remover item compartilhado:', err);
+  }
+};
+
+export const toggleCharacterSharedWithPlayers = async (
+  characterId: string,
+  sharedWithPlayers: boolean
+): Promise<void> => {
+  if (!characterId) return;
+  const docRef = doc(db, 'characters', characterId);
+  try {
+    await setDoc(docRef, { sharedWithPlayers, updatedAt: Date.now() }, { merge: true });
+  } catch (err) {
+    console.warn('Erro ao alterar visibilidade da ficha para jogadores:', err);
   }
 };
 

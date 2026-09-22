@@ -20,6 +20,8 @@ import {
   Crown,
   Sword,
   ArrowLeft,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { CharacterSheet, CharacterType, AttributeItem, ResourceBar, AppSettings } from '../types';
 import { NewCharacterModal } from './NewCharacterModal';
@@ -39,6 +41,8 @@ interface CharacterSheetsViewProps {
   onDeleteCharacter: (id: string) => void;
   onOpenCampaignMenu?: () => void;
   onOpenSettings?: () => void;
+  isMaster?: boolean;
+  currentUserId?: string;
 }
 
 export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
@@ -54,9 +58,15 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
   onDeleteCharacter,
   onOpenCampaignMenu,
   onOpenSettings,
+  isMaster = true,
+  currentUserId,
 }) => {
-  // Filter sheets belonging to active campaign
-  const campaignCharacters = characters.filter((c) => c.campaignId === activeCampaignId);
+  // Filter sheets belonging to active campaign (Masters see all, players see their own + shared sheets)
+  const campaignCharacters = characters.filter((c) => {
+    if (c.campaignId !== activeCampaignId) return false;
+    if (isMaster) return true;
+    return c.userId === currentUserId || c.sharedWithPlayers === true;
+  });
 
   const [selectedCharId, setSelectedCharId] = useState<string>(
     selectedCharacterId || campaignCharacters[0]?.id || ''
@@ -437,15 +447,22 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                         <span className="font-semibold text-xs text-zinc-100 truncate">
                           {char.name}
                         </span>
-                        <span
-                          className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-semibold uppercase ${
-                            char.type === 'PJ'
-                              ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                              : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
-                          }`}
-                        >
-                          {char.type}
-                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {char.sharedWithPlayers && (
+                            <span className="text-[9px] px-1 py-0.2 rounded font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30" title="Revelada para jogadores">
+                              Revelada
+                            </span>
+                          )}
+                          <span
+                            className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-semibold uppercase ${
+                              char.type === 'PJ'
+                                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                                : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                            }`}
+                          >
+                            {char.type}
+                          </span>
+                        </div>
                       </div>
                       <div className="text-[11px] text-zinc-400 truncate">
                         {char.role || 'Sem classe'}
@@ -651,6 +668,40 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                           NPC
                         </button>
                       </div>
+
+                      {/* Master visibility toggle button */}
+                      {isMaster && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onUpdateCharacter(selectedChar.id, {
+                              sharedWithPlayers: !selectedChar.sharedWithPlayers,
+                            })
+                          }
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                            selectedChar.sharedWithPlayers
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
+                          }`}
+                          title={
+                            selectedChar.sharedWithPlayers
+                              ? 'Ficha revelada para todos os jogadores na mesa. Clique para ocultar.'
+                              : 'Ficha oculta dos jogadores (apenas o mestre vê). Clique para revelar.'
+                          }
+                        >
+                          {selectedChar.sharedWithPlayers ? (
+                            <>
+                              <Eye className="w-3.5 h-3.5 text-amber-400" />
+                              <span className="hidden md:inline">Revelada</span>
+                            </>
+                          ) : (
+                            <>
+                              <EyeOff className="w-3.5 h-3.5 text-zinc-500" />
+                              <span className="hidden md:inline">Oculta</span>
+                            </>
+                          )}
+                        </button>
+                      )}
 
                       <button
                         onClick={() => handleDuplicate(selectedChar)}

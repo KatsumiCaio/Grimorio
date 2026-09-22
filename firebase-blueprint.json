@@ -20,20 +20,25 @@
     },
     "campaigns": {
       "title": "Campaign",
-      "description": "Tabletop RPG campaigns containing world notes and rule systems",
+      "description": "Tabletop RPG campaigns containing world notes, members (Master and Players), and shared items",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "userId": { "type": "string" },
+        "masterId": { "type": "string" },
+        "masterName": { "type": "string" },
+        "inviteCode": { "type": "string" },
         "title": { "type": "string" },
         "system": { "type": "string" },
         "notes": { "type": "string" },
         "chapters": { "type": "array" },
         "activeChapterId": { "type": "string" },
+        "members": { "type": "array" },
+        "sharedItems": { "type": "array" },
         "createdAt": { "type": "number" },
         "updatedAt": { "type": "number" }
       },
-      "required": ["id", "userId", "title", "system", "notes"]
+      "required": ["id", "title", "system"]
     },
     "characters": {
       "title": "Character",
@@ -42,6 +47,7 @@
       "properties": {
         "id": { "type": "string" },
         "userId": { "type": "string" },
+        "creatorName": { "type": "string" },
         "campaignId": { "type": "string" },
         "name": { "type": "string" },
         "role": { "type": "string" },
@@ -50,10 +56,11 @@
         "resources": { "type": "array" },
         "notes": { "type": "string" },
         "avatarUrl": { "type": "string" },
+        "sharedWithPlayers": { "type": "boolean" },
         "createdAt": { "type": "number" },
         "updatedAt": { "type": "number" }
       },
-      "required": ["id", "userId", "campaignId", "name", "role", "type"]
+      "required": ["id", "campaignId", "name", "role", "type"]
     },
     "chatMessages": {
       "title": "ChatMessage",

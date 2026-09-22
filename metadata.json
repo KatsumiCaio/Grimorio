@@ -1,6 +1,6 @@
 {
   "name": "Grimório",
-  "description": "Caderno minimalista e copiloto inteligente para Mestres de RPG com anotações de campanha, sincronização em tempo real com Firebase Firestore, chat contextual com Gemini e fichas de personagens.",
+  "description": "Caderno colaborativo e copiloto inteligente para Mestres e Jogadores de RPG com anotações sigilosas, mesa compartilhada, revelação seletiva de imagens e fichas de personagens, e sincronização em tempo real.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

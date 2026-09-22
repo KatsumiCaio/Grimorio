@@ -1,4 +1,4 @@
-import { Campaign, CampaignChapter, CharacterSheet, AppSettings, ChatMessage, UserProfile } from '../types';
+import { Campaign, CampaignChapter, CharacterSheet, AppSettings, ChatMessage, UserProfile, CampaignMember, CampaignSharedItem } from '../types';
 import { authService } from './auth';
 
 const CAMPAIGNS_STORAGE_KEY = 'grimorio_campaigns_v1';
@@ -6,7 +6,31 @@ const CHARACTERS_STORAGE_KEY = 'grimorio_characters_v1';
 const SETTINGS_STORAGE_KEY = 'grimorio_settings_v1';
 const CHAT_STORAGE_PREFIX = 'grimorio_chat_';
 
+export function generateCampaignInviteCode(): string {
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
 export function ensureCampaignChapters(campaign: Campaign): Campaign {
+  const masterId = campaign.masterId || campaign.userId || 'usr_mestre';
+  const inviteCode = campaign.inviteCode || generateCampaignInviteCode();
+  const members: CampaignMember[] =
+    campaign.members && campaign.members.length > 0
+      ? campaign.members
+      : [
+          {
+            userId: masterId,
+            displayName: campaign.masterName || 'Mestre da Masmorra',
+            role: 'master',
+            joinedAt: campaign.createdAt || Date.now(),
+          },
+        ];
+  const sharedItems: CampaignSharedItem[] = Array.isArray(campaign.sharedItems) ? campaign.sharedItems : [];
+
   if (campaign.chapters && campaign.chapters.length > 0) {
     const activeId = campaign.activeChapterId && campaign.chapters.some((c) => c.id === campaign.activeChapterId)
       ? campaign.activeChapterId
@@ -14,6 +38,10 @@ export function ensureCampaignChapters(campaign: Campaign): Campaign {
     const activeChapter = campaign.chapters.find((c) => c.id === activeId) || campaign.chapters[0];
     return {
       ...campaign,
+      masterId,
+      inviteCode,
+      members,
+      sharedItems,
       activeChapterId: activeId,
       notes: activeChapter.content || campaign.notes || '',
     };
@@ -31,6 +59,10 @@ export function ensureCampaignChapters(campaign: Campaign): Campaign {
 
   return {
     ...campaign,
+    masterId,
+    inviteCode,
+    members,
+    sharedItems,
     chapters: [initialChapter],
     activeChapterId: initialChapter.id,
     notes: initialChapter.content,

@@ -17,6 +17,8 @@ import {
   Shield,
   Layers,
   FolderOpen,
+  Copy,
+  Lock,
 } from 'lucide-react';
 import { Campaign, CharacterSheet } from '../types';
 import { RPG_SYSTEMS, POPULAR_SYSTEM_GROUPS } from '../data/rpgSystems';
@@ -27,11 +29,13 @@ interface CampaignMenuModalProps {
   campaigns: Campaign[];
   activeCampaignId: string;
   characters: CharacterSheet[];
+  currentUserId?: string;
   onSelectCampaign: (id: string) => void;
   onCreateCampaign: (title: string, system: string) => void;
   onUpdateCampaign: (id: string, updated: Partial<Campaign>) => void;
   onDeleteCampaign: (id: string) => void;
   onDeleteAllCampaigns: (options?: { deleteCharacters?: boolean }) => Promise<void> | void;
+  onJoinCampaignByCode?: (code: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
@@ -40,17 +44,26 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
   campaigns,
   activeCampaignId,
   characters,
+  currentUserId,
   onSelectCampaign,
   onCreateCampaign,
   onUpdateCampaign,
   onDeleteCampaign,
   onDeleteAllCampaigns,
+  onJoinCampaignByCode,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newSystem, setNewSystem] = useState('D&D 5e');
   const [customSystem, setCustomSystem] = useState('');
+
+  // Join by code state
+  const [isJoiningByCode, setIsJoiningByCode] = useState(false);
+  const [inviteCodeInput, setInviteCodeInput] = useState('');
+  const [isJoiningLoading, setIsJoiningLoading] = useState(false);
+  const [joinErrorMessage, setJoinErrorMessage] = useState<string | null>(null);
+  const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
 
   // Inline editing state for campaign title
   const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
@@ -74,9 +87,39 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
     );
   }, [campaigns, searchQuery]);
 
-  // Handle select campaign and close
-  const handleSelect = (campId: string) => {
-    onSelectCampaign(campId);
+  // Handle join campaign by invite code
+  const handleJoinCodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteCodeInput.trim() || !onJoinCampaignByCode) return;
+    setIsJoiningLoading(true);
+    setJoinErrorMessage(null);
+    try {
+      const res = await onJoinCampaignByCode(inviteCodeInput.trim());
+      if (res.success) {
+        setIsJoiningByCode(false);
+        setInviteCodeInput('');
+        onClose();
+      } else {
+        setJoinErrorMessage(res.error || 'Código de convite inválido ou campanha não encontrada.');
+      }
+    } catch (err: any) {
+      setJoinErrorMessage(err?.message || 'Erro ao conectar à campanha.');
+    } finally {
+      setIsJoiningLoading(false);
+    }
+  };
+
+  // Copy invite code helper
+  const handleCopyCode = (campId: string, code: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(code);
+    setCopiedInviteId(campId);
+    setTimeout(() => setCopiedInviteId(null), 2000);
+  };
+
+  // Select campaign and close modal
+  const handleSelect = (id: string) => {
+    onSelectCampaign(id);
     onClose();
   };
 
@@ -273,12 +316,34 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                 />
               </div>
 
-              {/* Action Buttons: New Campaign */}
+              {/* Action Buttons: Join by Code & New Campaign */}
               <div className="flex items-center gap-2">
+                {onJoinCampaignByCode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsJoiningByCode((prev) => !prev);
+                      setIsCreating(false);
+                      setJoinErrorMessage(null);
+                    }}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      isJoiningByCode
+                        ? 'bg-zinc-800 text-zinc-200 border border-zinc-700'
+                        : 'bg-zinc-800 hover:bg-zinc-700 text-amber-300 border border-amber-500/30'
+                    }`}
+                  >
+                    <Users className="w-4 h-4 text-amber-400" />
+                    <span>Entrar com Código</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   id="modal-create-campaign-toggle-btn"
-                  onClick={() => setIsCreating((prev) => !prev)}
+                  onClick={() => {
+                    setIsCreating((prev) => !prev);
+                    setIsJoiningByCode(false);
+                  }}
                   className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                     isCreating
                       ? 'bg-zinc-800 text-zinc-200 border border-zinc-700'
@@ -290,6 +355,63 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* Inline Join Campaign by Code Form */}
+            {isJoiningByCode && (
+              <form
+                onSubmit={handleJoinCodeSubmit}
+                className="p-4 bg-zinc-900/95 border border-amber-500/40 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-150"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+                    <Users className="w-4 h-4" />
+                    <span>Entrar em Campanha como Jogador</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsJoiningByCode(false)}
+                    className="text-zinc-500 hover:text-zinc-300 text-xs cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-zinc-400 leading-relaxed">
+                  Digite o código de 6 dígitos que seu Mestre compartilhou (ex:{' '}
+                  <code className="font-mono text-amber-300 font-bold bg-zinc-950 px-1.5 py-0.5 rounded border border-amber-500/30">
+                    GRM-8X2L
+                  </code>
+                  ). Você poderá adicionar seu personagem e acompanhar fotos e pistas reveladas pela mesa, mantendo as anotações do mestre em sigilo.
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    placeholder="Código de Convite (ex: W4K8N2)"
+                    value={inviteCodeInput}
+                    onChange={(e) => setInviteCodeInput(e.target.value.toUpperCase())}
+                    maxLength={12}
+                    className="flex-1 bg-zinc-950 border border-zinc-700 focus:border-amber-400 rounded-lg px-3 py-2 text-xs text-amber-200 font-mono tracking-widest uppercase placeholder:text-zinc-600 focus:outline-none"
+                    required
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={isJoiningLoading || !inviteCodeInput.trim()}
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-zinc-950 font-bold text-xs rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md"
+                  >
+                    {isJoiningLoading ? 'Conectando...' : 'Entrar na Mesa'}
+                  </button>
+                </div>
+
+                {joinErrorMessage && (
+                  <div className="p-2.5 rounded-lg bg-rose-950/40 border border-rose-800/60 text-rose-300 text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{joinErrorMessage}</span>
+                  </div>
+                )}
+              </form>
+            )}
 
             {/* Inline New Campaign Form */}
             {isCreating && (
@@ -417,6 +539,11 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                   const npcCount = campChars.filter((c) => c.type === 'NPC').length;
                   const isEditingThisTitle = editingCampaignId === camp.id;
 
+                  const isUserMaster = !currentUserId || camp.userId === currentUserId || camp.masterId === currentUserId;
+                  const memberCount = camp.members?.length || 1;
+                  const inviteCode = camp.inviteCode || 'GRM-MES';
+                  const isCopied = copiedInviteId === camp.id;
+
                   // Date format
                   const updatedDate = new Date(camp.updatedAt || camp.createdAt || Date.now());
                   const formattedDate = updatedDate.toLocaleDateString('pt-BR', {
@@ -438,7 +565,7 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                       }`}
                     >
                       {/* Top Row: Title + System Badge */}
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         <div className="flex items-start justify-between gap-2">
                           {isEditingThisTitle ? (
                             <div className="flex items-center gap-1.5 flex-1" onClick={(e) => e.stopPropagation()}>
@@ -462,14 +589,16 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                               <h3 className="text-sm font-bold text-zinc-100 truncate group-hover:text-cyan-300 transition-colors">
                                 {camp.title}
                               </h3>
-                              <button
-                                type="button"
-                                onClick={(e) => handleStartEdit(camp, e)}
-                                className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-zinc-200 rounded transition-opacity"
-                                title="Renomear título"
-                              >
-                                <Edit2 className="w-3 h-3" />
-                              </button>
+                              {isUserMaster && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleStartEdit(camp, e)}
+                                  className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-zinc-200 rounded transition-opacity"
+                                  title="Renomear título"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                </button>
+                              )}
                             </div>
                           )}
 
@@ -482,38 +611,70 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                           )}
                         </div>
 
-                        {/* System Badge */}
-                        <div className="flex items-center gap-1.5">
+                        {/* Badges: Role, System, and Invite Code */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {isUserMaster ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold flex items-center gap-1">
+                              <span>👑 Mestre</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold flex items-center gap-1">
+                              <span>🎲 Jogador ({camp.masterName || 'Mestre'})</span>
+                            </span>
+                          )}
+
                           <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-cyan-300 border border-zinc-700/80 font-mono font-medium flex items-center gap-1">
                             <Dices className="w-3 h-3 text-cyan-400" />
                             <span>{camp.system || 'D&D 5e'}</span>
                           </span>
-                          <span className="text-[10px] text-zinc-500">
-                            Atualizada: {formattedDate}
-                          </span>
+
+                          {/* Quick copy invite code */}
+                          <button
+                            type="button"
+                            onClick={(e) => handleCopyCode(camp.id, inviteCode, e)}
+                            className="text-[10px] px-2 py-0.5 rounded bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-amber-300 border border-zinc-800 font-mono flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Copiar código de convite para outros jogadores"
+                          >
+                            <Copy className="w-2.5 h-2.5" />
+                            <span>{isCopied ? 'Copiado!' : inviteCode}</span>
+                          </button>
                         </div>
 
-                        {/* Notes Preview snippet */}
-                        {camp.notes && (
-                          <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed pt-1">
-                            {camp.notes.replace(/[#*`_]/g, '').trim() || 'Sem anotações no caderno.'}
-                          </p>
+                        {/* Notes Preview snippet or Privacy Notice */}
+                        {isUserMaster ? (
+                          camp.notes ? (
+                            <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed pt-1">
+                              {camp.notes.replace(/[#*`_]/g, '').trim() || 'Sem anotações no caderno.'}
+                            </p>
+                          ) : null
+                        ) : (
+                          <div className="pt-1 flex items-center gap-1.5 text-[11px] text-zinc-500 italic">
+                            <Lock className="w-3 h-3 text-amber-500/70 shrink-0" />
+                            <span>Anotações e capítulos do Mestre protegidos em sigilo.</span>
+                          </div>
                         )}
                       </div>
 
-                      {/* Bottom Row: Characters Count + Card Actions */}
+                      {/* Bottom Row: Characters Count + Members + Card Actions */}
                       <div className="mt-3 pt-2.5 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-400">
-                        <div className="flex items-center gap-3 text-[11px]">
-                          {camp.chapters && camp.chapters.length > 0 && (
+                        <div className="flex items-center gap-3 text-[11px] flex-wrap">
+                          <span className="flex items-center gap-1 text-amber-300 font-medium" title="Membros na mesa">
+                            <Users className="w-3 h-3 text-amber-400" />
+                            <span>{memberCount} {memberCount === 1 ? 'membro' : 'membros'}</span>
+                          </span>
+
+                          {isUserMaster && camp.chapters && camp.chapters.length > 0 && (
                             <span className="flex items-center gap-1 text-cyan-300 font-medium">
                               <BookOpen className="w-3 h-3 text-cyan-400" />
                               <span>{camp.chapters.length} {camp.chapters.length === 1 ? 'capítulo' : 'capítulos'}</span>
                             </span>
                           )}
+
                           <span className="flex items-center gap-1 text-zinc-300">
-                            <Users className="w-3 h-3 text-zinc-400" />
+                            <Shield className="w-3 h-3 text-zinc-400" />
                             <span>{campChars.length} fichas</span>
                           </span>
+
                           {campChars.length > 0 && (
                             <span className="text-zinc-500 hidden sm:inline">
                               ({pjCount} PJs, {npcCount} NPCs)
@@ -521,7 +682,7 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                           )}
                         </div>
 
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 shrink-0">
                           {/* Delete individual campaign button */}
                           <button
                             type="button"
