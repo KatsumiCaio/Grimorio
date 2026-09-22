@@ -32,6 +32,7 @@ import {
   isQuotaExceeded,
   resetQuotaExceeded,
 } from '../services/firebase';
+import { LegalModal } from './LegalModal';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -63,6 +64,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null);
   const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
   const [copiedFaviconNotice, setCopiedFaviconNotice] = useState(false);
+  const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -556,23 +558,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-end gap-2.5 px-5 py-3 border-t border-zinc-800 bg-zinc-950/60">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3 border-t border-zinc-800 bg-zinc-950/60">
           <button
             type="button"
-            onClick={onClose}
-            className="px-3.5 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+            onClick={() => setIsLegalModalOpen(true)}
+            className="text-[11px] text-zinc-400 hover:text-cyan-400 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            Fechar
+            <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Termos de Uso e Privacidade (LGPD)</span>
           </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-zinc-950 font-semibold rounded-lg text-xs transition-colors shadow-sm cursor-pointer"
-          >
-            Salvar Preferências
-          </button>
+
+          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3.5 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+            >
+              Fechar
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-zinc-950 font-semibold rounded-lg text-xs transition-colors shadow-sm cursor-pointer"
+            >
+              Salvar Preferências
+            </button>
+          </div>
         </div>
       </div>
+
+      <LegalModal
+        isOpen={isLegalModalOpen}
+        onClose={() => setIsLegalModalOpen(false)}
+      />
     </div>
   );
 };

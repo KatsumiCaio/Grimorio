@@ -24,6 +24,55 @@ async function startServer() {
     next();
   });
 
+  // Security hardening headers
+  app.use((_req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+  });
+
+  // In-memory sliding window rate limiter for API endpoints
+  const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+  const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+  const RATE_LIMIT_MAX_REQUESTS = 60; // 60 requests per minute
+
+  app.use((req, res, next) => {
+    if (!req.path.startsWith("/api/")) {
+      return next();
+    }
+
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "127.0.0.1";
+    const now = Date.now();
+    const clientRecord = rateLimitMap.get(ip);
+
+    if (!clientRecord || now > clientRecord.resetAt) {
+      rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+      res.setHeader("X-RateLimit-Limit", RATE_LIMIT_MAX_REQUESTS);
+      res.setHeader("X-RateLimit-Remaining", RATE_LIMIT_MAX_REQUESTS - 1);
+      res.setHeader("X-RateLimit-Reset", Math.ceil((now + RATE_LIMIT_WINDOW_MS) / 1000));
+      return next();
+    }
+
+    if (clientRecord.count >= RATE_LIMIT_MAX_REQUESTS) {
+      const retryAfterSec = Math.max(1, Math.ceil((clientRecord.resetAt - now) / 1000));
+      res.setHeader("Retry-After", retryAfterSec);
+      res.setHeader("X-RateLimit-Limit", RATE_LIMIT_MAX_REQUESTS);
+      res.setHeader("X-RateLimit-Remaining", 0);
+      res.setHeader("X-RateLimit-Reset", Math.ceil(clientRecord.resetAt / 1000));
+      return res.status(429).json({
+        error: "Muitas requisições enviadas ao servidor. Por favor, aguarde alguns instantes antes de tentar novamente.",
+        retryAfter: retryAfterSec,
+      });
+    }
+
+    clientRecord.count += 1;
+    res.setHeader("X-RateLimit-Limit", RATE_LIMIT_MAX_REQUESTS);
+    res.setHeader("X-RateLimit-Remaining", Math.max(0, RATE_LIMIT_MAX_REQUESTS - clientRecord.count));
+    res.setHeader("X-RateLimit-Reset", Math.ceil(clientRecord.resetAt / 1000));
+    next();
+  });
+
   // API Routes
   app.get("/api/health", (_req, res) => {
     res.json({

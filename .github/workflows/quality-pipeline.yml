@@ -1,0 +1,41 @@
+name: Esteira de Qualidade e Segurança (CI)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  quality-gate:
+    name: Validação de Qualidade & Testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalar Dependências
+        run: npm ci
+
+      - name: 1. Validação de Tipagem e Sintaxe (Lint)
+        run: npm run lint
+
+      - name: 2. Contratos de Arquitetura (Arch-Contract)
+        run: npm run arch:check
+
+      - name: 3. Testes Unitários e de Integração
+        run: npm run test
+
+      - name: 4. Compilação de Produção e Performance Budget
+        run: npm run build
+
+      - name: 5. Auditoria de Segurança de Dependências
+        run: npm audit --audit-level=high || true
