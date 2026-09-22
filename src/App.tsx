@@ -361,11 +361,22 @@ export default function App() {
   const handleCreateCampaign = useCallback(
     (title: string, system: string) => {
       if (!currentUser) return;
+      const initialChapter = {
+        id: `chap-${Date.now()}-1`,
+        title: 'Capítulo 1: Começo da Aventura',
+        sessionDate: 'Sessão 01',
+        order: 0,
+        content: `# ${title}\n\n## 📝 Rascunhos da Sessão\n- Escreva aqui ganchos, cenas e acontecimentos da aventura.\n`,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
       const newCamp: Campaign = {
         id: `camp-${Date.now()}`,
         title,
         system: system || 'D&D 5e',
-        notes: `# ${title}\n\n## 📝 Rascunhos da Sessão\n- Escreva aqui ganchos, cenas e acontecimentos da aventura.\n`,
+        notes: initialChapter.content,
+        chapters: [initialChapter],
+        activeChapterId: initialChapter.id,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };

@@ -27,6 +27,7 @@ import {
   enableNetwork,
 } from 'firebase/firestore';
 import { Campaign, CharacterSheet, ChatMessage, UserProfile } from '../types';
+import { ensureCampaignChapters } from './storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Configuration constants
@@ -504,14 +505,18 @@ export const subscribeToCampaigns = (
       const items: Campaign[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        items.push({
-          id: docSnap.id,
-          title: data.title || 'Campanha sem título',
-          system: data.system || 'D&D 5e',
-          notes: data.notes || '',
-          createdAt: data.createdAt || Date.now(),
-          updatedAt: data.updatedAt || Date.now(),
-        });
+        items.push(
+          ensureCampaignChapters({
+            id: docSnap.id,
+            title: data.title || 'Campanha sem título',
+            system: data.system || 'D&D 5e',
+            notes: data.notes || '',
+            chapters: Array.isArray(data.chapters) ? data.chapters : undefined,
+            activeChapterId: data.activeChapterId || undefined,
+            createdAt: data.createdAt || Date.now(),
+            updatedAt: data.updatedAt || Date.now(),
+          })
+        );
       });
       // Sort newest updated first
       items.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -729,14 +734,18 @@ export const subscribeToUserCampaigns = (
             docUserId.split('_')[1] === userId.split('_')[1]);
 
         if (isUserMatch) {
-          items.push({
-            id: docSnap.id,
-            title: data.title || 'Campanha sem título',
-            system: data.system || 'D&D 5e',
-            notes: data.notes || '',
-            createdAt: data.createdAt || Date.now(),
-            updatedAt: data.updatedAt || Date.now(),
-          });
+          items.push(
+            ensureCampaignChapters({
+              id: docSnap.id,
+              title: data.title || 'Campanha sem título',
+              system: data.system || 'D&D 5e',
+              notes: data.notes || '',
+              chapters: Array.isArray(data.chapters) ? data.chapters : undefined,
+              activeChapterId: data.activeChapterId || undefined,
+              createdAt: data.createdAt || Date.now(),
+              updatedAt: data.updatedAt || Date.now(),
+            })
+          );
         }
       });
       items.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -842,6 +851,8 @@ export const saveCampaignToFirestore = async (
         title: campaign.title || 'Campanha sem título',
         system: campaign.system || 'D&D 5e',
         notes: campaign.notes || '',
+        chapters: campaign.chapters || [],
+        activeChapterId: campaign.activeChapterId || null,
         createdAt: campaign.createdAt || Date.now(),
         updatedAt: Date.now(),
         userId,
@@ -977,6 +988,8 @@ export const checkAndSeedCloudData = async (
           title: camp.title,
           system: camp.system,
           notes: camp.notes,
+          chapters: camp.chapters || [],
+          activeChapterId: camp.activeChapterId || null,
           createdAt: camp.createdAt || Date.now(),
           updatedAt: Date.now(),
           userId: effectiveUserId,

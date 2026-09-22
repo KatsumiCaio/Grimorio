@@ -91,29 +91,65 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       }
     });
 
-    // 2. NOTES SEARCH (Deep scan into markdown text)
+    // 2. NOTES & CHAPTERS SEARCH (Deep scan into markdown text and chapters)
     campaigns.forEach((camp) => {
-      const notesLower = (camp.notes || '').toLowerCase();
-      if (q && notesLower.includes(q)) {
-        // Extract relevant snippet around match
-        const matchIndex = notesLower.indexOf(q);
-        const start = Math.max(0, matchIndex - 40);
-        const end = Math.min(camp.notes.length, matchIndex + q.length + 60);
-        let snippet = camp.notes.substring(start, end).replace(/\n+/g, ' ');
-        if (start > 0) snippet = '...' + snippet;
-        if (end < camp.notes.length) snippet = snippet + '...';
+      // Check individual chapters first
+      if (camp.chapters && camp.chapters.length > 0) {
+        camp.chapters.forEach((chap) => {
+          const chapTitleLower = (chap.title || '').toLowerCase();
+          const chapContentLower = (chap.content || '').toLowerCase();
+          const matchesTitle = chapTitleLower.includes(q);
+          const matchesContent = chapContentLower.includes(q);
 
-        items.push({
-          id: `note-${camp.id}`,
-          type: 'note',
-          title: `Caderno: ${camp.title}`,
-          subtitle: `Menção em notas da campanha`,
-          campaignId: camp.id,
-          campaignTitle: camp.title,
-          snippet,
-          badge: 'Nota',
-          badgeColor: 'border-sky-500/40 bg-sky-500/10 text-sky-300',
+          if (q && (matchesTitle || matchesContent)) {
+            let snippet = '';
+            if (matchesContent) {
+              const matchIndex = chapContentLower.indexOf(q);
+              const start = Math.max(0, matchIndex - 40);
+              const end = Math.min(chap.content.length, matchIndex + q.length + 60);
+              snippet = chap.content.substring(start, end).replace(/\n+/g, ' ');
+              if (start > 0) snippet = '...' + snippet;
+              if (end < chap.content.length) snippet = snippet + '...';
+            } else {
+              snippet = chap.content.slice(0, 100).replace(/\n+/g, ' ') + (chap.content.length > 100 ? '...' : '');
+            }
+
+            items.push({
+              id: `chap-${camp.id}-${chap.id}`,
+              type: 'note',
+              title: `${camp.title} • ${chap.title}`,
+              subtitle: chap.sessionDate ? `${chap.sessionDate} • Capítulo da Campanha` : 'Capítulo da Campanha',
+              campaignId: camp.id,
+              campaignTitle: camp.title,
+              snippet: snippet || 'Sem conteúdo adicional.',
+              badge: 'Capítulo',
+              badgeColor: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300',
+            });
+          }
         });
+      } else {
+        // Fallback for campaign without chapters
+        const notesLower = (camp.notes || '').toLowerCase();
+        if (q && notesLower.includes(q)) {
+          const matchIndex = notesLower.indexOf(q);
+          const start = Math.max(0, matchIndex - 40);
+          const end = Math.min(camp.notes.length, matchIndex + q.length + 60);
+          let snippet = camp.notes.substring(start, end).replace(/\n+/g, ' ');
+          if (start > 0) snippet = '...' + snippet;
+          if (end < camp.notes.length) snippet = snippet + '...';
+
+          items.push({
+            id: `note-${camp.id}`,
+            type: 'note',
+            title: `Caderno: ${camp.title}`,
+            subtitle: `Menção em anotações da campanha`,
+            campaignId: camp.id,
+            campaignTitle: camp.title,
+            snippet,
+            badge: 'Nota',
+            badgeColor: 'border-sky-500/40 bg-sky-500/10 text-sky-300',
+          });
+        }
       }
     });
 

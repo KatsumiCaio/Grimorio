@@ -503,13 +503,19 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
 
                       {/* Bottom Row: Characters Count + Card Actions */}
                       <div className="mt-3 pt-2.5 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-400">
-                        <div className="flex items-center gap-2 text-[11px]">
+                        <div className="flex items-center gap-3 text-[11px]">
+                          {camp.chapters && camp.chapters.length > 0 && (
+                            <span className="flex items-center gap-1 text-cyan-300 font-medium">
+                              <BookOpen className="w-3 h-3 text-cyan-400" />
+                              <span>{camp.chapters.length} {camp.chapters.length === 1 ? 'capítulo' : 'capítulos'}</span>
+                            </span>
+                          )}
                           <span className="flex items-center gap-1 text-zinc-300">
-                            <Users className="w-3 h-3 text-cyan-400" />
+                            <Users className="w-3 h-3 text-zinc-400" />
                             <span>{campChars.length} fichas</span>
                           </span>
                           {campChars.length > 0 && (
-                            <span className="text-zinc-500">
+                            <span className="text-zinc-500 hidden sm:inline">
                               ({pjCount} PJs, {npcCount} NPCs)
                             </span>
                           )}

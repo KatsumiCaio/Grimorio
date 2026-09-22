@@ -43,11 +43,24 @@ export interface BestiaryMonster {
   avatarUrl: string;
 }
 
+export interface CampaignChapter {
+  id: string;
+  title: string;
+  content: string; // Markdown notes specific to this session/chapter
+  sessionDate?: string; // e.g. "Sessão 01", "21/09/2026", "Ato I"
+  summary?: string; // Optional short recap/objective
+  order: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface Campaign {
   id: string;
   title: string;
   system: string; // e.g. "D&D 5e", "Call of Cthulhu", "Tormenta 20", "Sistema Próprio"
-  notes: string;
+  notes: string; // Active chapter notes or fallback content for legacy compat
+  chapters?: CampaignChapter[];
+  activeChapterId?: string;
   createdAt: number;
   updatedAt: number;
 }

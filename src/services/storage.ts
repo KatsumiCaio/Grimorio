@@ -1,10 +1,41 @@
-import { Campaign, CharacterSheet, AppSettings, ChatMessage, UserProfile } from '../types';
+import { Campaign, CampaignChapter, CharacterSheet, AppSettings, ChatMessage, UserProfile } from '../types';
 import { authService } from './auth';
 
 const CAMPAIGNS_STORAGE_KEY = 'grimorio_campaigns_v1';
 const CHARACTERS_STORAGE_KEY = 'grimorio_characters_v1';
 const SETTINGS_STORAGE_KEY = 'grimorio_settings_v1';
 const CHAT_STORAGE_PREFIX = 'grimorio_chat_';
+
+export function ensureCampaignChapters(campaign: Campaign): Campaign {
+  if (campaign.chapters && campaign.chapters.length > 0) {
+    const activeId = campaign.activeChapterId && campaign.chapters.some((c) => c.id === campaign.activeChapterId)
+      ? campaign.activeChapterId
+      : campaign.chapters[0].id;
+    const activeChapter = campaign.chapters.find((c) => c.id === activeId) || campaign.chapters[0];
+    return {
+      ...campaign,
+      activeChapterId: activeId,
+      notes: activeChapter.content || campaign.notes || '',
+    };
+  }
+
+  const initialChapter: CampaignChapter = {
+    id: `chap_${campaign.id}_1`,
+    title: 'Capítulo 1: Introdução & Anotações',
+    content: campaign.notes || '',
+    sessionDate: 'Sessão 01',
+    order: 0,
+    createdAt: campaign.createdAt || Date.now(),
+    updatedAt: campaign.updatedAt || Date.now(),
+  };
+
+  return {
+    ...campaign,
+    chapters: [initialChapter],
+    activeChapterId: initialChapter.id,
+    notes: initialChapter.content,
+  };
+}
 
 const DEFAULT_SETTINGS: AppSettings = {
   customApiKey: '',
@@ -22,41 +53,37 @@ const DEFAULT_CAMPAIGNS: Campaign[] = [
     system: 'D&D 5e',
     createdAt: Date.now() - 86400000 * 3,
     updatedAt: Date.now(),
-    notes: `# Sessão 4 — A Garganta dos Murmúrios
-
-## 🌒 Clima & Atmosfera
-- Névoa rasteira espessa, cheiro de enxofre antigo e cinzas frias.
-- O vento uiva entre as rochas como se sussurrasse nomes do passado dos personagens.
-
-## 🧭 Objetivo do Grupo
-O grupo precisa alcançar o monastério abandonado de Val-Khar antes que o eclipse da lua cinzenta atinja o zênite.
-Lá se encontra a relíquia conhecida como **O Olho de Quartzo**, capaz de romper o selo da cripta subterrânea.
-
----
-
-## 👥 Heróis & Aliados em Campo
-> O grupo avança com passos firmes pelo desfiladeiro rochoso. Valerius mantém a guarda erguida com seu escudo brasonado:
-
-{{ficha:char-1}}
-
----
-
-## ⚔️ Ganchos de Enredo Ativos
-1. **O Mensageiro Ferido**: Encontraram um corvo de ferro com um pergaminho manchado de sangue. O emissário prometeu 200 PO para quem impedisse o ritual no topo da torre.
-2. **A Maldição de Lyra**: As mãos da ladina começaram a escurecer desde que tocou o baú na masmorra anterior. Um teste de Sanidade/Sabedoria será exigido se entrar em áreas consagradas.
-3. **A Aliança Desconfiada**: O *Mago Vermelho Ignis* ofereceu guiar o grupo pelo desfiladeiro, mas seus verdadeiros motivos envolvem recuperar um tomo proibido.
-
----
-
-## 🏰 Locais Marcantes
-- **Ponte das Cordas Podres**: Suspensa sobre um abismo de 40 metros. Teste de Destreza (Acrobacia) CD 13 para atravessar sob a ventania forte.
-- **Santuário dos Sentinelas**: Ruína com estátuas decapitadas. Descansar aqui recupera 1 Dado de Vida extra, mas atrai sombras espectrais na 3ª hora.
-
-## 🎲 Encontros Rápidos & Ameaças
-> Entre os escombros do santuário, criaturas espreitam nas frestas de pedra:
-
-{{monstro: Goblin}}
-`,
+    notes: `# Sessão 2 — A Garganta dos Murmúrios\n\n## 🌒 Clima & Atmosfera\n- Névoa rasteira espessa, cheiro de enxofre antigo e cinzas frias.\n- O vento uiva entre as rochas como se sussurrasse nomes do passado dos personagens.\n\n## 🧭 Objetivo do Grupo\nO grupo precisa alcançar o monastério abandonado de Val-Khar antes que o eclipse da lua cinzenta atinja o zênite.\nLá se encontra a relíquia conhecida como **O Olho de Quartzo**, capaz de romper o selo da cripta subterrânea.\n\n---\n\n## 👥 Heróis & Aliados em Campo\n> O grupo avança com passos firmes pelo desfiladeiro rochoso. Valerius mantém a guarda erguida com seu escudo brasonado:\n\n{{ficha:char-1}}\n\n---\n\n## ⚔️ Ganchos de Enredo Ativos\n1. **O Mensageiro Ferido**: Encontraram um corvo de ferro com um pergaminho manchado de sangue. O emissário prometeu 200 PO para quem impedisse o ritual no topo da torre.\n2. **A Maldição de Lyra**: As mãos da ladina começaram a escurecer desde que tocou o baú na masmorra anterior. Um teste de Sanidade/Sabedoria será exigido se entrar em áreas consagradas.\n3. **A Aliança Desconfiada**: O *Mago Vermelho Ignis* ofereceu guiar o grupo pelo desfiladeiro, mas seus verdadeiros motivos envolvem recuperar um tomo proibido.\n\n---\n\n## 🏰 Locais Marcantes\n- **Ponte das Cordas Podres**: Suspensa sobre um abismo de 40 metros. Teste de Destreza (Acrobacia) CD 13 para atravessar sob a ventania forte.\n- **Santuário dos Sentinelas**: Ruína com estátuas decapitadas. Descansar aqui recupera 1 Dado de Vida extra, mas atrai sombras espectrais na 3ª hora.\n\n## 🎲 Encontros Rápidos & Ameaças\n> Entre os escombros do santuário, criaturas espreitam nas frestas de pedra:\n\n{{monstro: Goblin}}\n`,
+    chapters: [
+      {
+        id: 'chap-d1-1',
+        title: 'Capítulo 1: O Encontro no Javali Caolho',
+        sessionDate: 'Sessão 01',
+        order: 0,
+        content: `# Capítulo 1 — O Encontro no Javali Caolho\n\n## 🍻 O Ponto de Partida\n- A chuva fustiga as vidraças da taverna em Oakhaven. O taverneiro limpa canecos com um pano encardido.\n- Um emissário com capuz cinzento oferece um contrato aos heróis: investigar estranhos uivos e caravanas desaparecidas na Garganta dos Murmúrios.\n\n## 🗝️ Pistas Iniciais\n- Um corvo mecânico manchado de sangue caiu nos estábulos trazendo um pergaminho com o símbolo do Olho de Quartzo.\n- Os aldeões evitam o desfiladeiro desde a última lua cheia.\n`,
+        createdAt: Date.now() - 86400000 * 7,
+        updatedAt: Date.now() - 86400000 * 5,
+      },
+      {
+        id: 'chap-d1-2',
+        title: 'Capítulo 2: A Garganta dos Murmúrios',
+        sessionDate: 'Sessão 02',
+        order: 1,
+        content: `# Sessão 2 — A Garganta dos Murmúrios\n\n## 🌒 Clima & Atmosfera\n- Névoa rasteira espessa, cheiro de enxofre antigo e cinzas frias.\n- O vento uiva entre as rochas como se sussurrasse nomes do passado dos personagens.\n\n## 🧭 Objetivo do Grupo\nO grupo precisa alcançar o monastério abandonado de Val-Khar antes que o eclipse da lua cinzenta atinja o zênite.\nLá se encontra a relíquia conhecida como **O Olho de Quartzo**, capaz de romper o selo da cripta subterrânea.\n\n---\n\n## 👥 Heróis & Aliados em Campo\n> O grupo avança com passos firmes pelo desfiladeiro rochoso. Valerius mantém a guarda erguida com seu escudo brasonado:\n\n{{ficha:char-1}}\n\n---\n\n## ⚔️ Ganchos de Enredo Ativos\n1. **O Mensageiro Ferido**: Encontraram um corvo de ferro com um pergaminho manchado de sangue. O emissário prometeu 200 PO para quem impedisse o ritual no topo da torre.\n2. **A Maldição de Lyra**: As mãos da ladina começaram a escurecer desde que tocou o baú na masmorra anterior. Um teste de Sanidade/Sabedoria será exigido se entrar em áreas consagradas.\n3. **A Aliança Desconfiada**: O *Mago Vermelho Ignis* ofereceu guiar o grupo pelo desfiladeiro, mas seus verdadeiros motivos envolvem recuperar um tomo proibido.\n\n---\n\n## 🏰 Locais Marcantes\n- **Ponte das Cordas Podres**: Suspensa sobre um abismo de 40 metros. Teste de Destreza (Acrobacia) CD 13 para atravessar sob a ventania forte.\n- **Santuário dos Sentinelas**: Ruína com estátuas decapitadas. Descansar aqui recupera 1 Dado de Vida extra, mas atrai sombras espectrais na 3ª hora.\n\n## 🎲 Encontros Rápidos & Ameaças\n> Entre os escombros do santuário, criaturas espreitam nas frestas de pedra:\n\n{{monstro: Goblin}}\n`,
+        createdAt: Date.now() - 86400000 * 3,
+        updatedAt: Date.now(),
+      },
+      {
+        id: 'chap-d1-3',
+        title: 'Capítulo 3: O Monastério de Val-Khar',
+        sessionDate: 'Sessão 03',
+        order: 2,
+        content: `# Capítulo 3 — O Monastério de Val-Khar\n\n## ⚡ A Cripta Subterrânea\n- O eclipse da lua cinzenta atinge o ápice no céu tempestuoso sobre o cume da torre abandonada.\n- O altar de pedra no centro do monastério reluz com runas arcanas carmesins.\n\n## ⚔️ O Confronto Final\n- Guardiões de pedra despertam se qualquer personagem se aproximar a menos de 9 metros do Olho de Quartzo.\n- Teste de Arcanismo CD 15 para interromper a transferência de energia sombria.\n`,
+        createdAt: Date.now() - 86400000 * 1,
+        updatedAt: Date.now(),
+      },
+    ],
+    activeChapterId: 'chap-d1-2',
   },
   {
     id: 'camp-default-2',
@@ -64,16 +91,28 @@ Lá se encontra a relíquia conhecida como **O Olho de Quartzo**, capaz de rompe
     system: 'Call of Cthulhu 7e',
     createdAt: Date.now() - 86400000 * 10,
     updatedAt: Date.now() - 86400000 * 2,
-    notes: `# Investigação: Mistérios no Porto Decrépito
-
-## Pistas Principais
-- Diário criptografado encontrado no sótão do cartório municipal.
-- Ouro com estranho brilho esverdeado circulando na refinaria Marsh.
-
-## Testes Relevantes
-- Encontrar Livros (CD Difícil) na biblioteca da vila.
-- Psicologia para interrogar o balconista do hotel Gilman House.
-`,
+    notes: `# Investigação: Mistérios no Porto Decrépito\n\n## Pistas Principais\n- Diário criptografado encontrado no sótão do cartório municipal.\n- Ouro com estranho brilho esverdeado circulando na refinaria Marsh.\n\n## Testes Relevantes\n- Encontrar Livros (CD Difícil) na biblioteca da vila.\n- Psicologia para interrogar o balconista do hotel Gilman House.\n`,
+    chapters: [
+      {
+        id: 'chap-d2-1',
+        title: 'Capítulo 1: Chegada ao Porto Decrépito',
+        sessionDate: 'Sessão 01',
+        order: 0,
+        content: `# Investigação: Mistérios no Porto Decrépito\n\n## Pistas Principais\n- Diário criptografado encontrado no sótão do cartório municipal.\n- Ouro com estranho brilho esverdeado circulando na refinaria Marsh.\n\n## Testes Relevantes\n- Encontrar Livros (CD Difícil) na biblioteca da vila.\n- Psicologia para interrogar o balconista do hotel Gilman House.\n`,
+        createdAt: Date.now() - 86400000 * 10,
+        updatedAt: Date.now() - 86400000 * 2,
+      },
+      {
+        id: 'chap-d2-2',
+        title: 'Capítulo 2: A Refinaria Marsh & A Ordem Secreta',
+        sessionDate: 'Sessão 02',
+        order: 1,
+        content: `# Capítulo 2 — A Refinaria Marsh & A Ordem Secreta\n\n## 🌊 A Noite em Innsmouth\n- Batidas abafadas nas portas dos quartos durante a madrugada no hotel Gilman House.\n- Símbolos arcanos gravados em tiaras de ouro encontradas no porão da refinaria.\n\n## 👁️ Teste de Sanidade\n- Perda de 1d4/1d10 de Sanidade ao testemunhar formas humanoides com traços de peixe e olhos arregalados sem pálpebras.\n`,
+        createdAt: Date.now() - 86400000 * 4,
+        updatedAt: Date.now() - 86400000 * 2,
+      },
+    ],
+    activeChapterId: 'chap-d2-1',
   },
 ];
 
@@ -240,7 +279,10 @@ export const storageService = {
     try {
       const data = localStorage.getItem(storageKey);
       if (data) {
-        return JSON.parse(data);
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) {
+          return parsed.map((c) => ensureCampaignChapters(c));
+        }
       }
 
       // Check migration from legacy storage if this is the primary master account
@@ -250,33 +292,36 @@ export const storageService = {
           try {
             const parsedLegacy = JSON.parse(legacyData);
             if (Array.isArray(parsedLegacy) && parsedLegacy.length > 0) {
-              this.saveUserCampaigns(userId, parsedLegacy);
-              return parsedLegacy;
+              const ensuredLegacy = parsedLegacy.map((c) => ensureCampaignChapters(c));
+              this.saveUserCampaigns(userId, ensuredLegacy);
+              return ensuredLegacy;
             }
           } catch {
             // ignore
           }
         }
         // Seed default master campaigns
-        this.saveUserCampaigns(userId, DEFAULT_CAMPAIGNS);
-        return DEFAULT_CAMPAIGNS;
+        const ensuredDefaults = DEFAULT_CAMPAIGNS.map((c) => ensureCampaignChapters(c));
+        this.saveUserCampaigns(userId, ensuredDefaults);
+        return ensuredDefaults;
       }
 
       if (userId === 'usr_narradora') {
-        this.saveUserCampaigns(userId, NARRADORA_CAMPAIGNS);
-        return NARRADORA_CAMPAIGNS;
+        const ensuredNarradora = NARRADORA_CAMPAIGNS.map((c) => ensureCampaignChapters(c));
+        this.saveUserCampaigns(userId, ensuredNarradora);
+        return ensuredNarradora;
       }
 
       // For any newly created user, start with a fresh custom starter campaign
       const starterCamp: Campaign[] = [
-        {
+        ensureCampaignChapters({
           id: `camp_${userId}_starter`,
           title: 'Primeira Jornada',
           system: 'D&D 5e',
           notes: `# Primeira Jornada do Mestre\n\nBem-vindo ao seu novo Grimório!\n\n## ⚔️ Ganchos Iniciais\n- A aventura começa aqui. Adicione suas anotações, fichas de personagens e use o Copiloto IA para expandir seu mundo.\n`,
           createdAt: Date.now(),
           updatedAt: Date.now(),
-        },
+        }),
       ];
       this.saveUserCampaigns(userId, starterCamp);
       return starterCamp;

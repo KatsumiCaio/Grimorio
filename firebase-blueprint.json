@@ -28,6 +28,8 @@
         "title": { "type": "string" },
         "system": { "type": "string" },
         "notes": { "type": "string" },
+        "chapters": { "type": "array" },
+        "activeChapterId": { "type": "string" },
         "createdAt": { "type": "number" },
         "updatedAt": { "type": "number" }
       },
