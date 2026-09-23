@@ -118,23 +118,16 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
           systemInstruction,
           system: context?.system || 'D&D 5e',
           campaignTitle: context?.campaignTitle || 'Campanha Principal',
-          model: options.model && options.model !== 'gemini-2.5-flash' && options.model !== 'gemini-2.5-flash-lite' ? options.model : 'gemini-3.1-flash-lite',
+          model: options.model && options.model !== 'gemini-2.5-flash' && options.model !== 'gemini-2.5-flash-lite' ? options.model : 'gemini-3.8-flash',
           customApiKey: options.customApiKey || undefined,
         };
 
-        let response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          signal: controller.signal,
-          body: JSON.stringify(requestPayload),
-        });
+        let response: Response | null = null;
+        const maxAttempts = 3;
 
-        // Transient recovery: If reverse proxy was reloading or returning a temporary 405/502/503, retry once
-        if ((response.status === 405 || response.status === 502 || response.status === 503) && !controller.signal.aborted) {
-          await new Promise((r) => setTimeout(r, 700));
-          if (!controller.signal.aborted) {
+        // Resilient fetch loop: Handles dev-server warmup, proxy reload (405/502/504), and temporary spikes (503)
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
             response = await fetch('/api/chat', {
               method: 'POST',
               headers: {
@@ -143,19 +136,40 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
               signal: controller.signal,
               body: JSON.stringify(requestPayload),
             });
+
+            if (response.ok) {
+              break;
+            }
+
+            // Retry if proxy returned 405 (method not allowed while reloading), 502, 503, or 504
+            const isTransient = [405, 502, 503, 504].includes(response.status);
+            if (isTransient && attempt < maxAttempts && !controller.signal.aborted) {
+              await new Promise((r) => setTimeout(r, attempt * 800));
+              continue;
+            }
+            break;
+          } catch (fetchErr: any) {
+            if (controller.signal.aborted) throw fetchErr;
+            if (attempt < maxAttempts) {
+              await new Promise((r) => setTimeout(r, attempt * 800));
+              continue;
+            }
+            throw fetchErr;
           }
         }
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          let friendlyError = errorData.error;
+        if (!response || !response.ok) {
+          const errorData = await response?.json().catch(() => ({}));
+          let friendlyError = errorData?.error;
           if (!friendlyError) {
-            if (response.status === 405) {
-              friendlyError = 'O servidor está reiniciando ou indisponível temporariamente. Tente reenviar em alguns instantes.';
-            } else if (response.status === 503) {
-              friendlyError = 'Servidores com alta demanda. Tente novamente em alguns segundos.';
+            if (response?.status === 405) {
+              friendlyError = 'O servidor do Copiloto está finalizando a inicialização. Tente reenviar em alguns instantes.';
+            } else if (response?.status === 503) {
+              friendlyError = 'Os servidores de IA estão com alta demanda temporária. Clique em Tentar novamente.';
+            } else if (response?.status === 429) {
+              friendlyError = 'Muitas mensagens enviadas em pouco tempo. Aguarde alguns segundos.';
             } else {
-              friendlyError = `Erro na requisição (${response.status})`;
+              friendlyError = `Erro na requisição (${response?.status || 'desconectado'})`;
             }
           }
           throw new Error(friendlyError);

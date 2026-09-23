@@ -115,12 +115,22 @@ async function startServer() {
     res.setHeader("X-Accel-Buffering", "no");
     res.flushHeaders?.();
 
+    // Send immediate initial comment to establish SSE tunnel through Nginx and reverse proxies
+    res.write(": stream-open\n\n");
+
     let isAborted = false;
     res.on("close", () => {
       if (!res.writableEnded) {
         isAborted = true;
       }
     });
+
+    // Heartbeat ping every 4 seconds to maintain connection through intermediate proxies
+    const pingTimer = setInterval(() => {
+      if (!res.writableEnded && !isAborted) {
+        res.write(": ping\n\n");
+      }
+    }, 4000);
 
     try {
       const ai = new GoogleGenAI({
@@ -129,7 +139,6 @@ async function startServer() {
           headers: {
             "User-Agent": "aistudio-build",
           },
-          timeout: 12000,
         },
       });
 
@@ -141,7 +150,7 @@ async function startServer() {
       }));
 
       // Determine requested model, sanitizing deprecated names
-      let primaryModel = model || "gemini-3.1-flash-lite";
+      let primaryModel = model || "gemini-3.8-flash";
       if (
         primaryModel === "gemini-2.5-flash" ||
         primaryModel === "gemini-2.5-flash-lite" ||
@@ -149,17 +158,19 @@ async function startServer() {
         primaryModel.includes("2.0") ||
         primaryModel.includes("1.5")
       ) {
-        primaryModel = "gemini-3.1-flash-lite";
+        primaryModel = "gemini-3.8-flash";
       }
 
-      // Priority list of fallback models if primary model is unavailable or overloaded (e.g. 503 high demand)
+      // Priority list of fallback models if primary model is unavailable or experiencing temporary demand spikes (503)
       const candidateModels = Array.from(
         new Set([
           primaryModel,
-          "gemini-3.1-flash-lite",
+          "gemini-3-flash-preview",
+          "gemini-flash-lite-latest",
           "gemini-3.6-flash",
           "gemini-3.8-flash",
           "gemini-flash-latest",
+          "gemini-3.1-flash-lite",
         ])
       );
 
@@ -179,6 +190,7 @@ async function startServer() {
       for (const currentModel of candidateModels) {
         if (isAborted || res.writableEnded) break;
 
+        // Step 1: Attempt streaming with current candidate model
         try {
           const streamResult = await ai.models.generateContentStream({
             model: currentModel,
@@ -200,9 +212,6 @@ async function startServer() {
             if (text) {
               chunkReceived = true;
               res.write(`data: ${JSON.stringify({ text, activeModel: currentModel })}\n\n`);
-              if (typeof (res as any).flush === "function") {
-                (res as any).flush();
-              }
             }
           }
 
@@ -210,10 +219,43 @@ async function startServer() {
             streamSucceeded = true;
             break;
           }
-        } catch (modelErr: any) {
-          lastError = modelErr;
-          console.warn(`[Grimório AI] Modelo ${currentModel} falhou (${modelErr?.status || modelErr?.message || modelErr}). Tentando próximo modelo da cadeia...`);
-          // Continue loop to try next model in fallback list
+        } catch (streamErr: any) {
+          lastError = streamErr;
+          console.warn(`[Grimório Copilot] Streaming no modelo ${currentModel} falhou (${streamErr?.status || streamErr?.message || streamErr}). Testando modo direto...`);
+
+          // Step 2: Fallback to non-streaming generateContent on the same model if streaming timed out or had a socket issue
+          if (!isAborted && !res.writableEnded) {
+            try {
+              const nonStreamRes = await ai.models.generateContent({
+                model: currentModel,
+                contents: contentsPayload,
+                config: effectiveSystemInstruction
+                  ? {
+                      systemInstruction: effectiveSystemInstruction,
+                      temperature: 0.8,
+                    }
+                  : {
+                      temperature: 0.8,
+                    },
+              });
+
+              const generatedText = nonStreamRes.text || "";
+              if (generatedText) {
+                // Stream the generated text in comfortable paragraphs/chunks to preserve UI typing animation
+                const chunkSize = 160;
+                for (let i = 0; i < generatedText.length; i += chunkSize) {
+                  if (isAborted || res.writableEnded) break;
+                  const slice = generatedText.slice(i, i + chunkSize);
+                  res.write(`data: ${JSON.stringify({ text: slice, activeModel: currentModel })}\n\n`);
+                }
+                streamSucceeded = true;
+                break;
+              }
+            } catch (nonStreamErr: any) {
+              lastError = nonStreamErr;
+              console.warn(`[Grimório Copilot] Modo direto no modelo ${currentModel} falhou (${nonStreamErr?.status || nonStreamErr?.message || nonStreamErr}). Próximo modelo...`);
+            }
+          }
         }
       }
 
@@ -229,8 +271,8 @@ async function startServer() {
             errorMessage = "Limite de cota atingido na API Gemini. Aguarde alguns instantes ou forneça sua chave pessoal em Configurações.";
           } else if (errorMessage.includes("API key not valid") || errorMessage.includes("API_KEY_INVALID")) {
             errorMessage = "A chave de API Gemini informada é inválida. Verifique sua chave no menu de Configurações.";
-          } else if (errorMessage.includes("high demand") || errorMessage.includes("503")) {
-            errorMessage = "Os servidores do Gemini estão com alta demanda no momento. Por favor, tente novamente em alguns segundos.";
+          } else if (errorMessage.includes("high demand") || errorMessage.includes("503") || errorMessage.includes("UNAVAILABLE")) {
+            errorMessage = "Os servidores de IA estão com alta demanda momentânea no Google Cloud. Clique em 'Tentar novamente' em alguns segundos.";
           }
         }
         res.write(`data: ${JSON.stringify({ error: errorMessage })}\n\n`);
@@ -239,13 +281,14 @@ async function startServer() {
       }
     } catch (err: any) {
       console.error("Gemini API handler fatal error:", err);
-      let errorMessage = err?.message || "Erro desconhecido ao consultar a API Gemini.";
+      let errorMessage = err?.message || "Erro inesperado ao consultar a API Gemini.";
       if (!res.writableEnded) {
         res.write(`data: ${JSON.stringify({ error: errorMessage })}\n\n`);
         res.write("data: [DONE]\n\n");
         res.end();
       }
     } finally {
+      clearInterval(pingTimer);
       if (!res.writableEnded) {
         res.end();
       }

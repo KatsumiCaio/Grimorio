@@ -71,7 +71,7 @@ export function ensureCampaignChapters(campaign: Campaign): Campaign {
 
 const DEFAULT_SETTINGS: AppSettings = {
   customApiKey: '',
-  model: 'gemini-3.1-flash-lite',
+  model: 'gemini-3.8-flash',
   fontSize: 'base',
   editorMode: 'edit',
   customLogoUrl: '',
@@ -587,7 +587,7 @@ export const storageService = {
         settings.model === 'gemini-2.5-flash-lite' ||
         !settings.model
       ) {
-        settings.model = 'gemini-3.1-flash-lite';
+        settings.model = 'gemini-3.8-flash';
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
       }
       return settings;

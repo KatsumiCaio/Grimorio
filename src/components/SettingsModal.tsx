@@ -325,15 +325,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <select
                 value={
                   formData.model === 'gemini-2.5-flash' || formData.model === 'gemini-2.5-flash-lite'
-                    ? 'gemini-3.1-flash-lite'
-                    : formData.model || 'gemini-3.1-flash-lite'
+                    ? 'gemini-3.8-flash'
+                    : formData.model || 'gemini-3.8-flash'
                 }
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500/60"
               >
-                <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Recomendado - Ultra Rápido & Estável)</option>
-                <option value="gemini-3.6-flash">gemini-3.6-flash (Equilibrado & Raciocínio)</option>
-                <option value="gemini-3.8-flash">gemini-3.8-flash (Avançado)</option>
+                <option value="gemini-3.8-flash">gemini-3.8-flash (Recomendado - Alta Precisão & Narrativa)</option>
+                <option value="gemini-3-flash-preview">gemini-3-flash-preview (Alta Disponibilidade & Rápido)</option>
+                <option value="gemini-flash-lite-latest">gemini-flash-lite-latest (Ultraleve & Econômico)</option>
+                <option value="gemini-3.6-flash">gemini-3.6-flash (Equilibrado)</option>
+                <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Rápido)</option>
                 <option value="gemini-flash-latest">gemini-flash-latest (Versão Mais Recente)</option>
               </select>
               <p className="text-[11px] text-zinc-500 mt-1">

@@ -75,7 +75,7 @@ describe('Storage & Campaign Utilities', () => {
 
     it('deve salvar e carregar as configurações do usuário', () => {
       const mockSettings = {
-        model: 'gemini-3.1-flash-lite',
+        model: 'gemini-3.8-flash',
         customApiKey: 'custom-test-key-12345',
         fontSize: 'base' as const,
         editorMode: 'split' as const,
@@ -84,7 +84,7 @@ describe('Storage & Campaign Utilities', () => {
       storageService.saveSettings(mockSettings);
       const loaded = storageService.getSettings();
 
-      expect(loaded.model).toBe('gemini-3.1-flash-lite');
+      expect(loaded.model).toBe('gemini-3.8-flash');
       expect(loaded.customApiKey).toBe('custom-test-key-12345');
       expect(loaded.fontSize).toBe('base');
       expect(loaded.editorMode).toBe('split');
