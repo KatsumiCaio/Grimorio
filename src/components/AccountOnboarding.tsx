@@ -27,7 +27,7 @@ interface AccountOnboardingProps {
 }
 
 export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserReady }) => {
-  const [activeTab, setActiveTab] = useState<'register' | 'login' | 'transfer'>('register');
+  const [activeTab, setActiveTab] = useState<'login' | 'register' | 'transfer'>('login');
   const [cloudStatus, setCloudStatus] = useState<CloudDbStatus | null>(null);
 
   // Register Form State
@@ -35,6 +35,7 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
   const [regUsername, setRegUsername] = useState('');
   const [regRole, setRegRole] = useState<UserRole>('Mestre da Masmorra');
   const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [regAvatar, setRegAvatar] = useState('d20');
   const [regColor, setRegColor] = useState<UserProfile['color']>('cyan');
   const [regStarterCamp, setRegStarterCamp] = useState(true);
@@ -54,6 +55,21 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRestoringDemo, setIsRestoringDemo] = useState(false);
   const [isCheckingCloud, setIsCheckingCloud] = useState(false);
+
+  const localAccounts = authService.getAccounts();
+
+  const getPasswordStrength = (pwd: string) => {
+    if (!pwd) return { label: '', color: 'bg-zinc-700', width: 'w-0' };
+    if (pwd.length < 4) return { label: 'Muito curta (mínimo 4 caracteres)', color: 'bg-rose-500', width: 'w-1/4' };
+    if (pwd.length < 6) return { label: 'Fraca', color: 'bg-amber-500', width: 'w-2/4' };
+    const hasLetters = /[a-zA-Z]/.test(pwd);
+    const hasNumbers = /[0-9]/.test(pwd);
+    const hasSymbols = /[^a-zA-Z0-9]/.test(pwd);
+    if (pwd.length >= 8 && hasLetters && (hasNumbers || hasSymbols)) {
+      return { label: 'Forte & Segura', color: 'bg-emerald-500', width: 'w-full' };
+    }
+    return { label: 'Média', color: 'bg-cyan-500', width: 'w-3/4' };
+  };
 
   const handleRecheckCloud = async () => {
     setIsCheckingCloud(true);
@@ -87,6 +103,17 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegError(null);
+
+    if (regPassword !== regConfirmPassword) {
+      setRegError('As senhas digitadas não coincidem. Digite a mesma senha nos dois campos.');
+      return;
+    }
+
+    if (regPassword.length < 4) {
+      setRegError('Para proteger suas anotações e fichas, defina uma senha com pelo menos 4 caracteres.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -268,8 +295,20 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
           </div>
         )}
 
-        {/* Tab Switcher */}
+        {/* Tab Switcher - Login First for New & Returning Devices */}
         <div className="flex rounded-xl bg-zinc-950/80 p-1 border border-zinc-800 mb-6">
+          <button
+            type="button"
+            onClick={() => setActiveTab('login')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+              activeTab === 'login'
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Entrar na Conta</span>
+          </button>
           <button
             type="button"
             onClick={() => setActiveTab('register')}
@@ -281,18 +320,6 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span>Criar Conta</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('login')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              activeTab === 'login'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Entrar</span>
           </button>
           <button
             type="button"
@@ -308,7 +335,123 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
           </button>
         </div>
 
-        {/* TAB 1: REGISTER FORM */}
+        {/* TAB 1: LOGIN FORM (Default for new & returning devices) */}
+        {activeTab === 'login' && (
+          <form onSubmit={handleLogin} className="space-y-4">
+            {loginError && (
+              <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex flex-col gap-2">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">{loginError}</span>
+                </div>
+                <div className="flex items-center gap-3 pt-1 border-t border-rose-500/20 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('transfer')}
+                    className="text-cyan-300 hover:text-cyan-200 underline font-medium cursor-pointer"
+                  >
+                    Transferir conta do outro dispositivo por Código
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Profile Select if accounts are cached on this device */}
+            {localAccounts.length > 0 && (
+              <div className="p-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80">
+                <div className="text-[11px] font-semibold text-zinc-300 mb-2 flex items-center justify-between">
+                  <span>Perfis salvos neste aparelho:</span>
+                  <span className="text-[10px] text-zinc-500">Toque para selecionar</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {localAccounts.map((acc) => {
+                    const isSelected = loginIdentifier.toLowerCase() === acc.username.toLowerCase();
+                    return (
+                      <button
+                        key={acc.id}
+                        type="button"
+                        onClick={() => {
+                          setLoginIdentifier(acc.username);
+                          setLoginError(null);
+                        }}
+                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-cyan-500 bg-cyan-500/20 text-cyan-200 shadow-xs'
+                            : 'border-zinc-800 bg-zinc-900/60 text-zinc-300 hover:border-zinc-700'
+                        }`}
+                      >
+                        <UserAvatar avatarId={acc.avatarId} color={acc.color} size="xs" />
+                        <div className="text-left">
+                          <div className="font-medium text-[11px] leading-tight">{acc.displayName}</div>
+                          <div className="text-[9px] text-zinc-400 font-mono">@{acc.username}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-[11px] font-medium text-zinc-300 mb-1">
+                Nome de Usuário / Login *
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Seu usuário cadastrado (ex: mestre_valerius)"
+                value={loginIdentifier}
+                onChange={(e) => setLoginIdentifier(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-cyan-500 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-zinc-300 mb-1">
+                Senha de Acesso
+              </label>
+              <input
+                type="password"
+                placeholder="Sua senha de segurança"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-cyan-500"
+              />
+              <p className="text-[10px] text-zinc-500 mt-1">
+                Por segurança, contas protegidas por senha exigem autenticação em qualquer dispositivo.
+              </p>
+            </div>
+
+            {/* Security Guarantee Note */}
+            <div className="p-2.5 rounded-lg bg-cyan-950/20 border border-cyan-500/20 text-[11px] text-cyan-200/90 flex items-start gap-2">
+              <Shield className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5" />
+              <span>
+                <strong>Sessão Segura:</strong> Dispositivos novos nunca entram automaticamente na sua conta. Suas campanhas, fichas e anotações permanecem protegidas.
+              </span>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full py-2.5 px-4 bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Validando credenciais e sincronizando...</span>
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-4 h-4" />
+                  <span>Entrar no Grimório</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+        )}
+
+        {/* TAB 2: REGISTER FORM */}
         {activeTab === 'register' && (
           <form onSubmit={handleRegister} className="space-y-4">
             {regError && (
@@ -348,37 +491,70 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
               </div>
             </div>
 
+            <div>
+              <label className="block text-[11px] font-medium text-zinc-300 mb-1">
+                Papel no RPG
+              </label>
+              <select
+                value={regRole}
+                onChange={(e) => setRegRole(e.target.value as UserRole)}
+                className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 focus:outline-none focus:border-cyan-500"
+              >
+                {ROLES.map((role) => (
+                  <option key={role} value={role} className="bg-zinc-900 text-zinc-100">
+                    {role}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Password with Confirmation & Strength Indicator */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-medium text-zinc-300 mb-1">
-                  Papel no RPG
-                </label>
-                <select
-                  value={regRole}
-                  onChange={(e) => setRegRole(e.target.value as UserRole)}
-                  className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 focus:outline-none focus:border-cyan-500"
-                >
-                  {ROLES.map((role) => (
-                    <option key={role} value={role} className="bg-zinc-900 text-zinc-100">
-                      {role}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-zinc-300 mb-1">
-                  Senha (opcional)
+                  Senha de Proteção *
                 </label>
                 <input
                   type="password"
-                  placeholder="Deixe em branco se preferir"
+                  required
+                  placeholder="Mínimo 4 caracteres"
                   value={regPassword}
                   onChange={(e) => setRegPassword(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-cyan-500"
                 />
               </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-zinc-300 mb-1">
+                  Confirmar Senha *
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Repita sua senha"
+                  value={regConfirmPassword}
+                  onChange={(e) => setRegConfirmPassword(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-cyan-500"
+                />
+              </div>
             </div>
+
+            {/* Password Strength Indicator */}
+            {regPassword && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-zinc-400">Força da Senha:</span>
+                  <span className="font-semibold text-zinc-300">{getPasswordStrength(regPassword).label}</span>
+                </div>
+                <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-300 ${getPasswordStrength(regPassword).color} ${
+                      getPasswordStrength(regPassword).width
+                    }`}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Avatar Selection */}
             <div>
@@ -447,78 +623,6 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
                 <>
                   <Sparkles className="w-4 h-4" />
                   <span>Criar Meu Grimório & Iniciar</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-        )}
-
-        {/* TAB 2: LOGIN FORM */}
-        {activeTab === 'login' && (
-          <form onSubmit={handleLogin} className="space-y-4">
-            {loginError && (
-              <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex flex-col gap-2">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span className="leading-relaxed">{loginError}</span>
-                </div>
-                <div className="flex items-center gap-3 pt-1 border-t border-rose-500/20 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('transfer')}
-                    className="text-cyan-300 hover:text-cyan-200 underline font-medium cursor-pointer"
-                  >
-                    Transferir conta do outro dispositivo por Código
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-[11px] font-medium text-zinc-300 mb-1">
-                Nome de Usuário / Login
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="Seu usuário cadastrado"
-                value={loginIdentifier}
-                onChange={(e) => setLoginIdentifier(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-cyan-500 font-mono"
-              />
-              <p className="text-[10px] text-zinc-500 mt-1">
-                Ao ativar o Cloud Firestore, as contas criadas em qualquer dispositivo são baixadas automaticamente.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-medium text-zinc-300 mb-1">
-                Senha (se cadastrada)
-              </label>
-              <input
-                type="password"
-                placeholder="Sua senha ou deixe vazio se não tiver"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-cyan-500"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-2.5 px-4 bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Consultando contas...</span>
-                </>
-              ) : (
-                <>
-                  <LogIn className="w-4 h-4" />
-                  <span>Entrar no Grimório</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

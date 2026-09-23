@@ -130,6 +130,12 @@ export default function App() {
     [currentUser]
   );
 
+  // Logout current device session
+  const handleLogout = useCallback(() => {
+    authService.logout();
+    handleUserChanged(null);
+  }, [handleUserChanged]);
+
   // Initialize Cloud Sync for all User Accounts
   useEffect(() => {
     const unsubCloudAuth = authService.initCloudSync();
@@ -742,6 +748,7 @@ export default function App() {
           syncStatus={syncStatus}
           currentUser={currentUser}
           onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          onLogout={handleLogout}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenSearch={() => setIsSearchOpen(true)}
           customLogoUrl={settings.customLogoUrl}

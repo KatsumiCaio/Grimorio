@@ -14,6 +14,7 @@ import {
   Scroll,
   Skull,
   ExternalLink,
+  LogOut,
 } from 'lucide-react';
 import { FlamingD20Logo } from './FlamingD20Logo';
 import { MainTab, Campaign, UserProfile } from '../types';
@@ -32,6 +33,7 @@ interface HeaderProps {
   syncStatus?: 'synced' | 'syncing' | 'offline' | 'error' | 'quota';
   currentUser?: UserProfile;
   onOpenAuthModal?: () => void;
+  onLogout?: () => void;
   onOpenSettings: () => void;
   onOpenSearch: () => void;
   customLogoUrl?: string;
@@ -49,6 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
   syncStatus = 'synced',
   currentUser,
   onOpenAuthModal,
+  onLogout,
   onOpenSettings,
   onOpenSearch,
   customLogoUrl,
@@ -204,30 +207,43 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* User Account / Profile Switcher Button */}
+        {/* User Account / Profile Switcher Button & Logout */}
         {currentUser && (
-          <button
-            id="header-user-profile-btn"
-            onClick={onOpenAuthModal}
-            className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-cyan-500/50 text-xs transition-all cursor-pointer group shadow-xs"
-            title={`Perfil ativo: ${currentUser.displayName} (@${currentUser.username}) - Clique para alternar ou gerenciar contas`}
-          >
-            <UserAvatar
-              avatarId={currentUser.avatarId}
-              color={currentUser.color}
-              size="xs"
-              showGlow={true}
-            />
-            <div className="flex flex-col text-left min-w-0">
-              <span className="font-semibold text-zinc-100 text-[11px] leading-tight truncate max-w-[80px] sm:max-w-[115px]">
-                {currentUser.displayName}
-              </span>
-              <span className="text-[9px] text-cyan-400 font-mono leading-none truncate max-w-[80px] sm:max-w-[115px]">
-                {currentUser.role.split(' ')[0]}
-              </span>
-            </div>
-            <ChevronDown className="w-3 h-3 text-zinc-500 group-hover:text-cyan-400 shrink-0 transition-colors" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              id="header-user-profile-btn"
+              onClick={onOpenAuthModal}
+              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-cyan-500/50 text-xs transition-all cursor-pointer group shadow-xs"
+              title={`Perfil ativo: ${currentUser.displayName} (@${currentUser.username}) - Clique para alternar ou gerenciar contas`}
+            >
+              <UserAvatar
+                avatarId={currentUser.avatarId}
+                color={currentUser.color}
+                size="xs"
+                showGlow={true}
+              />
+              <div className="flex flex-col text-left min-w-0">
+                <span className="font-semibold text-zinc-100 text-[11px] leading-tight truncate max-w-[80px] sm:max-w-[115px]">
+                  {currentUser.displayName}
+                </span>
+                <span className="text-[9px] text-cyan-400 font-mono leading-none truncate max-w-[80px] sm:max-w-[115px]">
+                  {currentUser.role.split(' ')[0]}
+                </span>
+              </div>
+              <ChevronDown className="w-3 h-3 text-zinc-500 group-hover:text-cyan-400 shrink-0 transition-colors" />
+            </button>
+
+            {onLogout && (
+              <button
+                id="header-logout-btn"
+                onClick={onLogout}
+                className="p-1.5 rounded-xl bg-zinc-900/90 hover:bg-rose-500/15 border border-zinc-800 hover:border-rose-500/40 text-zinc-400 hover:text-rose-300 transition-colors cursor-pointer"
+                title="Desconectar deste dispositivo (Sair para a tela de login)"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         )}
 
         {/* Global Search Button */}

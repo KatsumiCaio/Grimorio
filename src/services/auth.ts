@@ -11,8 +11,9 @@ import {
 const ACCOUNTS_STORAGE_KEY = 'grimorio_accounts_v3';
 const CURRENT_USER_ID_KEY = 'grimorio_current_user_id_v3';
 const ACCOUNTS_CLEARED_FLAG = 'grimorio_accounts_explicitly_cleared_v3';
+const DEVICE_SESSION_KEY = 'grimorio_device_session_v4';
 
-// Simple deterministic hash for local client profile protection
+// Simple deterministic hash for legacy profile verification
 export function hashPassword(plain: string): string {
   if (!plain) return '';
   let hash = 0;
@@ -22,6 +23,50 @@ export function hashPassword(plain: string): string {
     hash |= 0;
   }
   return `h_${Math.abs(hash).toString(36)}_${plain.length}`;
+}
+
+// Cryptographic salted SHA-256 hash for secure user credentials
+export async function hashPasswordCrypto(plain: string): Promise<string> {
+  if (!plain) return '';
+  try {
+    const salt = 'grimorio_rpg_salt_v4:';
+    const data = new TextEncoder().encode(salt + plain);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    const hex = Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    return `s256_${hex}`;
+  } catch {
+    return hashPassword(plain);
+  }
+}
+
+// Asynchronously verify entered password against stored hash (supports SHA-256 & legacy)
+export async function verifyPasswordAsync(plain: string, storedHash?: string): Promise<boolean> {
+  if (!storedHash || storedHash === 'h_0_0' || storedHash === hashPassword('')) {
+    return true; // No password protection set
+  }
+  if (!plain) return false;
+
+  if (storedHash.startsWith('s256_')) {
+    const computed = await hashPasswordCrypto(plain);
+    return computed === storedHash;
+  }
+
+  // Legacy format support
+  return hashPassword(plain) === storedHash;
+}
+
+// Synchronous check for UI fast path (if legacy or no password)
+export function verifyPasswordSync(plain: string, storedHash?: string): boolean {
+  if (!storedHash || storedHash === 'h_0_0' || storedHash === hashPassword('')) {
+    return true;
+  }
+  if (!plain) return false;
+  if (storedHash.startsWith('h_')) {
+    return hashPassword(plain) === storedHash;
+  }
+  return false;
 }
 
 export const DEFAULT_ACCOUNTS: UserProfile[] = [
@@ -140,7 +185,7 @@ export const authService = {
       const merged = Array.from(mergedMap.values());
       this.saveAccounts(merged);
 
-      // 3. Handle active user redirect or smart auto-selection
+      // 3. Handle active user session & profile update from cloud
       let currentId = localStorage.getItem(CURRENT_USER_ID_KEY);
       if (currentId && redirectUserIdMap.has(currentId)) {
         const redirected = redirectUserIdMap.get(currentId)!;
@@ -150,14 +195,12 @@ export const authService = {
         } catch {}
       }
 
-      // If on a new device with only default user or no user, auto-select the custom user account
-      const customUsers = merged.filter((u) => u.id !== 'usr_mestre' && u.id !== 'usr_narradora');
-      if (customUsers.length >= 1 && (!currentId || currentId === 'usr_mestre')) {
-        this.setCurrentUser(customUsers[0].id);
-      } else if (currentId && mergedMap.has(currentId)) {
+      // CRITICAL SECURITY FIX FOR MULTI-DEVICE PRIVACY:
+      // If this device already has an explicitly authenticated user session, keep their profile updated.
+      // If this is a new device or the user is logged out (!currentId), DO NOT AUTO-LOGIN!
+      // The application MUST stay on the login screen so the user enters credentials.
+      if (currentId && mergedMap.has(currentId)) {
         notifyListeners(mergedMap.get(currentId)!);
-      } else if (merged.length > 0 && !currentId) {
-        this.setCurrentUser(merged[0].id);
       }
     };
 
@@ -211,35 +254,26 @@ export const authService = {
     }
   },
 
+  // Returns currently authenticated user on THIS device, or null if on login screen
   getCurrentUser(): UserProfile | null {
-    const accounts = this.getAccounts();
-    if (accounts.length === 0) {
-      return null;
-    }
-
     try {
       const currentId = localStorage.getItem(CURRENT_USER_ID_KEY);
-      if (currentId) {
-        const found = accounts.find((a) => a.id === currentId);
-        if (found) return found;
+      if (!currentId) {
+        return null;
       }
+      const accounts = this.getAccounts();
+      const found = accounts.find((a) => a.id === currentId);
+      return found || null;
     } catch {
-      // fallback
+      return null;
     }
-
-    const first = accounts[0];
-    try {
-      localStorage.setItem(CURRENT_USER_ID_KEY, first.id);
-    } catch {
-      // ignore
-    }
-    return first;
   },
 
   setCurrentUser(userId: string | null): UserProfile | null {
     if (!userId) {
       try {
         localStorage.removeItem(CURRENT_USER_ID_KEY);
+        localStorage.removeItem(DEVICE_SESSION_KEY);
       } catch {}
       notifyListeners(null);
       return null;
@@ -253,6 +287,7 @@ export const authService = {
     this.saveAccounts(accounts);
     try {
       localStorage.setItem(CURRENT_USER_ID_KEY, target.id);
+      localStorage.setItem(DEVICE_SESSION_KEY, `session_${target.id}_${Date.now()}`);
     } catch {
       // ignore
     }
@@ -262,6 +297,11 @@ export const authService = {
 
     notifyListeners(target);
     return target;
+  },
+
+  // Explicit device logout: clear device session and send to login screen
+  logout(): void {
+    this.setCurrentUser(null);
   },
 
   // Synchronous quick login check (for locally cached accounts)
@@ -286,7 +326,7 @@ export const authService = {
       };
     }
 
-    if (user.passwordHash && user.passwordHash !== hashPassword('')) {
+    if (user.passwordHash && user.passwordHash !== 'h_0_0' && user.passwordHash !== hashPassword('')) {
       const enteredHash = hashPassword(password || '');
       if (enteredHash !== user.passwordHash) {
         return { success: false, error: 'Senha incorreta. Tente novamente.' };
@@ -348,11 +388,21 @@ export const authService = {
       };
     }
 
-    // 3. Verify password
-    if (target.passwordHash && target.passwordHash !== hashPassword('')) {
-      const enteredHash = hashPassword(password || '');
-      if (enteredHash !== target.passwordHash) {
+    // 3. Verify password securely
+    if (target.passwordHash && target.passwordHash !== 'h_0_0' && target.passwordHash !== hashPassword('')) {
+      if (!password) {
+        return {
+          success: false,
+          error: 'Esta conta possui senha de proteção. Digite sua senha para entrar.',
+        };
+      }
+      const isMatch = await verifyPasswordAsync(password, target.passwordHash);
+      if (!isMatch) {
         return { success: false, error: 'Senha incorreta. Verifique e tente novamente.' };
+      }
+      // Upgrade legacy password hash to SHA-256 for better security
+      if (!target.passwordHash.startsWith('s256_')) {
+        target.passwordHash = await hashPasswordCrypto(password);
       }
     }
 
@@ -364,16 +414,7 @@ export const authService = {
     }
     this.saveAccounts(updatedAccounts);
 
-    try {
-      localStorage.setItem(CURRENT_USER_ID_KEY, target.id);
-    } catch {
-      // ignore
-    }
-
-    // Sync last login to cloud
-    void saveUserToFirestore(target);
-    notifyListeners(target);
-
+    this.setCurrentUser(target.id);
     return { success: true, user: target };
   },
 
@@ -399,12 +440,20 @@ export const authService = {
       };
     }
 
+    const cleanPassword = (data.password || '').trim();
+    if (!cleanPassword || cleanPassword.length < 4) {
+      return {
+        success: false,
+        error: 'Para a segurança e privacidade da sua conta, defina uma senha com no mínimo 4 caracteres.',
+      };
+    }
+
     // Check local accounts
     const accounts = this.getAccounts();
     if (accounts.some((a) => a.username.toLowerCase() === cleanUsername)) {
       return {
         success: false,
-        error: `O login "${cleanUsername}" já está em uso por outro mestre/jogador.`,
+        error: `O login "${cleanUsername}" já está em uso por outro mestre/jogador neste aparelho.`,
       };
     }
 
@@ -421,6 +470,8 @@ export const authService = {
       console.warn('Aviso ao checar usuário na nuvem:', err);
     }
 
+    const secureHash = await hashPasswordCrypto(cleanPassword);
+
     const newUser: UserProfile = {
       id: `usr_${cleanUsername}_${Date.now().toString(36)}`,
       username: cleanUsername,
@@ -431,7 +482,7 @@ export const authService = {
       bio: data.bio || `Grimório de ${cleanDisplayName}`,
       createdAt: Date.now(),
       lastLoginAt: Date.now(),
-      passwordHash: hashPassword(data.password || ''),
+      passwordHash: secureHash,
     };
 
     // Save locally
@@ -489,7 +540,11 @@ export const authService = {
     if (updates.bio !== undefined) target.bio = updates.bio;
 
     if (updates.newPassword !== undefined) {
-      target.passwordHash = hashPassword(updates.newPassword);
+      const cleanPwd = updates.newPassword.trim();
+      if (cleanPwd && cleanPwd.length < 4) {
+        return { success: false, error: 'A nova senha deve ter pelo menos 4 caracteres.' };
+      }
+      target.passwordHash = cleanPwd ? await hashPasswordCrypto(cleanPwd) : '';
     }
 
     accounts[index] = target;

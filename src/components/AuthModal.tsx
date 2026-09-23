@@ -61,6 +61,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [regUsername, setRegUsername] = useState('');
   const [regRole, setRegRole] = useState<UserRole>('Mestre da Masmorra');
   const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [regAvatar, setRegAvatar] = useState('d20');
   const [regColor, setRegColor] = useState<UserProfile['color']>('cyan');
   const [regCustomAvatarUrl, setRegCustomAvatarUrl] = useState('');
@@ -133,7 +134,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Handler: Switch user directly
   const handleDirectSwitch = (account: UserProfile) => {
-    if (account.id === currentUser.id) {
+    if (currentUser && account.id === currentUser.id) {
       onClose();
       return;
     }
@@ -151,6 +152,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       onUserChanged(switched);
       onClose();
     }
+  };
+
+  // Handler: Logout current device session
+  const handleLogout = () => {
+    authService.logout();
+    onUserChanged(null);
+    onClose();
   };
 
   // Handler: Confirm switch with password
@@ -204,6 +212,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegError(null);
+
+    if (regPassword) {
+      if (regPassword.length < 4) {
+        setRegError('Para sua segurança, a senha deve ter pelo menos 4 caracteres.');
+        return;
+      }
+      if (regPassword !== regConfirmPassword) {
+        setRegError('As senhas digitadas não coincidem.');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -580,16 +600,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                  Selecione a conta para acessar o seu Grimório
+                  Contas neste Grimório
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('register')}
-                  className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium cursor-pointer"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Cadastrar Novo Mestre</span>
-                </button>
+                <div className="flex items-center gap-3">
+                  {currentUser && (
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 font-medium cursor-pointer transition-colors"
+                      title="Sair desta conta e voltar para a tela de login"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Desconectar Sessão</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('register')}
+                    className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Cadastrar Novo Mestre</span>
+                  </button>
+                </div>
               </div>
 
               {/* Quick Switch Password Modal Form */}
@@ -905,26 +938,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               {/* Password */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-300 flex items-center justify-between">
-                  <span>Senha de Acesso (Opcional)</span>
-                  <span className="text-[10px] text-zinc-500">Deixe em branco para acesso rápido sem senha</span>
-                </label>
-                <div className="relative">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-zinc-300 flex items-center justify-between">
+                    <span>Senha de Proteção</span>
+                    <span className="text-[10px] text-zinc-500">(Mínimo 4 caracteres)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Defina uma senha..."
+                      value={regPassword}
+                      onChange={(e) => setRegPassword(e.target.value)}
+                      className="w-full px-3 py-2 pr-10 text-sm bg-zinc-950 border border-zinc-700 rounded-xl text-zinc-100 focus:outline-hidden focus:border-cyan-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-2.5 text-zinc-400 hover:text-zinc-200"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-zinc-300">
+                    Confirmar Senha
+                  </label>
                   <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Defina uma senha ou PIN..."
-                    value={regPassword}
-                    onChange={(e) => setRegPassword(e.target.value)}
-                    className="w-full px-3 py-2 pr-10 text-sm bg-zinc-950 border border-zinc-700 rounded-xl text-zinc-100 focus:outline-hidden focus:border-cyan-500"
+                    type="password"
+                    placeholder="Repita a senha digitada"
+                    value={regConfirmPassword}
+                    onChange={(e) => setRegConfirmPassword(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-zinc-950 border border-zinc-700 rounded-xl text-zinc-100 focus:outline-hidden focus:border-cyan-500"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-2.5 text-zinc-400 hover:text-zinc-200"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
                 </div>
               </div>
 
