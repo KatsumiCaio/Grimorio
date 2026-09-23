@@ -522,6 +522,55 @@ export const SHEET_TEMPLATES: SheetTemplate[] = [
 - Personalize atributos e valores conforme a mecânica do seu sistema.
 - Crie novas barras de recursos de acordo com a necessidade.`,
   },
+  {
+    id: '3det',
+    name: '3D&T (Alpha / Victory)',
+    system: '3D&T Victory',
+    category: 'Nacional',
+    badge: '1d6 Anime & F,H,R,A,PdF',
+    description: 'Sistema nacional ágil para anime e fantasia com F, H, R, A, PdF e escala de pontos.',
+    defaultRolePJ: 'Lutador Espadachim (5 Pontos)',
+    defaultRoleNPC: 'Monstro Gigante Kaiju / Rival',
+    attributes: [
+      { key: 'F', label: 'Força', value: 2, category: 'Atributo Principal' },
+      { key: 'H', label: 'Habilidade', value: 3, category: 'Atributo Principal' },
+      { key: 'R', label: 'Resistência', value: 2, category: 'Atributo Principal' },
+      { key: 'A', label: 'Armadura', value: 1, category: 'Atributo Principal' },
+      { key: 'PdF', label: 'Poder de Fogo', value: 0, category: 'Atributo Principal' },
+    ],
+    resources: [
+      { name: 'Pontos de Vida (PV)', current: 10, max: 10, color: 'red' },
+      { name: 'Pontos de Mana (PM)', current: 10, max: 10, color: 'blue' },
+      { name: 'Pontos de Ação (PA)', current: 1, max: 3, color: 'amber', isOptional: true },
+    ],
+    archetypes: [
+      {
+        id: '3det-guerreiro',
+        name: 'Lutador / Espadachim',
+        rolePJ: 'Espadachim Humano (Novato)',
+        roleNPC: 'Capitão da Guarda Local',
+        description: 'Alta Força e Habilidade em combate corpo a corpo com golpes velozes.',
+        attributes: { F: 3, H: 3, R: 2, A: 2, PdF: 0 },
+        resources: { 'Pontos de Vida (PV)': { current: 10, max: 10 }, 'Pontos de Mana (PM)': { current: 10, max: 10 } },
+      },
+      {
+        id: '3det-mago',
+        name: 'Mago / Conjurador',
+        rolePJ: 'Mago Elemental (Novato)',
+        roleNPC: 'Ermitão Feiticeiro',
+        description: 'Alta Habilidade e Resistência para conjurar magias devastadoras.',
+        attributes: { F: 0, H: 4, R: 3, A: 1, PdF: 2 },
+        resources: { 'Pontos de Vida (PV)': { current: 15, max: 15 }, 'Pontos de Mana (PM)': { current: 15, max: 15 } },
+      },
+    ],
+    notes: `### Vantagens & Desvantagens
+- Vantagens: Aceleração (1 pt), Ataque Especial (1 pt)
+- Desvantagens: Código de Honra dos Heróis (-1 pt), Ponto Fraco (-1 pt)
+
+### Equipamento & Golpes
+- Espada da Família (+1 em FA)
+- Anel com gema elemental`,
+  },
 ];
 
 /**
@@ -544,13 +593,16 @@ export function findTemplateBySystem(systemName?: string): SheetTemplate {
   if (lower.includes('ordem') || lower.includes('paranormal')) {
     return SHEET_TEMPLATES.find((t) => t.id === 'ordem_paranormal') || SHEET_TEMPLATES[0];
   }
-  if (lower.includes('osr') || lower.includes('shadowdark') || lower.includes('ose') || lower.includes('old school') || lower.includes('b/x')) {
+  if (lower.includes('3d&t') || lower.includes('3det') || lower.includes('victory') || lower.includes('alpha')) {
+    return SHEET_TEMPLATES.find((t) => t.id === '3det') || SHEET_TEMPLATES[0];
+  }
+  if (lower.includes('osr') || lower.includes('shadowdark') || lower.includes('ose') || lower.includes('old school') || lower.includes('old dragon') || lower.includes('b/x')) {
     return SHEET_TEMPLATES.find((t) => t.id === 'osr') || SHEET_TEMPLATES[0];
   }
   if (lower.includes('vampir') || lower.includes('wod') || lower.includes('storyteller') || lower.includes('máscara')) {
     return SHEET_TEMPLATES.find((t) => t.id === 'vampire') || SHEET_TEMPLATES[0];
   }
-  if (lower.includes('cyber') || lower.includes('red') || lower.includes('2020') || lower.includes('sci-fi')) {
+  if (lower.includes('cyber') || lower.includes('red') || lower.includes('2020') || lower.includes('sci-fi') || lower.includes('shadowrun')) {
     return SHEET_TEMPLATES.find((t) => t.id === 'cyberpunk') || SHEET_TEMPLATES[0];
   }
   if (lower.includes('fate') || lower.includes('fudge')) {
@@ -561,4 +613,64 @@ export function findTemplateBySystem(systemName?: string): SheetTemplate {
   }
 
   return SHEET_TEMPLATES[0];
+}
+
+/**
+ * Cria uma ficha de personagem padrão compatível com o sistema especificado
+ */
+export function createSystemCharacter(params: {
+  campaignId: string;
+  systemName: string;
+  name: string;
+  role?: string;
+  userId: string;
+  masterId?: string;
+  creatorName?: string;
+  archetypeId?: string;
+  avatarUrl?: string;
+}): Omit<import('../types').CharacterSheet, 'createdAt' | 'updatedAt'> {
+  const template = findTemplateBySystem(params.systemName);
+  const arch = params.archetypeId ? template.archetypes?.find((a) => a.id === params.archetypeId) : undefined;
+
+  const role = params.role?.trim() || (arch ? arch.rolePJ : template.defaultRolePJ);
+
+  const attributes = template.attributes.map((attr, idx) => {
+    const archVal = arch?.attributes[attr.key];
+    const finalVal = archVal !== undefined ? archVal : attr.value;
+    return {
+      id: `attr-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+      key: attr.key,
+      value: finalVal,
+    };
+  });
+
+  const resources = template.resources.map((res, idx) => {
+    const archRes = arch?.resources?.[res.name];
+    const current = archRes ? archRes.current : res.current;
+    const max = archRes ? archRes.max : res.max;
+    return {
+      id: `res-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+      name: res.name,
+      current,
+      max,
+      color: res.color,
+    };
+  });
+
+  return {
+    id: `char-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+    campaignId: params.campaignId,
+    system: template.system,
+    userId: params.userId,
+    masterId: params.masterId,
+    creatorName: params.creatorName,
+    name: params.name.trim() || 'Novo Personagem',
+    role,
+    type: 'PJ',
+    attributes,
+    resources,
+    notes: arch?.notesSnippet ? `${arch.notesSnippet}\n\n${template.notes}` : template.notes,
+    avatarUrl: params.avatarUrl,
+    sharedWithPlayers: false,
+  };
 }

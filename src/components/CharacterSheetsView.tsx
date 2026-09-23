@@ -464,8 +464,13 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                           </span>
                         </div>
                       </div>
-                      <div className="text-[11px] text-zinc-400 truncate">
-                        {char.role || 'Sem classe'}
+                      <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                        <span className="truncate">{char.role || 'Sem classe'}</span>
+                        {char.creatorName && (
+                          <span className="text-[10px] text-cyan-400/80 font-medium shrink-0 ml-1">
+                            {char.creatorName}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

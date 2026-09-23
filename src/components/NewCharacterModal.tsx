@@ -34,6 +34,9 @@ interface NewCharacterModalProps {
   campaignSystem?: string;
   initialType?: CharacterType;
   onCreateCharacter: (character: Omit<CharacterSheet, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  isPlayerMode?: boolean;
+  playerName?: string;
+  masterId?: string;
 }
 
 interface EditableAttributeItem {
@@ -59,11 +62,14 @@ export const NewCharacterModal: React.FC<NewCharacterModalProps> = ({
   campaignSystem,
   initialType = 'PJ',
   onCreateCharacter,
+  isPlayerMode = false,
+  playerName,
+  masterId,
 }) => {
   const recommendedTemplate = findTemplateBySystem(campaignSystem);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(recommendedTemplate.id);
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
-  const [characterType, setCharacterType] = useState<CharacterType>(initialType);
+  const [characterType, setCharacterType] = useState<CharacterType>(isPlayerMode ? 'PJ' : initialType);
   const [name, setName] = useState<string>('');
   const [role, setRole] = useState<string>('');
 
@@ -299,6 +305,9 @@ export const NewCharacterModal: React.FC<NewCharacterModalProps> = ({
       attributes: finalAttributes,
       resources: finalResources,
       notes: includeNotes ? notesContent : '',
+      masterId: masterId || undefined,
+      creatorName: playerName || undefined,
+      system: activeTemplate.system,
     };
 
     onCreateCharacter(newChar);
@@ -319,13 +328,15 @@ export const NewCharacterModal: React.FC<NewCharacterModalProps> = ({
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-zinc-100 flex items-center gap-2">
-                Criar Ficha com Template de Sistema
+                {isPlayerMode ? 'Montar Ficha do Personagem' : 'Criar Ficha com Template de Sistema'}
                 <span className="text-[11px] font-normal text-cyan-400 font-mono">
                   ({activeTemplate.name})
                 </span>
               </h2>
               <p className="text-xs text-zinc-400">
-                Escolha o sistema e selecione os campos pré-definidos (atributos e recursos de combate) desejados.
+                {isPlayerMode
+                  ? 'Ficha oficial montada de acordo com o sistema da mesa. O Mestre terá acesso em tempo real assim que for salva.'
+                  : 'Escolha o sistema e selecione os campos pré-definidos (atributos e recursos de combate) desejados.'}
               </p>
             </div>
           </div>

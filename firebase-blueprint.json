@@ -48,6 +48,7 @@
         "id": { "type": "string" },
         "userId": { "type": "string" },
         "creatorName": { "type": "string" },
+        "masterId": { "type": "string" },
         "campaignId": { "type": "string" },
         "name": { "type": "string" },
         "role": { "type": "string" },

@@ -61,6 +61,7 @@ export const CampaignTableModal: React.FC<CampaignTableModalProps> = ({
 
   // Selected player notes to inspect
   const [inspectingPlayer, setInspectingPlayer] = useState<CampaignMember | null>(null);
+  const [inspectingCharacter, setInspectingCharacter] = useState<CharacterSheet | null>(null);
 
   if (!isOpen) return null;
 
@@ -251,16 +252,13 @@ export const CampaignTableModal: React.FC<CampaignTableModalProps> = ({
                       {/* Action buttons for Master inspecting player data */}
                       {!isUserMaster && isMaster && (
                         <div className="flex items-center gap-2 pt-2 border-t border-zinc-800/80">
-                          {playerSheet && onSelectCharacterToView && (
+                          {playerSheet && (
                             <button
-                              onClick={() => {
-                                onSelectCharacterToView(playerSheet.id);
-                                onClose();
-                              }}
-                              className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium transition-colors cursor-pointer"
+                              onClick={() => setInspectingCharacter(playerSheet)}
+                              className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 text-xs font-medium border border-cyan-800/50 transition-colors cursor-pointer"
                             >
-                              <Shield className="w-3.5 h-3.5 text-amber-400" />
-                              <span>Ver Ficha</span>
+                              <Shield className="w-3.5 h-3.5 text-cyan-400" />
+                              <span>Ver Ficha ({playerSheet.name})</span>
                             </button>
                           )}
                           <button
@@ -276,6 +274,115 @@ export const CampaignTableModal: React.FC<CampaignTableModalProps> = ({
                   );
                 })}
               </div>
+
+              {/* Master Character Sheet Inspector Modal */}
+              {inspectingCharacter && (
+                <div className="fixed inset-0 z-60 bg-black/80 flex items-center justify-center p-4">
+                  <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-5 sm:p-6 max-w-2xl w-full max-h-[85vh] flex flex-col space-y-4 shadow-2xl">
+                    <div className="flex items-start justify-between border-b border-zinc-800 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 font-bold overflow-hidden shrink-0">
+                          {inspectingCharacter.avatarUrl ? (
+                            <img src={inspectingCharacter.avatarUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            inspectingCharacter.name.charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-base text-zinc-100">{inspectingCharacter.name}</h3>
+                            <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 text-[10px] font-mono border border-cyan-500/30">
+                              {inspectingCharacter.system || campaign.system}
+                            </span>
+                          </div>
+                          <p className="text-xs text-zinc-400">{inspectingCharacter.role}</p>
+                          <span className="text-[11px] text-zinc-500">
+                            Criada por: <strong className="text-zinc-300">{inspectingCharacter.creatorName || 'Jogador'}</strong>
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setInspectingCharacter(null)}
+                        className="text-zinc-400 hover:text-zinc-100 p-1"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {/* Resources */}
+                    <div className="space-y-2">
+                      <span className="text-[11px] uppercase font-bold text-zinc-400 tracking-wider">
+                        Recursos & Status de Combate:
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {inspectingCharacter.resources.map((res) => (
+                          <div key={res.id} className="p-2 rounded-lg bg-zinc-950 border border-zinc-800 space-y-1">
+                            <div className="flex justify-between text-xs">
+                              <span className="font-semibold text-zinc-300">{res.name}</span>
+                              <span className="font-mono text-zinc-200">
+                                <strong>{res.current}</strong> / {res.max}
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                              <div
+                                className="h-full bg-cyan-500"
+                                style={{ width: `${Math.max(0, Math.min(100, (res.current / (res.max || 1)) * 100))}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Attributes */}
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] uppercase font-bold text-zinc-400 tracking-wider">
+                        Atributos do Sistema:
+                      </span>
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                        {inspectingCharacter.attributes.map((attr) => (
+                          <div key={attr.id} className="p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-center">
+                            <span className="block text-[10px] font-bold text-zinc-400">{attr.key}</span>
+                            <span className="block text-sm font-extrabold text-zinc-100">{attr.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Notes & Equipment */}
+                    <div className="flex-1 overflow-y-auto space-y-1">
+                      <span className="text-[11px] uppercase font-bold text-zinc-400 tracking-wider">
+                        Equipamentos, Magias & Histórico:
+                      </span>
+                      <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800 text-xs text-zinc-300 whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">
+                        {inspectingCharacter.notes || 'Sem anotações ou equipamentos informados.'}
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
+                      {onSelectCharacterToView && (
+                        <button
+                          onClick={() => {
+                            onSelectCharacterToView(inspectingCharacter.id);
+                            setInspectingCharacter(null);
+                            onClose();
+                          }}
+                          className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-zinc-950 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          Abrir no Gerenciador Completo de Fichas
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setInspectingCharacter(null)}
+                        className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-medium cursor-pointer ml-auto"
+                      >
+                        Fechar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Player Notes Inspector Modal */}
               {inspectingPlayer && (

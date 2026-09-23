@@ -18,8 +18,16 @@ import {
   ChevronRight,
   Flame,
   CheckCircle2,
+  Brain,
+  Wand2,
+  Award,
+  Zap,
+  Check,
 } from 'lucide-react';
-import { Campaign, CharacterSheet, UserProfile, CampaignSharedItem } from '../types';
+import { Campaign, CharacterSheet, UserProfile, CampaignSharedItem, ResourceBar } from '../types';
+import { NewCharacterModal } from './NewCharacterModal';
+import { EditCharacterModal } from './EditCharacterModal';
+import { findTemplateBySystem, createSystemCharacter } from '../data/sheetTemplates';
 
 interface PlayerPortalViewProps {
   campaign: Campaign;
@@ -50,14 +58,20 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
 
+  // Modals state
+  const [isNewCharModalOpen, setIsNewCharModalOpen] = useState(false);
+  const [isEditCharModalOpen, setIsEditCharModalOpen] = useState(false);
+
   // Quick dice rolling state
   const [recentRolls, setRecentRolls] = useState<
-    Array<{ die: string; result: number; timestamp: number }>
+    Array<{ die: string; result: number; note?: string; timestamp: number }>
   >([]);
 
   // Find player's character in this campaign
   const myCharacter = characters.find(
-    (c) => c.campaignId === campaign.id && (c.userId === currentUser.id || c.id === memberRecord?.characterId)
+    (c) =>
+      c.campaignId === campaign.id &&
+      (c.userId === currentUser.id || c.id === memberRecord?.characterId)
   );
 
   // Shared items from master
@@ -66,11 +80,14 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
     (c) => c.campaignId === campaign.id && c.sharedWithPlayers && c.id !== myCharacter?.id
   );
 
-  // Character creation modal state
-  const [isCreatingChar, setIsCreatingChar] = useState(false);
-  const [newCharName, setNewCharName] = useState('');
-  const [newCharRole, setNewCharRole] = useState('');
-  const [newCharHp, setNewCharHp] = useState(20);
+  // Active template for campaign system
+  const activeTemplate = findTemplateBySystem(campaign.system);
+
+  // Inline Quick creation state
+  const [isInlineCreating, setIsInlineCreating] = useState(false);
+  const [quickName, setQuickName] = useState('');
+  const [quickRole, setQuickRole] = useState(activeTemplate.defaultRolePJ);
+  const [quickArchetype, setQuickArchetype] = useState<string>('');
 
   // Synchronize player notes when changed from remote
   useEffect(() => {
@@ -101,51 +118,16 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
     setRecentRolls((prev) => [{ die: dieName, result, timestamp: Date.now() }, ...prev.slice(0, 4)]);
   };
 
-  // Handle character creation for player
-  const handleCreateMyCharSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCharName.trim()) return;
-
-    const char: CharacterSheet = {
-      id: `char-p-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      campaignId: campaign.id,
-      userId: currentUser.id,
-      creatorName: currentUser.displayName,
-      name: newCharName.trim(),
-      role: newCharRole.trim() || 'Aventureiro',
-      type: 'PJ',
-      attributes: [
-        { id: 'a1', key: 'FOR', value: 10 },
-        { id: 'a2', key: 'DES', value: 10 },
-        { id: 'a3', key: 'CON', value: 10 },
-        { id: 'a4', key: 'INT', value: 10 },
-        { id: 'a5', key: 'SAB', value: 10 },
-        { id: 'a6', key: 'CAR', value: 10 },
-      ],
-      resources: [
-        { id: 'r1', name: 'Pontos de Vida (PV)', current: newCharHp, max: newCharHp, color: 'emerald' },
-        { id: 'r2', name: 'Mana / Habilidade', current: 5, max: 5, color: 'blue' },
-      ],
-      notes: `# Histórico & Equipamentos\n- Escreva aqui as magias, ataques e inventário do seu personagem.\n- O Mestre terá acesso direto a esta ficha.`,
-      sharedWithPlayers: false,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-
-    onCreateCharacter(char);
-    setNewCharName('');
-    setNewCharRole('');
-    setIsCreatingChar(false);
-  };
-
-  // Adjust HP
-  const handleAdjustHp = (delta: number) => {
+  // Adjust any resource value
+  const handleAdjustResource = (resourceId: string, delta: number) => {
     if (!myCharacter) return;
-    const hpResource = myCharacter.resources.find((r) => r.name.toLowerCase().includes('vida') || r.name.toLowerCase().includes('pv'));
-    if (!hpResource) return;
+    const res = myCharacter.resources.find((r) => r.id === resourceId);
+    if (!res) return;
 
-    const newCurrent = Math.max(0, Math.min(hpResource.max, hpResource.current + delta));
-    const nextResources = myCharacter.resources.map((r) => (r.id === hpResource.id ? { ...r, current: newCurrent } : r));
+    const newCurrent = Math.max(0, Math.min(res.max, res.current + delta));
+    const nextResources = myCharacter.resources.map((r) =>
+      r.id === resourceId ? { ...r, current: newCurrent } : r
+    );
     onUpdateCharacter({
       ...myCharacter,
       resources: nextResources,
@@ -153,24 +135,153 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
     });
   };
 
+  // Quick Archetype 1-Click creation
+  const handleCreateWithArchetype = (archetypeId: string) => {
+    const charData = createSystemCharacter({
+      campaignId: campaign.id,
+      systemName: campaign.system,
+      name: `${currentUser.displayName}`,
+      userId: currentUser.id,
+      masterId: campaign.masterId || campaign.userId,
+      creatorName: currentUser.displayName,
+      archetypeId,
+    });
+
+    const fullChar: CharacterSheet = {
+      ...charData,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    onCreateCharacter(fullChar);
+  };
+
+  // Inline form submit with system template
+  const handleQuickSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickName.trim()) return;
+
+    const charData = createSystemCharacter({
+      campaignId: campaign.id,
+      systemName: campaign.system,
+      name: quickName.trim(),
+      role: quickRole.trim() || activeTemplate.defaultRolePJ,
+      userId: currentUser.id,
+      masterId: campaign.masterId || campaign.userId,
+      creatorName: currentUser.displayName,
+      archetypeId: quickArchetype || undefined,
+    });
+
+    const fullChar: CharacterSheet = {
+      ...charData,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    onCreateCharacter(fullChar);
+    setQuickName('');
+    setIsInlineCreating(false);
+  };
+
+  // System-specific roll logic for attributes
+  const handleRollAttribute = (key: string, rawVal: string | number) => {
+    const numVal = typeof rawVal === 'number' ? rawVal : parseInt(String(rawVal), 10) || 10;
+    const sys = (myCharacter?.system || campaign.system || '').toLowerCase();
+
+    // Call of Cthulhu: 1d100 test against characteristic
+    if (sys.includes('cthulhu') || sys.includes('coc') || numVal > 25) {
+      const roll = Math.floor(Math.random() * 100) + 1;
+      let degree = 'Falha';
+      if (roll === 1) degree = 'Sucesso Crítico!';
+      else if (roll <= Math.floor(numVal / 5)) degree = 'Sucesso Extremo!';
+      else if (roll <= Math.floor(numVal / 2)) degree = 'Bom Sucesso!';
+      else if (roll <= numVal) degree = 'Sucesso Regular';
+      else if (roll >= 96) degree = 'Desastre / Fumble!';
+
+      setRecentRolls((prev) => [
+        {
+          die: `1d100 vs ${key} (${numVal})`,
+          result: roll,
+          note: degree,
+          timestamp: Date.now(),
+        },
+        ...prev.slice(0, 4),
+      ]);
+      return;
+    }
+
+    // 3D&T: 1d6 + Habilidade / Característica
+    if (sys.includes('3d&t') || sys.includes('3det')) {
+      const roll = Math.floor(Math.random() * 6) + 1;
+      const total = roll + numVal;
+      setRecentRolls((prev) => [
+        {
+          die: `1d6 (${roll}) + ${key} (${numVal})`,
+          result: total,
+          note: roll === 6 ? 'Crítico!' : undefined,
+          timestamp: Date.now(),
+        },
+        ...prev.slice(0, 4),
+      ]);
+      return;
+    }
+
+    // Ordem Paranormal: roll dice pool of d20s equal to attribute
+    if (sys.includes('ordem') || sys.includes('paranormal')) {
+      const diceCount = Math.max(1, Math.min(10, numVal));
+      const rolls = Array.from({ length: diceCount }, () => Math.floor(Math.random() * 20) + 1);
+      const highest = Math.max(...rolls);
+      setRecentRolls((prev) => [
+        {
+          die: `${diceCount}d20 [${rolls.join(', ')}]`,
+          result: highest,
+          note: highest === 20 ? 'Crítico!' : `Maior de ${key}`,
+          timestamp: Date.now(),
+        },
+        ...prev.slice(0, 4),
+      ]);
+      return;
+    }
+
+    // Tormenta 20, D&D 5e, Pathfinder 2e: standard d20 + modifier
+    let mod = numVal;
+    if (numVal >= 8 && numVal <= 30 && !sys.includes('t20') && !sys.includes('tormenta')) {
+      // D&D 5e score -> mod
+      mod = Math.floor((numVal - 10) / 2);
+    }
+    const d20 = Math.floor(Math.random() * 20) + 1;
+    const total = d20 + mod;
+    const modStr = mod >= 0 ? `+${mod}` : `${mod}`;
+
+    setRecentRolls((prev) => [
+      {
+        die: `1d20 (${d20}) ${modStr} [${key}]`,
+        result: total,
+        note: d20 === 20 ? '20 Natural!' : d20 === 1 ? '1 Natural!' : undefined,
+        timestamp: Date.now(),
+      },
+      ...prev.slice(0, 4),
+    ]);
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full bg-zinc-950 overflow-hidden font-sans">
       {/* Player Top Banner */}
       <div className="px-5 py-3 bg-zinc-900/90 border-b border-zinc-800 flex flex-wrap items-center justify-between gap-3 shadow-md shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+          <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
             <Shield className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h2 className="font-bold text-sm text-zinc-100">{campaign.title}</h2>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold">
                 Portal do Jogador
               </span>
             </div>
             <p className="text-[11px] text-zinc-400">
               Mestre: <span className="text-zinc-300 font-medium">{campaign.masterName || 'Mestre da Masmorra'}</span> • Sistema:{' '}
-              <span className="text-zinc-300 font-medium">{campaign.system}</span>
+              <span className="text-cyan-300 font-semibold">{campaign.system}</span>
             </p>
           </div>
         </div>
@@ -205,12 +316,12 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
         </div>
       </div>
 
-      {/* Secret GM Notes Privacy Notice */}
+      {/* Security & Sync Bar */}
       <div className="bg-zinc-900/60 border-b border-zinc-800/80 px-5 py-2 text-xs text-zinc-400 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
           <span>
-            <strong>Privacidade da Mesa Ativa:</strong> As anotações secretas e capítulos do Mestre estão protegidos e ocultos para garantir a surpresa da campanha.
+            <strong>Privacidade da Mesa:</strong> As anotações secretas do Mestre estão protegidas. Sua ficha e diário são sincronizados automaticamente com o Mestre.
           </span>
         </div>
         {recentRolls.length > 0 && (
@@ -219,6 +330,11 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
             <span className="font-bold text-amber-200">
               {recentRolls[0].die} = {recentRolls[0].result}
             </span>
+            {recentRolls[0].note && (
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-sans font-semibold">
+                {recentRolls[0].note}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -226,112 +342,164 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
       {/* Main 3-Column Player Layout */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 overflow-y-auto">
         {/* COLUMN 1: MY CHARACTER SHEET (5 cols) */}
-        <div className="lg:col-span-4 flex flex-col space-y-4">
+        <div className="lg:col-span-5 flex flex-col space-y-4">
           <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-5 shadow-xl flex-1 flex flex-col">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
               <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-emerald-400" />
+                <Shield className="w-4 h-4 text-cyan-400" />
                 <h3 className="font-bold text-sm text-zinc-100">Meu Personagem</h3>
               </div>
-              <span className="text-[11px] text-emerald-400/90 font-medium">Sincronizado com o Mestre</span>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400/90 font-medium">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Sincronizado com Mestre</span>
+                </span>
+                {myCharacter && (
+                  <button
+                    onClick={() => setIsEditCharModalOpen(true)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium border border-zinc-700 cursor-pointer transition-colors"
+                  >
+                    <Edit2 className="w-3 h-3 text-cyan-400" />
+                    <span>Editar Ficha</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {myCharacter ? (
               <div className="space-y-4 flex-1 flex flex-col justify-between">
                 <div>
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="text-base font-bold text-zinc-100">{myCharacter.name}</h4>
-                      <p className="text-xs text-zinc-400">{myCharacter.role}</p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 font-bold overflow-hidden shrink-0">
+                        {myCharacter.avatarUrl ? (
+                          <img src={myCharacter.avatarUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          myCharacter.name.charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="text-base font-bold text-zinc-100">{myCharacter.name}</h4>
+                        <p className="text-xs text-zinc-400">{myCharacter.role}</p>
+                        <span className="inline-block mt-0.5 px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[10px] font-mono border border-cyan-500/20">
+                          {myCharacter.system || campaign.system}
+                        </span>
+                      </div>
                     </div>
                     <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold border border-emerald-500/30">
                       PJ Ativo
                     </span>
                   </div>
 
-                  {/* HP & Resources Quick Tracker */}
+                  {/* Resources Bars Tracker (PV, PM, PE, Sanidade, etc.) */}
                   <div className="mt-4 p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 space-y-3">
-                    {myCharacter.resources.map((res) => (
-                      <div key={res.id} className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-semibold text-zinc-300 flex items-center gap-1.5">
-                            <Heart className="w-3.5 h-3.5 text-red-400" />
-                            <span>{res.name}</span>
-                          </span>
-                          <span className="font-mono text-zinc-200">
-                            <strong>{res.current}</strong> / {res.max}
-                          </span>
-                        </div>
-                        <div className="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-red-500 to-rose-400 transition-all duration-300"
-                            style={{ width: `${Math.max(0, Math.min(100, (res.current / (res.max || 1)) * 100))}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Quick HP Adjustment Buttons */}
-                    <div className="flex items-center justify-between pt-1 gap-2">
-                      <span className="text-[10px] text-zinc-400">Ajuste de PV:</span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleAdjustHp(-5)}
-                          className="px-2 py-1 rounded bg-zinc-900 hover:bg-red-950 text-red-300 text-xs font-mono font-bold border border-zinc-800 cursor-pointer"
-                        >
-                          -5
-                        </button>
-                        <button
-                          onClick={() => handleAdjustHp(-1)}
-                          className="px-2 py-1 rounded bg-zinc-900 hover:bg-red-950 text-red-300 text-xs font-mono font-bold border border-zinc-800 cursor-pointer"
-                        >
-                          -1
-                        </button>
-                        <button
-                          onClick={() => handleAdjustHp(1)}
-                          className="px-2 py-1 rounded bg-zinc-900 hover:bg-emerald-950 text-emerald-300 text-xs font-mono font-bold border border-zinc-800 cursor-pointer"
-                        >
-                          +1
-                        </button>
-                        <button
-                          onClick={() => handleAdjustHp(5)}
-                          className="px-2 py-1 rounded bg-zinc-900 hover:bg-emerald-950 text-emerald-300 text-xs font-mono font-bold border border-zinc-800 cursor-pointer"
-                        >
-                          +5
-                        </button>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-zinc-400">Recursos de Combate:</span>
+                      <span className="text-[10px] text-zinc-500">Mestre tem acesso em tempo real</span>
                     </div>
+
+                    {myCharacter.resources.map((res) => {
+                      const pct = Math.max(0, Math.min(100, (res.current / (res.max || 1)) * 100));
+                      const isLow = pct <= 25;
+                      const isHp = res.name.toLowerCase().includes('vida') || res.name.toLowerCase().includes('pv');
+
+                      return (
+                        <div key={res.id} className="space-y-1.5 p-2 rounded-lg bg-zinc-900/50 border border-zinc-800/60">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-zinc-200 flex items-center gap-1.5">
+                              {isHp ? (
+                                <Heart className={`w-3.5 h-3.5 ${isLow ? 'text-red-500 animate-pulse' : 'text-red-400'}`} />
+                              ) : (
+                                <Zap className="w-3.5 h-3.5 text-blue-400" />
+                              )}
+                              <span>{res.name}</span>
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-zinc-200 text-xs">
+                                <strong className="text-zinc-100">{res.current}</strong> / {res.max}
+                              </span>
+                              {/* Quick Adjustment +/- buttons */}
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => handleAdjustResource(res.id, -5)}
+                                  className="px-1.5 py-0.5 rounded bg-zinc-800 hover:bg-red-950 text-red-300 text-[10px] font-mono font-bold cursor-pointer"
+                                  title="Remover 5"
+                                >
+                                  -5
+                                </button>
+                                <button
+                                  onClick={() => handleAdjustResource(res.id, -1)}
+                                  className="px-1.5 py-0.5 rounded bg-zinc-800 hover:bg-red-950 text-red-300 text-[10px] font-mono font-bold cursor-pointer"
+                                  title="Remover 1"
+                                >
+                                  -1
+                                </button>
+                                <button
+                                  onClick={() => handleAdjustResource(res.id, 1)}
+                                  className="px-1.5 py-0.5 rounded bg-zinc-800 hover:bg-emerald-950 text-emerald-300 text-[10px] font-mono font-bold cursor-pointer"
+                                  title="Adicionar 1"
+                                >
+                                  +1
+                                </button>
+                                <button
+                                  onClick={() => handleAdjustResource(res.id, 5)}
+                                  className="px-1.5 py-0.5 rounded bg-zinc-800 hover:bg-emerald-950 text-emerald-300 text-[10px] font-mono font-bold cursor-pointer"
+                                  title="Adicionar 5"
+                                >
+                                  +5
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-300 ${
+                                isHp
+                                  ? isLow
+                                    ? 'bg-red-600'
+                                    : 'bg-gradient-to-r from-red-500 to-rose-400'
+                                  : 'bg-gradient-to-r from-cyan-500 to-blue-500'
+                              }`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
 
-                  {/* Attributes Grid with click-to-roll */}
+                  {/* Attributes Grid with system-based click-to-roll */}
                   <div className="mt-4">
-                    <span className="block text-[11px] font-semibold text-zinc-400 mb-2">
-                      Atributos (Clique para Rolar d20 + Bônus):
-                    </span>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-semibold text-zinc-400">
+                        Atributos do Sistema (Clique para Rolar):
+                      </span>
+                      <span className="text-[10px] font-mono text-zinc-500">
+                        {campaign.system}
+                      </span>
+                    </div>
+
                     <div className="grid grid-cols-3 gap-2">
                       {myCharacter.attributes.map((attr) => {
-                        const numVal = typeof attr.value === 'number' ? attr.value : Number(attr.value) || 10;
-                        const mod = Math.floor((numVal - 10) / 2);
-                        const modStr = mod >= 0 ? `+${mod}` : `${mod}`;
+                        const numVal = typeof attr.value === 'number' ? attr.value : Number(attr.value);
+                        const isScore = !isNaN(numVal) && numVal >= 8 && numVal <= 30 && !campaign.system.toLowerCase().includes('t20');
+                        const mod = isScore ? Math.floor((numVal - 10) / 2) : numVal;
+                        const modLabel = !isNaN(mod) ? (mod >= 0 ? `+${mod}` : `${mod}`) : '';
+
                         return (
                           <button
                             key={attr.id}
-                            onClick={() => {
-                              const roll = Math.floor(Math.random() * 20) + 1;
-                              const total = roll + mod;
-                              setRecentRolls((prev) => [
-                                { die: `${attr.key} (${roll} ${modStr})`, result: total, timestamp: Date.now() },
-                                ...prev.slice(0, 4),
-                              ]);
-                            }}
-                            className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800 hover:border-amber-500/50 hover:bg-zinc-900 transition-all text-center cursor-pointer group"
+                            onClick={() => handleRollAttribute(attr.key, attr.value)}
+                            className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800 hover:border-cyan-500/50 hover:bg-zinc-900 transition-all text-center cursor-pointer group"
                             title={`Rolar teste de ${attr.key}`}
                           >
-                            <span className="block text-[10px] font-bold text-zinc-400 group-hover:text-amber-400">
+                            <span className="block text-[10px] font-bold text-zinc-400 group-hover:text-cyan-400">
                               {attr.key}
                             </span>
                             <span className="block text-sm font-extrabold text-zinc-100">{attr.value}</span>
-                            <span className="block text-[10px] font-mono text-amber-400">{modStr}</span>
+                            {modLabel && (
+                              <span className="block text-[10px] font-mono text-cyan-400">{modLabel}</span>
+                            )}
                           </button>
                         );
                       })}
@@ -339,88 +507,183 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
                   </div>
                 </div>
 
-                {/* Character Spells/Notes preview */}
+                {/* Character Spells/Equipment preview */}
                 <div className="mt-4 pt-3 border-t border-zinc-800/80">
-                  <span className="text-[11px] font-semibold text-zinc-400 block mb-1">
-                    Equipamentos & Magias:
-                  </span>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-semibold text-zinc-400">
+                      Equipamentos, Magias & Anotações:
+                    </span>
+                    <button
+                      onClick={() => setIsEditCharModalOpen(true)}
+                      className="text-[11px] text-cyan-400 hover:underline cursor-pointer"
+                    >
+                      Editar Anotações
+                    </button>
+                  </div>
                   <div className="max-h-36 overflow-y-auto text-xs text-zinc-300 bg-zinc-950 p-2.5 rounded-lg border border-zinc-800 font-mono whitespace-pre-wrap">
                     {myCharacter.notes || 'Sem anotações de equipamento.'}
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-4">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                  <Shield className="w-7 h-7" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-zinc-200">Você ainda não tem uma ficha nesta campanha</h4>
-                  <p className="text-xs text-zinc-400 mt-1 max-w-xs">
-                    Crie seu personagem para participar das sessões. O Mestre terá acesso em tempo real aos seus atributos e status.
-                  </p>
+              /* PLAYER HAS NO CHARACTER YET: SYSTEM GUIDED SETUP */
+              <div className="flex-1 flex flex-col space-y-4 pt-2">
+                <div className="p-4 rounded-xl bg-gradient-to-b from-cyan-950/20 to-zinc-950 border border-cyan-500/20 space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-zinc-100 flex items-center gap-2">
+                        <span>Ficha do Sistema:</span>
+                        <span className="text-cyan-400 font-mono">{activeTemplate.name}</span>
+                      </h4>
+                      <p className="text-[11px] text-zinc-400">
+                        {activeTemplate.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* System Attributes Preview */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
+                      Atributos Oficiais deste Sistema:
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {activeTemplate.attributes.map((a) => (
+                        <span
+                          key={a.key}
+                          className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 text-[10px] font-mono"
+                          title={a.label}
+                        >
+                          {a.key}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* System Resources Preview */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
+                      Recursos de Combate:
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {activeTemplate.resources.map((r) => (
+                        <span
+                          key={r.name}
+                          className="px-2 py-0.5 rounded bg-cyan-950/40 border border-cyan-800/40 text-cyan-300 text-[10px] font-medium"
+                        >
+                          {r.name} ({r.current})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Master Guarantee Notice */}
+                  <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-800/30 flex items-center gap-2 text-[11px] text-emerald-300">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>
+                      O Mestre (<strong>{campaign.masterName || 'Mestre da Masmorra'}</strong>) terá acesso total e em tempo real a esta ficha assim que ela for criada.
+                    </span>
+                  </div>
                 </div>
 
-                {isCreatingChar ? (
-                  <form onSubmit={handleCreateMyCharSubmit} className="w-full space-y-3 text-left pt-2">
-                    <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">Nome do Personagem</label>
-                      <input
-                        type="text"
-                        value={newCharName}
-                        onChange={(e) => setNewCharName(e.target.value)}
-                        placeholder="e.g. Valerius, o Paladino"
-                        className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-700 text-xs text-zinc-100 focus:outline-none focus:border-emerald-400"
-                        required
-                        autoFocus
-                      />
+                {/* Primary Action: Open Full System Character Modal */}
+                <button
+                  id="btn-open-system-character-modal"
+                  onClick={() => setIsNewCharModalOpen(true)}
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold text-xs shadow-lg shadow-cyan-950/40 transition-all cursor-pointer"
+                >
+                  <Wand2 className="w-4 h-4" />
+                  <span>Montar Ficha Completa no Sistema ({activeTemplate.name})</span>
+                </button>
+
+                {/* Quick Archetype 1-Click Cards */}
+                {activeTemplate.archetypes && activeTemplate.archetypes.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-semibold text-zinc-400 block">
+                      Ou escolha um Arquétipo Pronto (1-Clique):
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {activeTemplate.archetypes.map((arch) => (
+                        <button
+                          key={arch.id}
+                          onClick={() => handleCreateWithArchetype(arch.id)}
+                          className="p-3 rounded-xl bg-zinc-950 border border-zinc-800 hover:border-cyan-500/60 hover:bg-zinc-900 transition-all text-left group cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-zinc-100 group-hover:text-cyan-400">
+                              {arch.name}
+                            </span>
+                            <ChevronRight className="w-3.5 h-3.5 text-zinc-500 group-hover:text-cyan-400" />
+                          </div>
+                          <p className="text-[11px] text-zinc-400 mt-1 line-clamp-2">
+                            {arch.description}
+                          </p>
+                          <span className="inline-block mt-2 text-[10px] text-cyan-400 font-medium">
+                            Montar como {arch.rolePJ} →
+                          </span>
+                        </button>
+                      ))}
                     </div>
-                    <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">Classe / Raça / Conceito</label>
-                      <input
-                        type="text"
-                        value={newCharRole}
-                        onChange={(e) => setNewCharRole(e.target.value)}
-                        placeholder="e.g. Humano Paladino Nv 3"
-                        className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-700 text-xs text-zinc-100 focus:outline-none focus:border-emerald-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">Pontos de Vida Iniciais (PV)</label>
-                      <input
-                        type="number"
-                        value={newCharHp}
-                        onChange={(e) => setNewCharHp(Number(e.target.value))}
-                        className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-700 text-xs text-zinc-100 focus:outline-none focus:border-emerald-400 font-mono"
-                        min={1}
-                        max={999}
-                      />
-                    </div>
-                    <div className="flex gap-2 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setIsCreatingChar(false)}
-                        className="flex-1 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs cursor-pointer"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="submit"
-                        className="flex-1 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold text-xs cursor-pointer"
-                      >
-                        Salvar Personagem
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <button
-                    onClick={() => setIsCreatingChar(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold text-xs transition-colors cursor-pointer shadow-lg shadow-emerald-950/30"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Criar Minha Ficha</span>
-                  </button>
+                  </div>
                 )}
+
+                {/* Optional Inline Quick Creation Form */}
+                <div className="pt-2 border-t border-zinc-800/80">
+                  {isInlineCreating ? (
+                    <form onSubmit={handleQuickSubmit} className="space-y-3 bg-zinc-950 p-3.5 rounded-xl border border-zinc-800">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-zinc-200">Criação Rápida de Ficha</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsInlineCreating(false)}
+                          className="text-xs text-zinc-400 hover:text-zinc-200"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-zinc-400 mb-1">Nome do Personagem</label>
+                        <input
+                          type="text"
+                          value={quickName}
+                          onChange={(e) => setQuickName(e.target.value)}
+                          placeholder="e.g. Sir Gideon, o Guardião"
+                          className="w-full px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs text-zinc-100 focus:outline-none focus:border-cyan-400"
+                          required
+                          autoFocus
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-zinc-400 mb-1">Classe / Conceito</label>
+                        <input
+                          type="text"
+                          value={quickRole}
+                          onChange={(e) => setQuickRole(e.target.value)}
+                          placeholder={`Padrão: ${activeTemplate.defaultRolePJ}`}
+                          className="w-full px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs text-zinc-100 focus:outline-none focus:border-cyan-400"
+                        />
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="submit"
+                          className="w-full py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold text-xs cursor-pointer"
+                        >
+                          Salvar e Vincular ao Mestre
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsInlineCreating(true)}
+                      className="w-full py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium border border-zinc-800 cursor-pointer transition-colors"
+                    >
+                      Preenchimento Rápido com Nome Personalizado
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -519,8 +782,8 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
           </div>
         </div>
 
-        {/* COLUMN 3: MY ADVENTURE DIARY / NOTES (4 cols) */}
-        <div className="lg:col-span-4 flex flex-col space-y-4">
+        {/* COLUMN 3: MY ADVENTURE DIARY / NOTES (3 cols) */}
+        <div className="lg:col-span-3 flex flex-col space-y-4">
           <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-5 shadow-xl flex-1 flex flex-col">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-3">
               <div className="flex items-center gap-2">
@@ -536,13 +799,13 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
                     <span>Salvo às {lastSavedTime}</span>
                   </span>
                 ) : (
-                  <span>Acesso compartilhado com o Mestre</span>
+                  <span>Acesso com o Mestre</span>
                 )}
               </div>
             </div>
 
             <p className="text-[11px] text-zinc-400 mb-2">
-              Suas anotações pessoais durante as sessões (pistas descobertas, teorias, nomes de NPCs). O Mestre também pode acompanhar seu diário.
+              Suas anotações pessoais durante as sessões (pistas descobertas, inventário, teorias). O Mestre pode acompanhar seu diário.
             </p>
 
             <textarea
@@ -554,6 +817,51 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* New Character Creation Modal configured for this system */}
+      {isNewCharModalOpen && (
+        <NewCharacterModal
+          isOpen={isNewCharModalOpen}
+          onClose={() => setIsNewCharModalOpen(false)}
+          campaignId={campaign.id}
+          campaignSystem={campaign.system}
+          initialType="PJ"
+          isPlayerMode={true}
+          playerName={currentUser.displayName}
+          masterId={campaign.masterId || campaign.userId}
+          onCreateCharacter={(char) => {
+            onCreateCharacter({
+              ...char,
+              id: `char-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+              userId: currentUser.id,
+              masterId: campaign.masterId || campaign.userId,
+              creatorName: currentUser.displayName,
+              system: activeTemplate.system,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            });
+            setIsNewCharModalOpen(false);
+          }}
+        />
+      )}
+
+      {/* Edit Character Modal */}
+      {isEditCharModalOpen && myCharacter && (
+        <EditCharacterModal
+          isOpen={isEditCharModalOpen}
+          character={myCharacter}
+          onClose={() => setIsEditCharModalOpen(false)}
+          onSave={(updated) => {
+            onUpdateCharacter({
+              ...updated,
+              masterId: myCharacter.masterId || campaign.masterId || campaign.userId,
+              userId: myCharacter.userId || currentUser.id,
+              system: myCharacter.system || campaign.system,
+            });
+            setIsEditCharModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 };

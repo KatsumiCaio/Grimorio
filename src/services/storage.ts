@@ -388,33 +388,45 @@ export const storageService = {
     const storageKey = `grimorio_user_${userId}_characters`;
     try {
       const data = localStorage.getItem(storageKey);
+      let list: CharacterSheet[] = [];
       if (data) {
-        return JSON.parse(data);
-      }
-
-      if (userId === 'usr_mestre' || userId === 'shared') {
+        try {
+          list = JSON.parse(data);
+        } catch {}
+      } else if (userId === 'usr_mestre' || userId === 'shared') {
         const legacyData = localStorage.getItem(CHARACTERS_STORAGE_KEY);
         if (legacyData) {
           try {
             const parsedLegacy = JSON.parse(legacyData);
             if (Array.isArray(parsedLegacy) && parsedLegacy.length > 0) {
               this.saveUserCharacters(userId, parsedLegacy);
-              return parsedLegacy;
+              list = parsedLegacy;
             }
           } catch {
             // ignore
           }
         }
-        this.saveUserCharacters(userId, DEFAULT_CHARACTERS);
-        return DEFAULT_CHARACTERS;
-      }
-
-      if (userId === 'usr_narradora') {
+        if (list.length === 0) {
+          this.saveUserCharacters(userId, DEFAULT_CHARACTERS);
+          list = DEFAULT_CHARACTERS;
+        }
+      } else if (userId === 'usr_narradora') {
         this.saveUserCharacters(userId, NARRADORA_CHARACTERS);
-        return NARRADORA_CHARACTERS;
+        list = NARRADORA_CHARACTERS;
       }
 
-      return [];
+      // Merge characters from all campaigns mastered or owned by this user
+      const userCampaigns = this.getUserCampaigns(userId);
+      for (const camp of userCampaigns) {
+        const campChars = this.getCampaignCharacters(camp.id);
+        for (const cc of campChars) {
+          if (!list.some((c) => c.id === cc.id)) {
+            list.push(cc);
+          }
+        }
+      }
+
+      return list;
     } catch {
       return [];
     }
@@ -425,8 +437,54 @@ export const storageService = {
     const storageKey = `grimorio_user_${userId}_characters`;
     try {
       localStorage.setItem(storageKey, JSON.stringify(characters));
+      // Also update campaign characters store for any campaignId present
+      for (const char of characters) {
+        if (char.campaignId) {
+          this.saveCampaignCharacter(char.campaignId, char);
+        }
+        if (char.masterId && char.masterId !== userId) {
+          this.saveCharacterForMaster(char.masterId, char);
+        }
+      }
     } catch (e) {
       console.error(`Falha ao salvar fichas do usuário ${userId}:`, e);
+    }
+  },
+
+  saveCampaignCharacter(campaignId: string, character: CharacterSheet): void {
+    if (!campaignId || !character?.id) return;
+    const key = `grimorio_campaign_${campaignId}_characters`;
+    try {
+      const existing = localStorage.getItem(key);
+      const list: CharacterSheet[] = existing ? JSON.parse(existing) : [];
+      const updated = [...list.filter((c) => c.id !== character.id), character];
+      localStorage.setItem(key, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Erro ao salvar ficha na campanha:', e);
+    }
+  },
+
+  getCampaignCharacters(campaignId: string): CharacterSheet[] {
+    if (!campaignId) return [];
+    const key = `grimorio_campaign_${campaignId}_characters`;
+    try {
+      const existing = localStorage.getItem(key);
+      return existing ? JSON.parse(existing) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  saveCharacterForMaster(masterId: string, character: CharacterSheet): void {
+    if (!masterId || !character?.id) return;
+    const masterKey = `grimorio_user_${masterId}_characters`;
+    try {
+      const existing = localStorage.getItem(masterKey);
+      const list: CharacterSheet[] = existing ? JSON.parse(existing) : [];
+      const updated = [...list.filter((c) => c.id !== character.id), character];
+      localStorage.setItem(masterKey, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Erro ao sincronizar ficha no cache do mestre:', e);
     }
   },
 

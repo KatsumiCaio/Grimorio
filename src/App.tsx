@@ -231,7 +231,8 @@ export default function App() {
       }
     );
 
-    // 3. Realtime listener for user-specific characters
+    // 3. Realtime listener for user-specific characters and campaigns mastered by user
+    const initialCampIds = storageService.getUserCampaigns(userId).map((c) => c.id);
     unsubCharacters = subscribeToUserCharacters(
       userId,
       (cloudCharacters) => {
@@ -244,7 +245,8 @@ export default function App() {
       (err) => {
         console.warn('Erro na sincronização de fichas:', err);
         setSyncStatus(isQuotaExceeded() ? 'quota' : 'offline');
-      }
+      },
+      initialCampIds
     );
 
     return () => {
@@ -485,18 +487,46 @@ export default function App() {
   const handleCreateCharacter = useCallback(
     (charData: Omit<CharacterSheet, 'createdAt' | 'updatedAt'> & { id?: string }) => {
       if (!currentUser) return {} as CharacterSheet;
+
+      const targetCamp =
+        campaigns.find((c) => c.id === charData.campaignId) ||
+        campaigns.find((c) => c.id === activeCampaignId) ||
+        campaigns[0];
+      const masterId = charData.masterId || targetCamp?.masterId || targetCamp?.userId;
+
       const newChar: CharacterSheet = {
         ...charData,
         id: charData.id || `char-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        userId: charData.userId || currentUser.id,
+        masterId: masterId || undefined,
+        creatorName: charData.creatorName || currentUser.displayName,
+        system: charData.system || targetCamp?.system,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
 
       setCharacters((prev) => {
-        const next = [...prev, newChar];
+        const next = [...prev.filter((c) => c.id !== newChar.id), newChar];
         storageService.saveUserCharacters(currentUser.id, next);
+        if (masterId && masterId !== currentUser.id) {
+          storageService.saveCharacterForMaster(masterId, newChar);
+        }
+        if (newChar.campaignId) {
+          storageService.saveCampaignCharacter(newChar.campaignId, newChar);
+        }
         return next;
       });
+
+      // Link character to player member in the campaign if member exists
+      if (targetCamp && targetCamp.members) {
+        const myMember = targetCamp.members.find((m) => m.userId === currentUser.id);
+        if (myMember && myMember.characterId !== newChar.id) {
+          const updatedMembers = targetCamp.members.map((m) =>
+            m.userId === currentUser.id ? { ...m, characterId: newChar.id } : m
+          );
+          handleUpdateCampaignById(targetCamp.id, { members: updatedMembers });
+        }
+      }
 
       // Persist to Firestore
       saveCharacterToFirestore(newChar, currentUser.id).catch((err) => {
@@ -505,7 +535,7 @@ export default function App() {
 
       return newChar;
     },
-    [currentUser]
+    [currentUser, campaigns, activeCampaignId, handleUpdateCampaignById]
   );
 
   const handleUpdateCharacter = useCallback(
@@ -522,9 +552,16 @@ export default function App() {
         });
         storageService.saveUserCharacters(currentUser.id, next);
 
-        // Persist to Firestore
+        // Persist to Firestore and sync caches
         if (updatedChar) {
-          saveCharacterToFirestore(updatedChar, currentUser.id).catch((err) => {
+          const charToSync: CharacterSheet = updatedChar;
+          if (charToSync.masterId && charToSync.masterId !== currentUser.id) {
+            storageService.saveCharacterForMaster(charToSync.masterId, charToSync);
+          }
+          if (charToSync.campaignId) {
+            storageService.saveCampaignCharacter(charToSync.campaignId, charToSync);
+          }
+          saveCharacterToFirestore(charToSync, currentUser.id).catch((err) => {
             console.warn('Erro ao atualizar ficha no Firestore:', err);
           });
         }

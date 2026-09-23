@@ -18,7 +18,9 @@ export interface CharacterSheet {
   id: string;
   campaignId: string;
   userId?: string; // ID do usuário que criou a ficha (Jogador ou Mestre)
+  masterId?: string; // ID do Mestre da campanha
   creatorName?: string; // Nome de exibição do autor
+  system?: string; // Sistema de regras da ficha
   name: string;
   role: string; // e.g. "Ladino Assassino Nv 4" or "Taberneiro Suspeito" or "Dragão Ancião (ND 10)"
   type: CharacterType;

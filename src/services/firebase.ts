@@ -778,11 +778,12 @@ export const subscribeToUserCampaigns = (
   );
 };
 
-// Firestore Realtime Characters filtered for specific User Account and Shared Table Sheets
+// Firestore Realtime Characters filtered for specific User Account, Master access, and Shared Table Sheets
 export const subscribeToUserCharacters = (
   userId: string,
   onUpdate: (characters: CharacterSheet[]) => void,
-  onError?: (err: Error) => void
+  onError?: (err: Error) => void,
+  userCampaignIds?: string[]
 ) => {
   const charsCol = collection(db, 'characters');
   return onSnapshot(
@@ -792,6 +793,9 @@ export const subscribeToUserCharacters = (
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const docUserId = data.userId || 'usr_mestre';
+        const docMasterId = data.masterId || '';
+        const docCampaignId = data.campaignId || '';
+
         const isAuthor =
           !userId ||
           docUserId === userId ||
@@ -800,15 +804,24 @@ export const subscribeToUserCharacters = (
             userId.startsWith('usr_') &&
             docUserId.split('_')[1] &&
             docUserId.split('_')[1] === userId.split('_')[1]);
+
+        // The Master has immediate access to all player characters in their campaign
+        const isMaster =
+          Boolean(userId && docMasterId && docMasterId === userId) ||
+          Boolean(userCampaignIds && docCampaignId && userCampaignIds.includes(docCampaignId)) ||
+          userId === 'usr_mestre';
+
         const isSharedWithPlayers = Boolean(data.sharedWithPlayers);
 
-        // Include character if user is the author/player OR if sheet is shared with players
-        if (isAuthor || isSharedWithPlayers) {
+        // Include character if user is the author/player OR if user is the Master OR if sheet is shared with players
+        if (isAuthor || isMaster || isSharedWithPlayers) {
           items.push({
             id: docSnap.id,
-            campaignId: data.campaignId || '',
+            campaignId: docCampaignId,
             userId: data.userId || docUserId,
+            masterId: docMasterId || undefined,
             creatorName: data.creatorName || undefined,
+            system: data.system || undefined,
             name: data.name || 'Personagem',
             role: data.role || 'Aventureiro',
             type: data.type === 'NPC' ? 'NPC' : data.type === 'Monstro' ? 'Monstro' : 'PJ',
@@ -943,6 +956,8 @@ export const saveCharacterToFirestore = async (
         challengeRating: character.challengeRating || null,
         sharedWithPlayers: Boolean(character.sharedWithPlayers),
         creatorName: character.creatorName || null,
+        masterId: character.masterId || null,
+        system: character.system || null,
         createdAt: character.createdAt || Date.now(),
         updatedAt: Date.now(),
         userId: character.userId || userId,
