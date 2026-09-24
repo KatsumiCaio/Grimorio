@@ -21,9 +21,13 @@ import {
   Sparkles,
   Palette,
   Trash2,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
 import { AppSettings, UserProfile } from '../types';
 import { storageService } from '../services/storage';
+import { themeService, ThemeMode } from '../services/theme';
 import { FlamingD20Logo } from './FlamingD20Logo';
 import { UserAvatar } from './UserAvatar';
 import {
@@ -163,7 +167,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setTimeout(() => setCopiedFaviconNotice(false), 2500);
   };
 
+  const handleThemeSelect = (mode: ThemeMode) => {
+    setFormData((prev) => ({ ...prev, themeMode: mode }));
+    themeService.applyTheme(mode);
+  };
+
+  const handleClose = () => {
+    // Revert to saved settings theme if user cancels without saving
+    if (settings.themeMode) {
+      themeService.applyTheme(settings.themeMode);
+    }
+    onClose();
+  };
+
   const handleSave = () => {
+    if (formData.themeMode) {
+      themeService.setThemeMode(formData.themeMode);
+    }
     onSaveSettings(formData);
     onClose();
   };
@@ -177,7 +197,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <h2 className="text-base font-semibold text-zinc-100">Configurações & Nuvem</h2>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -364,6 +384,85 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   O Grimório executa as chamadas com segurança no servidor, sem expor credenciais no cliente.
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* Theme & Appearance Section */}
+          <div className="border-t border-zinc-800/80 pt-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-semibold text-cyan-400 uppercase tracking-wider">
+                <Palette className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Tema & Aparência Visual</span>
+              </div>
+              <span className="text-[10px] text-zinc-400 font-mono">
+                {formData.themeMode === 'light' ? 'Modo Claro Ativo' : formData.themeMode === 'system' ? 'Automático (SO)' : 'Modo Escuro Ativo'}
+              </span>
+            </div>
+
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Alterne entre o tema escuro noturno com alto contraste e o tema claro nítido para leitura e sessões em ambientes iluminados.
+            </p>
+
+            <div className="grid grid-cols-3 gap-2.5 pt-1">
+              {/* Dark Option */}
+              <button
+                type="button"
+                id="theme-option-dark"
+                onClick={() => handleThemeSelect('dark')}
+                className={`flex flex-col items-center gap-2 p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                  (formData.themeMode || 'dark') === 'dark'
+                    ? 'bg-zinc-950 border-cyan-500 text-zinc-100 shadow-[0_0_12px_rgba(6,182,212,0.2)] font-medium'
+                    : 'bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                }`}
+              >
+                <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-cyan-400">
+                  <Moon className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-zinc-200">Escuro</div>
+                  <div className="text-[10px] text-zinc-500 mt-0.5">Obsidiana</div>
+                </div>
+              </button>
+
+              {/* Light Option */}
+              <button
+                type="button"
+                id="theme-option-light"
+                onClick={() => handleThemeSelect('light')}
+                className={`flex flex-col items-center gap-2 p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                  formData.themeMode === 'light'
+                    ? 'bg-zinc-950 border-amber-500 text-zinc-100 shadow-[0_0_12px_rgba(245,158,11,0.2)] font-medium'
+                    : 'bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                }`}
+              >
+                <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500">
+                  <Sun className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-zinc-200">Claro</div>
+                  <div className="text-[10px] text-zinc-500 mt-0.5">Pergaminho</div>
+                </div>
+              </button>
+
+              {/* System Option */}
+              <button
+                type="button"
+                id="theme-option-system"
+                onClick={() => handleThemeSelect('system')}
+                className={`flex flex-col items-center gap-2 p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                  formData.themeMode === 'system'
+                    ? 'bg-zinc-950 border-cyan-500 text-zinc-100 shadow-[0_0_12px_rgba(6,182,212,0.2)] font-medium'
+                    : 'bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                }`}
+              >
+                <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-cyan-400">
+                  <Monitor className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-zinc-200">Automático</div>
+                  <div className="text-[10px] text-zinc-500 mt-0.5">Sistema</div>
+                </div>
+              </button>
             </div>
           </div>
 

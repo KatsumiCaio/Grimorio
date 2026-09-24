@@ -3,17 +3,72 @@
 @layer base {
   :root {
     color-scheme: dark;
+    --color-zinc-950: #09090b;
+    --color-zinc-900: #18181b;
+    --color-zinc-850: #202024;
+    --color-zinc-800: #27272a;
+    --color-zinc-700: #3f3f46;
+    --color-zinc-600: #52525b;
+    --color-zinc-500: #71717a;
+    --color-zinc-400: #a1a1aa;
+    --color-zinc-300: #d4d4d8;
+    --color-zinc-200: #e4e4e7;
+    --color-zinc-100: #f4f4f5;
+    --color-zinc-50:  #fafafa;
+  }
+
+  /* Light Theme (Parchment & Crisp Studio) */
+  html.light {
+    color-scheme: light;
+    --color-zinc-950: #f8fafc;
+    --color-zinc-900: #ffffff;
+    --color-zinc-850: #f1f5f9;
+    --color-zinc-800: #e2e8f0;
+    --color-zinc-700: #cbd5e1;
+    --color-zinc-600: #94a3b8;
+    --color-zinc-500: #64748b;
+    --color-zinc-400: #475569;
+    --color-zinc-300: #334155;
+    --color-zinc-200: #1e293b;
+    --color-zinc-100: #0f172a;
+    --color-zinc-50:  #020617;
+
+    /* Jewel tones for light mode typography contrast */
+    --color-cyan-50: #083344;
+    --color-cyan-100: #155e75;
+    --color-cyan-200: #0e7490;
+    --color-cyan-300: #0891b2;
+    --color-cyan-400: #0284c7;
+
+    --color-amber-50: #451a03;
+    --color-amber-100: #78350f;
+    --color-amber-200: #92400e;
+    --color-amber-300: #b45309;
+    --color-amber-400: #d97706;
+
+    --color-rose-50: #4c0519;
+    --color-rose-100: #881337;
+    --color-rose-200: #9f1239;
+    --color-rose-300: #be123c;
+    --color-rose-400: #e11d48;
+
+    --color-emerald-50: #022c22;
+    --color-emerald-100: #064e3b;
+    --color-emerald-200: #065f46;
+    --color-emerald-300: #047857;
+    --color-emerald-400: #059669;
   }
 
   body {
-    background-color: #09090b;
-    color: #f4f4f5;
+    background-color: var(--color-zinc-950);
+    color: var(--color-zinc-100);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     overflow: hidden;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
 
-/* Custom minimal scrollbar for dark theme */
+/* Custom minimal scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -24,12 +79,20 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: var(--color-zinc-800);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: var(--color-zinc-700);
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 /* Hide scrollbar on mobile horizontal bars */
@@ -39,4 +102,31 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Card and modal shadow refinements for light theme */
+html.light .shadow-xs,
+html.light .shadow-sm {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+html.light .shadow-md {
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+}
+
+html.light .shadow-lg,
+html.light .shadow-xl {
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12), 0 4px 10px rgba(15, 23, 42, 0.06);
+}
+
+/* Ensure inputs, select, textarea text in light mode are crisp and legible */
+html.light input,
+html.light textarea,
+html.light select {
+  color: var(--color-zinc-100);
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #94a3b8;
 }

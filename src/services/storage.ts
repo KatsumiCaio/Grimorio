@@ -76,6 +76,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   editorMode: 'edit',
   customLogoUrl: '',
   themeTone: 'cyan',
+  themeMode: 'dark',
 };
 
 const DEFAULT_CAMPAIGNS: Campaign[] = [

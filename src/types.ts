@@ -118,6 +118,7 @@ export interface AppSettings {
   editorMode: 'edit' | 'preview' | 'split';
   customLogoUrl?: string;
   themeTone?: 'amber' | 'crimson' | 'emerald' | 'purple' | 'cyan';
+  themeMode?: 'dark' | 'light' | 'system';
 }
 
 export type MainTab = 'campaign' | 'characters' | 'bestiary';

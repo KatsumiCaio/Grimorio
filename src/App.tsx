@@ -15,6 +15,7 @@ import { PlayerPortalView } from './components/PlayerPortalView';
 import { AuthModal } from './components/AuthModal';
 import { AccountOnboarding } from './components/AccountOnboarding';
 import { BottomNav } from './components/BottomNav';
+import { themeService } from './services/theme';
 import {
   subscribeToUserCampaigns,
   subscribeToUserCharacters,
@@ -589,10 +590,34 @@ export default function App() {
     [currentUser]
   );
 
+  // Theme initialization & synchronization
+  useEffect(() => {
+    const unsub = themeService.init();
+    const unsubTheme = themeService.subscribe((_isDark, mode) => {
+      setSettings((prev) => (prev.themeMode !== mode ? { ...prev, themeMode: mode } : prev));
+    });
+    return () => {
+      unsub();
+      unsubTheme();
+    };
+  }, []);
+
+  const handleToggleTheme = useCallback(() => {
+    const nextMode = themeService.toggleTheme();
+    setSettings((prev) => {
+      const updated = { ...prev, themeMode: nextMode };
+      storageService.saveSettings(updated);
+      return updated;
+    });
+  }, []);
+
   // Settings handlers
   const handleSaveSettings = useCallback((newSettings: AppSettings) => {
     setSettings(newSettings);
     storageService.saveSettings(newSettings);
+    if (newSettings.themeMode) {
+      themeService.setThemeMode(newSettings.themeMode);
+    }
   }, []);
 
   // Update dynamic favicon whenever customLogoUrl changes
@@ -851,6 +876,8 @@ export default function App() {
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenSearch={() => setIsSearchOpen(true)}
           customLogoUrl={settings.customLogoUrl}
+          themeMode={settings.themeMode}
+          onToggleTheme={handleToggleTheme}
         />
       )}
 

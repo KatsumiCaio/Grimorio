@@ -232,7 +232,7 @@ export const CampaignMenuModal: React.FC<CampaignMenuModalProps> = ({
                   </h3>
                   <p className="text-xs text-rose-300/90 leading-relaxed">
                     Você está prestes a apagar permanentemente todas as{' '}
-                    <strong className="underline text-white font-bold">{campaigns.length} campanhas</strong>{' '}
+                    <strong className="underline text-rose-100 font-bold">{campaigns.length} campanhas</strong>{' '}
                     cadastradas no seu grimório, juntamente com todos os seus cadernos de anotações e históricos de conversas com o Copiloto IA tanto localmente quanto na nuvem.
                   </p>
                 </div>

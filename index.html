@@ -15,6 +15,26 @@
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <script>
+      // Initialize dark or light theme before render to eliminate visual flash
+      try {
+        var storedTheme = localStorage.getItem('grimorio_theme_mode');
+        var isDark = true;
+        if (storedTheme === 'light') {
+          isDark = false;
+        } else if (storedTheme === 'system') {
+          isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        if (!isDark) {
+          document.documentElement.classList.add('light');
+          document.documentElement.setAttribute('data-theme', 'light');
+          var metaTc = document.querySelector('meta[name="theme-color"]');
+          if (metaTc) metaTc.setAttribute('content', '#f8fafc');
+        } else {
+          document.documentElement.classList.add('dark');
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {}
+
       // Suppress benign Vite WebSocket / HMR disconnection rejections in sandboxed iframe environment
       window.addEventListener('unhandledrejection', function(event) {
         var msg = event?.reason?.message || event?.reason || '';

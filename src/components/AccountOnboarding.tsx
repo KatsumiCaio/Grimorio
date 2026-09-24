@@ -14,11 +14,14 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   Check,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { UserProfile, UserRole, Campaign } from '../types';
 import { authService } from '../services/auth';
 import { storageService } from '../services/storage';
 import { saveCampaignToFirestore, checkCloudDbStatus, CloudDbStatus } from '../services/firebase';
+import { themeService } from '../services/theme';
 import { FlamingD20Logo } from './FlamingD20Logo';
 import { UserAvatar, AVATAR_OPTIONS, COLOR_OPTIONS } from './UserAvatar';
 
@@ -57,6 +60,14 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
   const [isCheckingCloud, setIsCheckingCloud] = useState(false);
 
   const [deviceAccounts, setDeviceAccounts] = useState<UserProfile[]>(() => authService.getDeviceAccounts());
+  const [isDark, setIsDark] = useState(() => themeService.isDark());
+
+  useEffect(() => {
+    const unsub = themeService.subscribe((dark) => {
+      setIsDark(dark);
+    });
+    return () => unsub();
+  }, []);
 
   const getPasswordStrength = (pwd: string) => {
     if (!pwd) return { label: '', color: 'bg-zinc-700', width: 'w-0' };
@@ -223,6 +234,29 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
       {/* Ambient background glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Floating Theme Switcher */}
+      <div className="absolute top-4 right-4 z-30">
+        <button
+          type="button"
+          onClick={() => themeService.toggleTheme()}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 shadow-md backdrop-blur-md transition-all cursor-pointer group text-xs select-none"
+          title={isDark ? "Mudar para Modo Claro (Light)" : "Mudar para Modo Escuro (Dark)"}
+          aria-label={isDark ? "Mudar para Modo Claro" : "Mudar para Modo Escuro"}
+        >
+          {isDark ? (
+            <>
+              <Sun className="w-4 h-4 text-amber-400 group-hover:rotate-45 transition-transform" />
+              <span className="text-zinc-300 font-medium">Modo Claro</span>
+            </>
+          ) : (
+            <>
+              <Moon className="w-4 h-4 text-cyan-600 group-hover:-rotate-12 transition-transform" />
+              <span className="text-zinc-700 font-medium">Modo Escuro</span>
+            </>
+          )}
+        </button>
+      </div>
 
       <div className="w-full max-w-lg bg-zinc-900/90 border border-zinc-800/90 rounded-2xl shadow-2xl p-6 sm:p-8 backdrop-blur-xl relative z-10 my-8">
         {/* Header Branding */}

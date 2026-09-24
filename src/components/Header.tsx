@@ -15,11 +15,14 @@ import {
   Skull,
   ExternalLink,
   LogOut,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { FlamingD20Logo } from './FlamingD20Logo';
 import { MainTab, Campaign, UserProfile } from '../types';
 import { DiceRoller } from './DiceRoller';
 import { UserAvatar } from './UserAvatar';
+import { themeService, ThemeMode } from '../services/theme';
 
 interface HeaderProps {
   currentTab: MainTab;
@@ -37,6 +40,8 @@ interface HeaderProps {
   onOpenSettings: () => void;
   onOpenSearch: () => void;
   customLogoUrl?: string;
+  themeMode?: ThemeMode;
+  onToggleTheme?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -55,7 +60,26 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   onOpenSearch,
   customLogoUrl,
+  themeMode,
+  onToggleTheme,
 }) => {
+  const [isDark, setIsDark] = React.useState(() => themeService.isDark());
+
+  React.useEffect(() => {
+    const unsub = themeService.subscribe((dark) => {
+      setIsDark(dark);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleToggle = () => {
+    if (onToggleTheme) {
+      onToggleTheme();
+    } else {
+      themeService.toggleTheme();
+    }
+  };
+
   return (
     <header className="h-14 border-b border-zinc-800/90 bg-zinc-950/95 backdrop-blur-md px-3 sm:px-6 flex items-center justify-between select-none z-30 shrink-0">
       {/* Brand & Logo + Campaign Menu Trigger */}
@@ -262,6 +286,22 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Quick Dice Roller */}
         <DiceRoller />
+
+        {/* Dark / Light Theme Quick Toggle */}
+        <button
+          type="button"
+          id="header-theme-toggle-btn"
+          onClick={handleToggle}
+          className="p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent hover:border-zinc-800 rounded-lg transition-all cursor-pointer group"
+          title={isDark ? "Alternar para Modo Claro (Light)" : "Alternar para Modo Escuro (Dark)"}
+          aria-label={isDark ? "Alternar para Modo Claro" : "Alternar para Modo Escuro"}
+        >
+          {isDark ? (
+            <Sun className="w-4 h-4 text-amber-400 group-hover:rotate-45 group-hover:text-amber-300 transition-all duration-200" />
+          ) : (
+            <Moon className="w-4 h-4 text-cyan-600 group-hover:-rotate-12 group-hover:text-cyan-700 transition-all duration-200" />
+          )}
+        </button>
 
         {/* Settings button */}
         <button
