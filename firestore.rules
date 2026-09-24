@@ -14,9 +14,9 @@ service cloud.firestore {
     }
 
     function isValidCampaign(data) {
-      return data.id is string && data.id.size() <= 128
-        && data.title is string && data.title.size() <= 300
-        && data.system is string && data.system.size() <= 100
+      return (!('id' in data) || (data.id is string && data.id.size() <= 128))
+        && (!('title' in data) || (data.title is string && data.title.size() <= 300))
+        && (!('system' in data) || (data.system is string && data.system.size() <= 100))
         && (!('notes' in data) || (data.notes is string && data.notes.size() <= 500000));
     }
 

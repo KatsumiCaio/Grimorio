@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, ExternalLink, X, RefreshCw } from 'lucide-react';
-import { Campaign, CharacterSheet, MainTab, AppSettings, BestiaryMonster, UserProfile, CampaignSharedItem } from './types';
+import { Campaign, CharacterSheet, MainTab, AppSettings, BestiaryMonster, UserProfile, CampaignSharedItem, CampaignMember } from './types';
 import { storageService } from './services/storage';
 import { authService } from './services/auth';
 import { Header } from './components/Header';
@@ -666,20 +666,50 @@ export default function App() {
     async (notes: string) => {
       if (!currentUser || !currentCampaign) return;
       try {
-        await savePlayerCampaignNotes(currentCampaign.id, currentUser.id, notes);
+        const currentMembers = currentCampaign.members || [];
+        const memberIndex = currentMembers.findIndex((m) => m.userId === currentUser.id);
+        const updatedMember: CampaignMember =
+          memberIndex >= 0
+            ? { ...currentMembers[memberIndex], notes }
+            : {
+                userId: currentUser.id,
+                displayName: currentUser.displayName,
+                role: 'player',
+                joinedAt: Date.now(),
+                notes,
+              };
+
+        const nextMembers =
+          memberIndex >= 0
+            ? currentMembers.map((m, idx) => (idx === memberIndex ? updatedMember : m))
+            : [...currentMembers, updatedMember];
+
+        const updatedCamp: Campaign = {
+          ...currentCampaign,
+          members: nextMembers,
+          updatedAt: Date.now(),
+        };
+
         setCampaigns((prev) => {
-          const next = prev.map((c) => {
-            if (c.id === currentCampaign.id) {
-              const nextMembers = (c.members || []).map((m) =>
-                m.userId === currentUser.id ? { ...m, notes } : m
-              );
-              return { ...c, members: nextMembers };
-            }
-            return c;
-          });
+          const next = prev.map((c) => (c.id === currentCampaign.id ? updatedCamp : c));
           storageService.saveUserCampaigns(currentUser.id, next);
           return next;
         });
+
+        // Dedicated local storage cache for player notes
+        storageService.savePlayerCampaignNotes(currentCampaign.id, currentUser.id, notes);
+
+        // Sync to Master's local cache if Master is a different user
+        const masterId = currentCampaign.masterId || currentCampaign.userId;
+        if (masterId && masterId !== currentUser.id) {
+          storageService.saveCampaignMemberForMaster(masterId, currentCampaign.id, updatedMember);
+        }
+
+        // Persist to Cloud Firestore: both targeted helper and full campaign
+        await savePlayerCampaignNotes(currentCampaign.id, currentUser.id, notes, currentUser.displayName);
+        saveCampaignToFirestore(updatedCamp, currentCampaign.userId || currentUser.id).catch((e) =>
+          console.warn('Erro ao sincronizar campanha com anotações no Firestore:', e)
+        );
       } catch (err) {
         console.warn('Erro ao salvar anotações do jogador:', err);
       }
@@ -692,18 +722,36 @@ export default function App() {
     async (item: CampaignSharedItem) => {
       if (!currentCampaign || !currentUser) return;
       try {
-        await addSharedItemToCampaign(currentCampaign.id, item);
+        const currentShared = currentCampaign.sharedItems || [];
+        const nextShared = [item, ...currentShared.filter((i) => i.id !== item.id)];
+        const updatedCamp: Campaign = {
+          ...currentCampaign,
+          sharedItems: nextShared,
+          updatedAt: Date.now(),
+        };
+
         setCampaigns((prev) => {
-          const next = prev.map((c) => {
-            if (c.id === currentCampaign.id) {
-              const nextShared = [item, ...(c.sharedItems || [])];
-              return { ...c, sharedItems: nextShared };
-            }
-            return c;
-          });
+          const next = prev.map((c) => (c.id === currentCampaign.id ? updatedCamp : c));
           storageService.saveUserCampaigns(currentUser.id, next);
           return next;
         });
+
+        // Dedicated local cache for campaign shared items
+        storageService.saveCampaignSharedItems(currentCampaign.id, nextShared);
+
+        // Also update Master's campaign cache if different user
+        const masterId = currentCampaign.masterId || currentCampaign.userId;
+        if (masterId && masterId !== currentUser.id) {
+          const masterCamps = storageService.getUserCampaigns(masterId);
+          const updatedMasterCamps = masterCamps.map((c) => (c.id === currentCampaign.id ? updatedCamp : c));
+          storageService.saveUserCampaigns(masterId, updatedMasterCamps);
+        }
+
+        // Persist to Firestore: both specific helper and full campaign document
+        await addSharedItemToCampaign(currentCampaign.id, item);
+        saveCampaignToFirestore(updatedCamp, currentCampaign.userId || currentUser.id).catch((e) =>
+          console.warn('Erro ao sincronizar mural compartilhado no Firestore:', e)
+        );
       } catch (err) {
         console.warn('Erro ao adicionar item compartilhado:', err);
       }
@@ -716,18 +764,32 @@ export default function App() {
     async (itemId: string) => {
       if (!currentCampaign || !currentUser) return;
       try {
-        await removeSharedItemFromCampaign(currentCampaign.id, itemId);
+        const nextShared = (currentCampaign.sharedItems || []).filter((i) => i.id !== itemId);
+        const updatedCamp: Campaign = {
+          ...currentCampaign,
+          sharedItems: nextShared,
+          updatedAt: Date.now(),
+        };
+
         setCampaigns((prev) => {
-          const next = prev.map((c) => {
-            if (c.id === currentCampaign.id) {
-              const nextShared = (c.sharedItems || []).filter((i) => i.id !== itemId);
-              return { ...c, sharedItems: nextShared };
-            }
-            return c;
-          });
+          const next = prev.map((c) => (c.id === currentCampaign.id ? updatedCamp : c));
           storageService.saveUserCampaigns(currentUser.id, next);
           return next;
         });
+
+        storageService.saveCampaignSharedItems(currentCampaign.id, nextShared);
+
+        const masterId = currentCampaign.masterId || currentCampaign.userId;
+        if (masterId && masterId !== currentUser.id) {
+          const masterCamps = storageService.getUserCampaigns(masterId);
+          const updatedMasterCamps = masterCamps.map((c) => (c.id === currentCampaign.id ? updatedCamp : c));
+          storageService.saveUserCampaigns(masterId, updatedMasterCamps);
+        }
+
+        await removeSharedItemFromCampaign(currentCampaign.id, itemId);
+        saveCampaignToFirestore(updatedCamp, currentCampaign.userId || currentUser.id).catch((e) =>
+          console.warn('Erro ao sincronizar remoção do mural no Firestore:', e)
+        );
       } catch (err) {
         console.warn('Erro ao remover item compartilhado:', err);
       }
@@ -848,6 +910,7 @@ export default function App() {
               onUpdateCampaign={handleUpdateCampaign}
               onDeleteCampaign={handleDeleteCampaign}
               onOpenCampaignMenu={() => setIsCampaignMenuOpen(true)}
+              onOpenTableModal={() => setIsTableModalOpen(true)}
               characters={characters}
               onCreateCharacter={handleCreateCharacter}
               onUpdateCharacter={(updated) => handleUpdateCharacter(updated.id, updated)}

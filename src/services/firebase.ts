@@ -18,6 +18,7 @@ import {
   onSnapshot,
   query,
   getDocs,
+  getDoc,
   getDocFromServer,
   writeBatch,
   orderBy,
@@ -27,7 +28,7 @@ import {
   enableNetwork,
 } from 'firebase/firestore';
 import { Campaign, CharacterSheet, ChatMessage, UserProfile, CampaignMember, CampaignSharedItem } from '../types';
-import { ensureCampaignChapters, generateCampaignInviteCode } from './storage';
+import { ensureCampaignChapters, generateCampaignInviteCode, storageService } from './storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Configuration constants
@@ -237,6 +238,28 @@ export function handleOperationError(
   } else {
     console.warn(`Operação no Firestore (${operationType} em ${path}) em modo offline/desconectado.`);
   }
+}
+
+/** Recursively sanitize data for Firestore by removing undefined values and normalizing keys */
+export function cleanForFirestore<T>(data: T): T {
+  if (data === null || data === undefined) {
+    return null as any;
+  }
+  if (Array.isArray(data)) {
+    return data
+      .filter((item) => item !== undefined)
+      .map((item) => cleanForFirestore(item)) as any;
+  }
+  if (typeof data === 'object' && !(data instanceof Date)) {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        cleaned[key] = cleanForFirestore(value);
+      }
+    }
+    return cleaned as T;
+  }
+  return data;
 }
 
 export interface CloudDbStatus {
@@ -739,6 +762,31 @@ export const subscribeToUserCampaigns = (
             docUserId.split('_')[1] &&
             docUserId.split('_')[1] === userId.split('_')[1]);
 
+        const cachedShared = storageService.getCampaignSharedItems(docSnap.id);
+        const resolvedSharedItems = Array.isArray(data.sharedItems) && data.sharedItems.length > 0
+          ? data.sharedItems
+          : cachedShared.length > 0
+          ? cachedShared
+          : undefined;
+
+        // Ensure user's own cached notes are preserved in members if present locally
+        const cachedUserNotes = storageService.getPlayerCampaignNotes(docSnap.id, userId);
+        const resolvedMembers = [...members];
+        if (cachedUserNotes && !resolvedMembers.some((m) => m.userId === userId && m.notes)) {
+          const userIdx = resolvedMembers.findIndex((m) => m.userId === userId);
+          if (userIdx >= 0) {
+            resolvedMembers[userIdx] = { ...resolvedMembers[userIdx], notes: cachedUserNotes };
+          } else {
+            resolvedMembers.push({
+              userId,
+              displayName: 'Jogador',
+              role: 'player',
+              joinedAt: Date.now(),
+              notes: cachedUserNotes,
+            });
+          }
+        }
+
         if (isUserMatch) {
           items.push(
             ensureCampaignChapters({
@@ -752,8 +800,8 @@ export const subscribeToUserCampaigns = (
               notes: data.notes || '',
               chapters: Array.isArray(data.chapters) ? data.chapters : undefined,
               activeChapterId: data.activeChapterId || undefined,
-              members: members.length > 0 ? members : undefined,
-              sharedItems: Array.isArray(data.sharedItems) ? data.sharedItems : undefined,
+              members: resolvedMembers.length > 0 ? resolvedMembers : undefined,
+              sharedItems: resolvedSharedItems,
               createdAt: data.createdAt || Date.now(),
               updatedAt: data.updatedAt || Date.now(),
             })
@@ -874,26 +922,43 @@ export const saveCampaignToFirestore = async (
   const path = `campaigns/${campaign.id}`;
   const docRef = doc(db, 'campaigns', campaign.id);
   try {
-    await setDoc(
-      docRef,
-      {
-        id: campaign.id,
-        title: campaign.title || 'Campanha sem título',
-        system: campaign.system || 'D&D 5e',
-        notes: campaign.notes || '',
-        chapters: campaign.chapters || [],
-        activeChapterId: campaign.activeChapterId || null,
-        masterId: campaign.masterId || campaign.userId || userId,
-        masterName: campaign.masterName || 'Mestre da Masmorra',
-        inviteCode: campaign.inviteCode || generateCampaignInviteCode(),
-        members: campaign.members || [],
-        sharedItems: campaign.sharedItems || [],
-        createdAt: campaign.createdAt || Date.now(),
-        updatedAt: Date.now(),
-        userId: campaign.userId || userId,
-      },
-      { merge: true }
-    );
+    const payload = cleanForFirestore({
+      id: campaign.id,
+      title: campaign.title || 'Campanha sem título',
+      system: campaign.system || 'D&D 5e',
+      notes: campaign.notes || '',
+      chapters: campaign.chapters || [],
+      activeChapterId: campaign.activeChapterId || null,
+      masterId: campaign.masterId || campaign.userId || userId,
+      masterName: campaign.masterName || 'Mestre da Masmorra',
+      inviteCode: campaign.inviteCode || generateCampaignInviteCode(),
+      members: (campaign.members || []).map((m) => ({
+        userId: m.userId,
+        displayName: m.displayName || 'Jogador',
+        role: m.role || 'player',
+        joinedAt: m.joinedAt || Date.now(),
+        ...(m.avatarId ? { avatarId: m.avatarId } : {}),
+        ...(m.avatarUrl ? { avatarUrl: m.avatarUrl } : {}),
+        ...(m.characterId ? { characterId: m.characterId } : {}),
+        notes: m.notes || '',
+      })),
+      sharedItems: (campaign.sharedItems || []).map((i) => ({
+        id: i.id,
+        campaignId: i.campaignId || campaign.id,
+        title: i.title || '',
+        type: i.type || 'image',
+        category: i.category || (i.type === 'image' ? 'photo' : 'document'),
+        url: i.url || '',
+        content: i.content || '',
+        ...(i.characterId ? { characterId: i.characterId } : {}),
+        sharedBy: i.sharedBy || userId,
+        sharedAt: i.sharedAt || Date.now(),
+      })),
+      createdAt: campaign.createdAt || Date.now(),
+      updatedAt: Date.now(),
+      userId: campaign.userId || userId,
+    });
+    await setDoc(docRef, payload, { merge: true });
   } catch (error) {
     handleOperationError(error, OperationType.WRITE, path);
   }
@@ -1051,22 +1116,56 @@ export const joinCampaignByInviteCode = async (
 export const savePlayerCampaignNotes = async (
   campaignId: string,
   userId: string,
-  notes: string
+  notes: string,
+  displayName?: string
 ): Promise<void> => {
-  if (!campaignId || !userId) return;
+  if (!campaignId || !userId || quotaExceededState) return;
+  const path = `campaigns/${campaignId}`;
   const docRef = doc(db, 'campaigns', campaignId);
   try {
-    const snap = await getDocFromServer(docRef).catch(() => null);
+    const snap = await getDoc(docRef).catch(() => null);
     if (snap && snap.exists()) {
       const data = snap.data();
       const members: CampaignMember[] = Array.isArray(data.members) ? data.members : [];
-      const updatedMembers = members.map((m) =>
-        m.userId === userId ? { ...m, notes } : m
-      );
-      await setDoc(docRef, { members: updatedMembers, updatedAt: Date.now() }, { merge: true });
+      const idx = members.findIndex((m) => m.userId === userId);
+      const updatedMembers =
+        idx >= 0
+          ? members.map((m) => (m.userId === userId ? { ...m, notes } : m))
+          : [
+              ...members,
+              {
+                userId,
+                displayName: displayName || 'Jogador',
+                role: 'player' as const,
+                joinedAt: Date.now(),
+                notes,
+              },
+            ];
+      await setDoc(docRef, cleanForFirestore({ members: updatedMembers, updatedAt: Date.now() }), { merge: true });
+    } else {
+      // Create campaign reference stub with notes
+      await setDoc(
+        docRef,
+        cleanForFirestore({
+          id: campaignId,
+          title: 'Campanha',
+          system: 'D&D 5e',
+          members: [
+            {
+              userId,
+              displayName: displayName || 'Jogador',
+              role: 'player' as const,
+              joinedAt: Date.now(),
+              notes,
+            },
+          ],
+          updatedAt: Date.now(),
+        }),
+        { merge: true }
+      ).catch(() => {});
     }
-  } catch (err) {
-    console.warn('Erro ao salvar anotações do jogador:', err);
+  } catch (error) {
+    handleOperationError(error, OperationType.WRITE, path);
   }
 };
 
@@ -1074,18 +1173,45 @@ export const addSharedItemToCampaign = async (
   campaignId: string,
   item: CampaignSharedItem
 ): Promise<void> => {
-  if (!campaignId || !item) return;
+  if (!campaignId || !item || quotaExceededState) return;
+  const path = `campaigns/${campaignId}`;
   const docRef = doc(db, 'campaigns', campaignId);
+  const sanitizedItem: CampaignSharedItem = {
+    id: item.id,
+    campaignId: item.campaignId || campaignId,
+    title: item.title || '',
+    type: item.type || 'image',
+    category: item.category || (item.type === 'image' ? 'photo' : 'document'),
+    url: item.url || '',
+    content: item.content || '',
+    ...(item.characterId ? { characterId: item.characterId } : {}),
+    sharedBy: item.sharedBy,
+    sharedAt: item.sharedAt || Date.now(),
+  };
+
   try {
-    const snap = await getDocFromServer(docRef).catch(() => null);
+    const snap = await getDoc(docRef).catch(() => null);
     if (snap && snap.exists()) {
       const data = snap.data();
       const currentItems: CampaignSharedItem[] = Array.isArray(data.sharedItems) ? data.sharedItems : [];
-      const updatedItems = [item, ...currentItems.filter((i) => i.id !== item.id)];
-      await setDoc(docRef, { sharedItems: updatedItems, updatedAt: Date.now() }, { merge: true });
+      const updatedItems = [sanitizedItem, ...currentItems.filter((i) => i.id !== sanitizedItem.id)];
+      await setDoc(docRef, cleanForFirestore({ sharedItems: updatedItems, updatedAt: Date.now() }), { merge: true });
+    } else {
+      // Direct merge if doc was just created locally
+      await setDoc(
+        docRef,
+        cleanForFirestore({
+          id: campaignId,
+          title: 'Campanha',
+          system: 'D&D 5e',
+          sharedItems: [sanitizedItem],
+          updatedAt: Date.now(),
+        }),
+        { merge: true }
+      ).catch(() => {});
     }
-  } catch (err) {
-    console.warn('Erro ao compartilhar item com jogadores:', err);
+  } catch (error) {
+    handleOperationError(error, OperationType.WRITE, path);
   }
 };
 
@@ -1093,18 +1219,19 @@ export const removeSharedItemFromCampaign = async (
   campaignId: string,
   itemId: string
 ): Promise<void> => {
-  if (!campaignId || !itemId) return;
+  if (!campaignId || !itemId || quotaExceededState) return;
+  const path = `campaigns/${campaignId}`;
   const docRef = doc(db, 'campaigns', campaignId);
   try {
-    const snap = await getDocFromServer(docRef).catch(() => null);
+    const snap = await getDoc(docRef).catch(() => null);
     if (snap && snap.exists()) {
       const data = snap.data();
       const currentItems: CampaignSharedItem[] = Array.isArray(data.sharedItems) ? data.sharedItems : [];
       const updatedItems = currentItems.filter((i) => i.id !== itemId);
-      await setDoc(docRef, { sharedItems: updatedItems, updatedAt: Date.now() }, { merge: true });
+      await setDoc(docRef, cleanForFirestore({ sharedItems: updatedItems, updatedAt: Date.now() }), { merge: true });
     }
-  } catch (err) {
-    console.warn('Erro ao remover item compartilhado:', err);
+  } catch (error) {
+    handleOperationError(error, OperationType.WRITE, path);
   }
 };
 

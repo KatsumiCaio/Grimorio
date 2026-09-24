@@ -33,6 +33,8 @@ import {
   PanelLeft,
   PanelLeftClose,
   ChevronRight,
+  Share2,
+  Users,
 } from 'lucide-react';
 import { FloatingDiceWidget, CampaignRollResult } from './FloatingDiceWidget';
 import { Campaign, CampaignChapter, CharacterSheet, BestiaryMonster, CharacterType } from '../types';
@@ -65,6 +67,7 @@ interface CampaignCopilotViewProps {
   onUpdateCampaign: (updated: Partial<Campaign>) => void;
   onDeleteCampaign: (id: string) => void;
   onOpenCampaignMenu?: () => void;
+  onOpenTableModal?: () => void;
   characters: CharacterSheet[];
   onCreateCharacter?: (character: CharacterSheet) => void;
   onUpdateCharacter?: (character: CharacterSheet) => void;
@@ -84,6 +87,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   onUpdateCampaign,
   onDeleteCampaign,
   onOpenCampaignMenu,
+  onOpenTableModal,
   characters,
   onCreateCharacter,
   onUpdateCharacter,
@@ -1569,6 +1573,23 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
                         {activeSystemKnowledge.badge}
                       </span>
                     </button>
+
+                    {/* Botão de Acesso Rápido ao Mural do Mestre & Mesa */}
+                    {onOpenTableModal && (
+                      <button
+                        type="button"
+                        id="campaign-open-mural-btn"
+                        onClick={onOpenTableModal}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-300 text-[11px] font-medium transition-all shadow-xs shrink-0 cursor-pointer group"
+                        title="Mesa & Mural do Mestre: compartilhe fotos, mapas e cartas, e visualize o diário e fichas dos jogadores"
+                      >
+                        <Share2 className="w-3 h-3 text-amber-400 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span>Mural & Jogadores</span>
+                        <span className="text-[10px] text-amber-300 font-bold px-1.5 py-0.2 rounded-full bg-amber-500/20 border border-amber-500/30">
+                          {activeCampaign?.sharedItems?.length || 0}
+                        </span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

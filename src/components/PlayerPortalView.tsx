@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Shield,
   BookOpen,
@@ -23,11 +23,13 @@ import {
   Award,
   Zap,
   Check,
+  RefreshCw,
 } from 'lucide-react';
 import { Campaign, CharacterSheet, UserProfile, CampaignSharedItem, ResourceBar } from '../types';
 import { NewCharacterModal } from './NewCharacterModal';
 import { EditCharacterModal } from './EditCharacterModal';
 import { findTemplateBySystem, createSystemCharacter } from '../data/sheetTemplates';
+import { storageService } from '../services/storage';
 
 interface PlayerPortalViewProps {
   campaign: Campaign;
@@ -53,10 +55,17 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
   // Find current player's member record in campaign
   const memberRecord = campaign.members?.find((m) => m.userId === currentUser.id);
 
-  // Player's notes in this campaign
-  const [playerNotes, setPlayerNotes] = useState(memberRecord?.notes || '');
+  // Player's notes in this campaign: initialize from memberRecord or local cache
+  const [playerNotes, setPlayerNotes] = useState<string>(() => {
+    return memberRecord?.notes || storageService.getPlayerCampaignNotes(campaign.id, currentUser.id) || '';
+  });
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+  const [hasUnsavedNotes, setHasUnsavedNotes] = useState(false);
+
+  const isEditingNotesRef = useRef(false);
+  const lastSavedNotesRef = useRef(playerNotes);
+  const campaignIdRef = useRef(campaign.id);
 
   // Modals state
   const [isNewCharModalOpen, setIsNewCharModalOpen] = useState(false);
@@ -89,27 +98,57 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
   const [quickRole, setQuickRole] = useState(activeTemplate.defaultRolePJ);
   const [quickArchetype, setQuickArchetype] = useState<string>('');
 
-  // Synchronize player notes when changed from remote
+  // When switching campaign, reload notes
   useEffect(() => {
-    if (memberRecord?.notes !== undefined && memberRecord.notes !== playerNotes) {
-      setPlayerNotes(memberRecord.notes);
+    if (campaignIdRef.current !== campaign.id) {
+      campaignIdRef.current = campaign.id;
+      const initialNotes = memberRecord?.notes || storageService.getPlayerCampaignNotes(campaign.id, currentUser.id) || '';
+      setPlayerNotes(initialNotes);
+      lastSavedNotesRef.current = initialNotes;
+      isEditingNotesRef.current = false;
+      setHasUnsavedNotes(false);
     }
-  }, [memberRecord?.notes]);
+  }, [campaign.id, memberRecord?.notes, currentUser.id]);
+
+  // Synchronize player notes when changed from remote (only if user is not actively editing)
+  useEffect(() => {
+    if (
+      !isEditingNotesRef.current &&
+      !hasUnsavedNotes &&
+      memberRecord?.notes !== undefined &&
+      memberRecord.notes !== playerNotes &&
+      memberRecord.notes !== lastSavedNotesRef.current
+    ) {
+      setPlayerNotes(memberRecord.notes);
+      lastSavedNotesRef.current = memberRecord.notes;
+    }
+  }, [memberRecord?.notes, hasUnsavedNotes]);
+
+  // Immediate save function
+  const handleSaveNotes = useCallback((textToSave?: string) => {
+    const text = textToSave !== undefined ? textToSave : playerNotes;
+    setIsSavingNotes(true);
+    // 1. Immediately persist to localStorage
+    storageService.savePlayerCampaignNotes(campaign.id, currentUser.id, text);
+    // 2. Sync to parent state and cloud
+    onSavePlayerNotes(text);
+    lastSavedNotesRef.current = text;
+    setHasUnsavedNotes(false);
+    isEditingNotesRef.current = false;
+    setTimeout(() => {
+      setIsSavingNotes(false);
+      setLastSavedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    }, 300);
+  }, [campaign.id, currentUser.id, playerNotes, onSavePlayerNotes]);
 
   // Debounced auto-save for player notes
   useEffect(() => {
+    if (!hasUnsavedNotes) return;
     const timer = setTimeout(() => {
-      if (playerNotes !== (memberRecord?.notes || '')) {
-        setIsSavingNotes(true);
-        onSavePlayerNotes(playerNotes);
-        setTimeout(() => {
-          setIsSavingNotes(false);
-          setLastSavedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-        }, 400);
-      }
-    }, 1000);
+      handleSaveNotes(playerNotes);
+    }, 1500);
     return () => clearTimeout(timer);
-  }, [playerNotes, memberRecord?.notes, onSavePlayerNotes]);
+  }, [playerNotes, hasUnsavedNotes, handleSaveNotes]);
 
   // Quick roll die
   const handleRollDie = (sides: number) => {
@@ -790,17 +829,34 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
                 <BookOpen className="w-4 h-4 text-blue-400" />
                 <h3 className="font-bold text-sm text-zinc-100">Meu Diário de Aventura</h3>
               </div>
-              <div className="flex items-center gap-1.5 text-[10px] text-zinc-400">
+              <div className="flex items-center gap-2">
                 {isSavingNotes ? (
-                  <span className="text-amber-400 animate-pulse">Salvando...</span>
+                  <span className="text-amber-400 text-[11px] flex items-center gap-1 font-medium animate-pulse">
+                    <RefreshCw className="w-3 h-3 animate-spin" /> Salvando...
+                  </span>
+                ) : hasUnsavedNotes ? (
+                  <span className="text-amber-400 text-[11px] font-medium">Alterações não salvas</span>
                 ) : lastSavedTime ? (
-                  <span className="text-emerald-400 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span>Salvo às {lastSavedTime}</span>
+                  <span className="text-emerald-400 text-[11px] flex items-center gap-1 font-medium">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Salvo às {lastSavedTime}
                   </span>
                 ) : (
-                  <span>Acesso com o Mestre</span>
+                  <span className="text-zinc-500 text-[11px]">Sincronizado</span>
                 )}
+                <button
+                  type="button"
+                  onClick={() => handleSaveNotes()}
+                  disabled={isSavingNotes || !hasUnsavedNotes}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    hasUnsavedNotes
+                      ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-md active:scale-95'
+                      : 'bg-zinc-800/80 text-zinc-400 border border-zinc-700/50 hover:text-zinc-200'
+                  }`}
+                  title="Salvar diário agora (Ctrl+S / ⌘S)"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Salvar Diário</span>
+                </button>
               </div>
             </div>
 
@@ -810,7 +866,28 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
 
             <textarea
               value={playerNotes}
-              onChange={(e) => setPlayerNotes(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setPlayerNotes(val);
+                isEditingNotesRef.current = true;
+                setHasUnsavedNotes(true);
+                storageService.savePlayerCampaignNotes(campaign.id, currentUser.id, val);
+              }}
+              onFocus={() => {
+                isEditingNotesRef.current = true;
+              }}
+              onBlur={() => {
+                isEditingNotesRef.current = false;
+                if (hasUnsavedNotes) {
+                  handleSaveNotes(playerNotes);
+                }
+              }}
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                  e.preventDefault();
+                  handleSaveNotes(playerNotes);
+                }
+              }}
               placeholder="Escreva aqui seu diário de campanha...&#10;&#10;Exemplo:&#10;- Conhecemos o taverneiro manco que nos deu uma dica sobre a floresta.&#10;- Preciso comprar 10 tochas e corda de seda.&#10;- Suspeitamos que o barão não seja quem diz ser..."
               className="flex-1 w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3.5 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-400 resize-none font-sans leading-relaxed shadow-inner"
             />

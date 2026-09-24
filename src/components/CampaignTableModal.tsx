@@ -21,6 +21,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { Campaign, CampaignMember, CampaignSharedItem, CharacterSheet, UserProfile } from '../types';
+import { storageService } from '../services/storage';
 
 interface CampaignTableModalProps {
   isOpen: boolean;
@@ -93,8 +94,8 @@ export const CampaignTableModal: React.FC<CampaignTableModalProps> = ({
       title: newItemTitle.trim(),
       type: newItemType,
       category: newItemType === 'image' ? 'photo' : 'document',
-      url: newItemType === 'image' ? newItemUrl.trim() : undefined,
-      content: newItemContent.trim() || undefined,
+      url: newItemType === 'image' ? newItemUrl.trim() : '',
+      content: newItemContent.trim() || '',
       sharedBy: currentUser.id,
       sharedAt: Date.now(),
     };
@@ -407,7 +408,7 @@ export const CampaignTableModal: React.FC<CampaignTableModalProps> = ({
                     </div>
 
                     <div className="flex-1 overflow-y-auto bg-zinc-950 p-4 rounded-lg border border-zinc-800 text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed">
-                      {inspectingPlayer.notes?.trim() || (
+                      {(inspectingPlayer.notes?.trim() || storageService.getPlayerCampaignNotes(campaign.id, inspectingPlayer.userId)?.trim()) || (
                         <span className="text-zinc-400 italic">
                           O jogador ainda não escreveu nenhuma anotação em seu diário nesta campanha.
                         </span>

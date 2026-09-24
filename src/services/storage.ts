@@ -313,7 +313,35 @@ export const storageService = {
       if (data) {
         const parsed = JSON.parse(data);
         if (Array.isArray(parsed)) {
-          return parsed.map((c) => ensureCampaignChapters(c));
+          return parsed.map((c) => {
+            const ensured = ensureCampaignChapters(c);
+            const cachedShared = this.getCampaignSharedItems(ensured.id);
+            if ((!ensured.sharedItems || ensured.sharedItems.length === 0) && cachedShared.length > 0) {
+              ensured.sharedItems = cachedShared;
+            }
+            if (userId) {
+              const userCachedNotes = this.getPlayerCampaignNotes(ensured.id, userId);
+              if (userCachedNotes) {
+                const members = Array.isArray(ensured.members) ? [...ensured.members] : [];
+                const idx = members.findIndex((m) => m.userId === userId);
+                if (idx >= 0) {
+                  if (!members[idx].notes) {
+                    members[idx] = { ...members[idx], notes: userCachedNotes };
+                  }
+                } else {
+                  members.push({
+                    userId,
+                    displayName: 'Jogador',
+                    role: 'player',
+                    joinedAt: Date.now(),
+                    notes: userCachedNotes,
+                  });
+                }
+                ensured.members = members;
+              }
+            }
+            return ensured;
+          });
         }
       }
 
@@ -367,8 +395,85 @@ export const storageService = {
     const storageKey = `grimorio_user_${userId}_campaigns`;
     try {
       localStorage.setItem(storageKey, JSON.stringify(campaigns));
+      // Also cache campaign-level shared items and player notes
+      for (const camp of campaigns) {
+        if (camp.id && Array.isArray(camp.sharedItems) && camp.sharedItems.length > 0) {
+          this.saveCampaignSharedItems(camp.id, camp.sharedItems);
+        }
+        if (camp.id && Array.isArray(camp.members)) {
+          for (const m of camp.members) {
+            if (m.userId && m.notes) {
+              this.savePlayerCampaignNotes(camp.id, m.userId, m.notes);
+            }
+          }
+        }
+      }
     } catch (e) {
       console.error(`Falha ao salvar campanhas do usuário ${userId}:`, e);
+    }
+  },
+
+  // --- CAMPAIGN LEVEL SHARED ITEMS (Mural do Mestre) ---
+  saveCampaignSharedItems(campaignId: string, items: CampaignSharedItem[]): void {
+    if (!campaignId) return;
+    const key = `grimorio_campaign_${campaignId}_shared_items`;
+    try {
+      localStorage.setItem(key, JSON.stringify(items));
+    } catch (e) {
+      console.warn('Erro ao salvar mural compartilhado no cache:', e);
+    }
+  },
+
+  getCampaignSharedItems(campaignId: string): CampaignSharedItem[] {
+    if (!campaignId) return [];
+    const key = `grimorio_campaign_${campaignId}_shared_items`;
+    try {
+      const data = localStorage.getItem(key);
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  // --- CAMPAIGN PLAYER NOTES (Diário do Jogador) ---
+  savePlayerCampaignNotes(campaignId: string, userId: string, notes: string): void {
+    if (!campaignId || !userId) return;
+    const key = `grimorio_camp_${campaignId}_player_${userId}_notes`;
+    try {
+      localStorage.setItem(key, notes);
+    } catch (e) {
+      console.warn('Erro ao salvar notas do jogador no cache:', e);
+    }
+  },
+
+  getPlayerCampaignNotes(campaignId: string, userId: string): string {
+    if (!campaignId || !userId) return '';
+    const key = `grimorio_camp_${campaignId}_player_${userId}_notes`;
+    try {
+      return localStorage.getItem(key) || '';
+    } catch {
+      return '';
+    }
+  },
+
+  saveCampaignMemberForMaster(masterId: string, campaignId: string, member: CampaignMember): void {
+    if (!masterId || !campaignId || !member.userId) return;
+    const masterCamps = this.getUserCampaigns(masterId);
+    let changed = false;
+    const updatedCamps = masterCamps.map((camp) => {
+      if (camp.id === campaignId) {
+        changed = true;
+        const members = Array.isArray(camp.members) ? camp.members : [];
+        const idx = members.findIndex((m) => m.userId === member.userId);
+        const nextMembers = idx >= 0
+          ? members.map((m, i) => (i === idx ? { ...m, ...member } : m))
+          : [...members, member];
+        return { ...camp, members: nextMembers };
+      }
+      return camp;
+    });
+    if (changed) {
+      this.saveUserCampaigns(masterId, updatedCamps);
     }
   },
 
