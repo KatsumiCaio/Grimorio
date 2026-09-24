@@ -11,9 +11,9 @@ import {
 const ACCOUNTS_STORAGE_KEY = 'grimorio_accounts_v4';
 const CURRENT_USER_ID_KEY = 'grimorio_current_user_id_v4';
 const ACCOUNTS_CLEARED_FLAG = 'grimorio_accounts_explicitly_cleared_v4';
-const DEVICE_SESSION_KEY = 'grimorio_device_session_v4';
-const DEVICE_KNOWN_USERS_KEY = 'grimorio_device_known_users_v2';
-const PURGE_MIGRATION_FLAG = 'grimorio_purge_non_katsumi_done_v2';
+const DEVICE_SESSION_KEY = 'grimorio_device_session_v5';
+const DEVICE_KNOWN_USERS_KEY = 'grimorio_device_known_users_v5';
+const STRICT_DEVICE_PRIVACY_FLAG = 'grimorio_strict_device_privacy_v5';
 
 // Simple deterministic hash for legacy profile verification
 export function hashPassword(plain: string): string {
@@ -103,31 +103,12 @@ function notifyListeners(user: UserProfile | null) {
 let isCloudInitialized = false;
 let unsubscribeCloudUsers: (() => void) | null = null;
 
-// One-time startup migration: Purge all deleted users and enforce device privacy
-function runPurgeAndEnforceDevicePrivacy(): void {
+// One-time startup cleanup: Enforce strict device privacy and wipe any erroneous auto-logins
+function runStrictDevicePrivacyCleanup(): void {
   if (typeof window === 'undefined') return;
   try {
-    const migrated = localStorage.getItem(PURGE_MIGRATION_FLAG);
-    if (migrated) return;
-
-    // Load any existing accounts from current or legacy v3 storage
-    const raw = localStorage.getItem(ACCOUNTS_STORAGE_KEY) || localStorage.getItem('grimorio_accounts_v3');
-    let existingList: UserProfile[] = [];
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) existingList = parsed;
-      } catch {}
-    }
-
-    // Locate Mestre Katsumi account or use default
-    const katsumi =
-      existingList.find(
-        (u) =>
-          u.id === 'usr_katsumicaio_mubikoqw' ||
-          u.username?.toLowerCase() === 'katsumicaio' ||
-          u.displayName?.toLowerCase() === 'mestre katsumi'
-      ) || DEFAULT_ACCOUNTS[0];
+    const isCleaned = localStorage.getItem(STRICT_DEVICE_PRIVACY_FLAG);
+    if (isCleaned === 'true') return;
 
     // Purge unwanted legacy sample and deleted user caches
     const deletedIds = ['usr_teste_muee5q01', 'usr_mestre', 'usr_narradora'];
@@ -139,32 +120,32 @@ function runPurgeAndEnforceDevicePrivacy(): void {
       } catch {}
     }
 
-    // Purge legacy storage keys
+    // Purge legacy storage keys and old auto-login session keys
     try {
       localStorage.removeItem('grimorio_accounts_v3');
       localStorage.removeItem('grimorio_current_user_id_v3');
+      localStorage.removeItem('grimorio_device_session_v4');
+      localStorage.removeItem('grimorio_device_known_users_v2');
+      localStorage.removeItem('grimorio_purge_non_katsumi_done_v2');
+      // CRITICAL: Remove active session and reset device known users so that
+      // other devices that were erroneously auto-logged in are forced to the login screen!
+      localStorage.removeItem(CURRENT_USER_ID_KEY);
+      localStorage.removeItem(DEVICE_SESSION_KEY);
     } catch {}
 
-    // Retain only Mestre Katsumi
-    localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify([katsumi]));
+    // On fresh startup or after privacy reset:
+    // NO DEVICE IS EVER AUTOMATICALLY LOGGED IN!
+    // The device known users list starts completely empty so no other accounts are visible at login.
+    localStorage.setItem(DEVICE_KNOWN_USERS_KEY, JSON.stringify([]));
 
-    // Check device session
-    const currentId = localStorage.getItem(CURRENT_USER_ID_KEY);
-    if (!currentId || deletedIds.includes(currentId)) {
-      localStorage.setItem(CURRENT_USER_ID_KEY, katsumi.id);
-    }
-
-    // Only Mestre Katsumi is known on this device initially
-    localStorage.setItem(DEVICE_KNOWN_USERS_KEY, JSON.stringify([katsumi.id]));
-
-    localStorage.setItem(PURGE_MIGRATION_FLAG, 'true');
+    localStorage.setItem(STRICT_DEVICE_PRIVACY_FLAG, 'true');
   } catch (err) {
-    console.warn('Erro na purga de usuários legados:', err);
+    console.warn('Erro na aplicação de privacidade estrita do dispositivo:', err);
   }
 }
 
-// Execute migration
-runPurgeAndEnforceDevicePrivacy();
+// Execute device privacy cleanup
+runStrictDevicePrivacyCleanup();
 
 export const authService = {
   // Device-level known users tracker:
@@ -212,6 +193,7 @@ export const authService = {
   // Unknown users created on other devices will NEVER appear in this list.
   getDeviceAccounts(): UserProfile[] {
     const knownSet = new Set(this.getDeviceKnownUserIds());
+    if (knownSet.size === 0) return [];
     const accounts = this.getAccounts();
     return accounts.filter((a) => knownSet.has(a.id));
   },
@@ -232,7 +214,6 @@ export const authService = {
       // are NEVER added to this device's local account list or login screen!
       const knownIds = new Set(this.getDeviceKnownUserIds());
       const localAccounts = this.getAccounts();
-      const currentId = localStorage.getItem(CURRENT_USER_ID_KEY);
 
       const cloudMap = new Map<string, UserProfile>();
       for (const cu of cloudUsers) {
@@ -249,9 +230,6 @@ export const authService = {
             ...cloudMatch,
             passwordHash: cloudMatch.passwordHash || local.passwordHash,
           });
-        } else if (local.id === 'usr_katsumicaio_mubikoqw') {
-          // Always preserve Katsumi
-          updatedAccounts.push(local);
         } else if (knownIds.has(local.id)) {
           updatedAccounts.push(local);
         }
@@ -259,11 +237,12 @@ export const authService = {
 
       this.saveAccounts(updatedAccounts);
 
-      // If active session on this device exists, update listeners with latest cloud data
-      if (currentId) {
-        const active = updatedAccounts.find((a) => a.id === currentId);
-        if (active) {
-          notifyListeners(active);
+      // If active authenticated session on this device exists, update listeners with latest cloud data
+      const activeUser = this.getCurrentUser();
+      if (activeUser) {
+        const activeMatch = updatedAccounts.find((a) => a.id === activeUser.id);
+        if (activeMatch) {
+          notifyListeners(activeMatch);
         }
       }
     };
@@ -325,8 +304,22 @@ export const authService = {
       if (!currentId) {
         return null;
       }
+
+      // Strict device session verification: must have explicit device session token
+      const sessionToken = localStorage.getItem(DEVICE_SESSION_KEY);
+      if (!sessionToken || !sessionToken.startsWith(`sess_${currentId}_`)) {
+        // Unauthenticated or invalid session — clean up and force login
+        localStorage.removeItem(CURRENT_USER_ID_KEY);
+        localStorage.removeItem(DEVICE_SESSION_KEY);
+        return null;
+      }
+
       const accounts = this.getAccounts();
-      const found = accounts.find((a) => a.id === currentId);
+      let found = accounts.find((a) => a.id === currentId);
+      if (!found) {
+        // Fallback check DEFAULT_ACCOUNTS
+        found = DEFAULT_ACCOUNTS.find((a) => a.id === currentId);
+      }
       return found || null;
     } catch {
       return null;
@@ -343,16 +336,24 @@ export const authService = {
       return null;
     }
 
-    const accounts = this.getAccounts();
-    const target = accounts.find((a) => a.id === userId);
-    if (!target) return null;
+    let accounts = this.getAccounts();
+    let target = accounts.find((a) => a.id === userId);
+    if (!target) {
+      target = DEFAULT_ACCOUNTS.find((a) => a.id === userId);
+      if (target) {
+        accounts = [...accounts, target];
+        this.saveAccounts(accounts);
+      } else {
+        return null;
+      }
+    }
 
     target.lastLoginAt = Date.now();
     this.saveAccounts(accounts);
     this.recordDeviceUser(target.id);
     try {
       localStorage.setItem(CURRENT_USER_ID_KEY, target.id);
-      localStorage.setItem(DEVICE_SESSION_KEY, `session_${target.id}_${Date.now()}`);
+      localStorage.setItem(DEVICE_SESSION_KEY, `sess_${target.id}_${Date.now()}_${Math.random().toString(36).substring(2)}`);
     } catch {
       // ignore
     }
@@ -430,6 +431,16 @@ export const authService = {
         }
       } catch (err) {
         console.warn('Erro ao consultar usuário no Firestore:', err);
+      }
+    }
+
+    // 3. Fallback to DEFAULT_ACCOUNTS if Firestore is unreachable
+    if (!target) {
+      const defMatch = DEFAULT_ACCOUNTS.find(
+        (a) => a.username.toLowerCase() === cleanLogin || a.displayName.toLowerCase() === cleanLogin
+      );
+      if (defMatch) {
+        target = { ...defMatch };
       }
     }
 
