@@ -107,9 +107,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  const accounts = authService.getAccounts();
+  const accounts = authService.getDeviceAccounts();
 
-  // Handler: Manual refresh from cloud
+  // Handler: Manual refresh from cloud (updates known accounts only)
   const handleRefreshCloud = async () => {
     setIsRefreshingCloud(true);
     try {
@@ -118,12 +118,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const cloudUsers = await fetchUsersFromFirestore();
       if (cloudUsers.length > 0) {
         const localAccounts = authService.getAccounts();
-        const mergedMap = new Map<string, UserProfile>();
-        cloudUsers.forEach((u) => mergedMap.set(u.id, u));
-        localAccounts.forEach((l) => {
-          if (!mergedMap.has(l.id)) mergedMap.set(l.id, l);
+        const cloudMap = new Map<string, UserProfile>();
+        cloudUsers.forEach((u) => {
+          cloudMap.set(u.id, u);
+          cloudMap.set(u.username.toLowerCase(), u);
         });
-        authService.saveAccounts(Array.from(mergedMap.values()));
+        const updated = localAccounts.map((l) => {
+          const match = cloudMap.get(l.id) || cloudMap.get(l.username.toLowerCase());
+          return match ? { ...l, ...match, passwordHash: match.passwordHash || l.passwordHash } : l;
+        });
+        authService.saveAccounts(updated);
       }
     } catch (e) {
       console.warn('Erro ao atualizar da nuvem:', e);
@@ -316,6 +320,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     ) {
       storageService.clearUserCampaigns(account.id);
       storageService.clearUserCharacters(account.id);
+      authService.removeDeviceUser(account.id);
       const res = await authService.deleteAccount(account.id);
       if (res.success) {
         const next = authService.getCurrentUser();
@@ -323,6 +328,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         if (!next) {
           onClose();
         }
+      }
+    }
+  };
+
+  // Handler: Remove/Forget account from this device only (preserves cloud account)
+  const handleForgetFromDevice = (account: UserProfile) => {
+    if (
+      confirm(
+        `Remover o perfil de "${account.displayName}" deste aparelho?\n(A conta continuará existindo normalmente na nuvem e poderá ser acessada novamente a qualquer momento)`
+      )
+    ) {
+      authService.removeDeviceUser(account.id);
+      if (currentUser?.id === account.id) {
+        onUserChanged(null);
+        onClose();
       }
     }
   };
@@ -793,6 +813,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           </button>
                         )}
 
+                        {!isCurrent && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleForgetFromDevice(acc);
+                            }}
+                            className="p-1.5 text-zinc-500 hover:text-amber-400 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                            title="Remover perfil da lista deste aparelho (mantém na nuvem)"
+                          >
+                            <LogOut className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
                         <button
                           type="button"
                           onClick={(e) => {
@@ -800,7 +834,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             handleDeleteAccount(acc);
                           }}
                           className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
-                          title="Excluir esta conta de usuário"
+                          title="Excluir esta conta de usuário e suas campanhas"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -823,20 +857,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <UserPlus className="w-4 h-4" />
                       <span>Criar Conta</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleRestoreSampleAccounts}
-                      disabled={isSubmitting}
-                      className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Carregar Exemplos</span>
-                    </button>
                   </div>
                 </div>
               )}
 
-              {/* Action Buttons: Clear All or Restore Demo */}
+              {/* Action Buttons: Clear All */}
               {accounts.length > 0 && (
                 <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-800/80">
                   <button
@@ -847,16 +872,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Apagar Todas as Contas & Dados</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleRestoreSampleAccounts}
-                    disabled={isSubmitting}
-                    className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Restaurar Exemplos</span>
                   </button>
                 </div>
               )}

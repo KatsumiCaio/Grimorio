@@ -16,7 +16,7 @@ export function generateCampaignInviteCode(): string {
 }
 
 export function ensureCampaignChapters(campaign: Campaign): Campaign {
-  const masterId = campaign.masterId || campaign.userId || 'usr_mestre';
+  const masterId = campaign.masterId || campaign.userId || 'usr_katsumicaio_mubikoqw';
   const inviteCode = campaign.inviteCode || generateCampaignInviteCode();
   const members: CampaignMember[] =
     campaign.members && campaign.members.length > 0
@@ -346,7 +346,7 @@ export const storageService = {
       }
 
       // Check migration from legacy storage if this is the primary master account
-      if (userId === 'usr_mestre' || userId === 'shared') {
+      if (userId === 'usr_katsumicaio_mubikoqw' || userId === 'usr_mestre' || userId === 'shared') {
         const legacyData = localStorage.getItem(CAMPAIGNS_STORAGE_KEY);
         if (legacyData) {
           try {
@@ -498,7 +498,7 @@ export const storageService = {
         try {
           list = JSON.parse(data);
         } catch {}
-      } else if (userId === 'usr_mestre' || userId === 'shared') {
+      } else if (userId === 'usr_katsumicaio_mubikoqw' || userId === 'usr_mestre' || userId === 'shared') {
         const legacyData = localStorage.getItem(CHARACTERS_STORAGE_KEY);
         if (legacyData) {
           try {
@@ -848,6 +848,7 @@ export const storageService = {
       const accounts = authService.getAccounts().filter((a) => a.id !== user.id);
       accounts.push(user);
       authService.saveAccounts(accounts);
+      authService.recordDeviceUser(user.id);
 
       // Save user campaigns & characters
       if (Array.isArray(data.campaigns)) {

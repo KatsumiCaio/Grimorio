@@ -8,10 +8,12 @@ import {
   checkCloudDbStatus,
 } from './firebase';
 
-const ACCOUNTS_STORAGE_KEY = 'grimorio_accounts_v3';
-const CURRENT_USER_ID_KEY = 'grimorio_current_user_id_v3';
-const ACCOUNTS_CLEARED_FLAG = 'grimorio_accounts_explicitly_cleared_v3';
+const ACCOUNTS_STORAGE_KEY = 'grimorio_accounts_v4';
+const CURRENT_USER_ID_KEY = 'grimorio_current_user_id_v4';
+const ACCOUNTS_CLEARED_FLAG = 'grimorio_accounts_explicitly_cleared_v4';
 const DEVICE_SESSION_KEY = 'grimorio_device_session_v4';
+const DEVICE_KNOWN_USERS_KEY = 'grimorio_device_known_users_v2';
+const PURGE_MIGRATION_FLAG = 'grimorio_purge_non_katsumi_done_v2';
 
 // Simple deterministic hash for legacy profile verification
 export function hashPassword(plain: string): string {
@@ -69,30 +71,19 @@ export function verifyPasswordSync(plain: string, storedHash?: string): boolean 
   return false;
 }
 
+// Mestre Katsumi is the sole preserved primary master profile
 export const DEFAULT_ACCOUNTS: UserProfile[] = [
   {
-    id: 'usr_mestre',
-    username: 'mestre',
-    displayName: 'Mestre Valerius',
+    id: 'usr_katsumicaio_mubikoqw',
+    username: 'katsumicaio',
+    displayName: 'Mestre Katsumi',
     role: 'Mestre da Masmorra',
     avatarId: 'd20',
     color: 'cyan',
-    bio: 'Guardião dos Tomos Antigos e campanhas medievais de D&D e Tormenta.',
-    createdAt: Date.now() - 86400000 * 15,
+    bio: 'Grimório de Mestre Katsumi',
+    createdAt: 1790011406408,
     lastLoginAt: Date.now(),
-    passwordHash: hashPassword('1234'),
-  },
-  {
-    id: 'usr_narradora',
-    username: 'narradora',
-    displayName: 'Narradora Lyra',
-    role: 'Narrador',
-    avatarId: 'wizard',
-    color: 'purple',
-    bio: 'Narradora de investigações de mistério, Call of Cthulhu e Sci-Fi.',
-    createdAt: Date.now() - 86400000 * 5,
-    lastLoginAt: Date.now() - 86400000 * 1,
-    passwordHash: hashPassword('1234'),
+    passwordHash: 'h_ox4dl5_6',
   },
 ];
 
@@ -112,7 +103,119 @@ function notifyListeners(user: UserProfile | null) {
 let isCloudInitialized = false;
 let unsubscribeCloudUsers: (() => void) | null = null;
 
+// One-time startup migration: Purge all deleted users and enforce device privacy
+function runPurgeAndEnforceDevicePrivacy(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const migrated = localStorage.getItem(PURGE_MIGRATION_FLAG);
+    if (migrated) return;
+
+    // Load any existing accounts from current or legacy v3 storage
+    const raw = localStorage.getItem(ACCOUNTS_STORAGE_KEY) || localStorage.getItem('grimorio_accounts_v3');
+    let existingList: UserProfile[] = [];
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) existingList = parsed;
+      } catch {}
+    }
+
+    // Locate Mestre Katsumi account or use default
+    const katsumi =
+      existingList.find(
+        (u) =>
+          u.id === 'usr_katsumicaio_mubikoqw' ||
+          u.username?.toLowerCase() === 'katsumicaio' ||
+          u.displayName?.toLowerCase() === 'mestre katsumi'
+      ) || DEFAULT_ACCOUNTS[0];
+
+    // Purge unwanted legacy sample and deleted user caches
+    const deletedIds = ['usr_teste_muee5q01', 'usr_mestre', 'usr_narradora'];
+    for (const dId of deletedIds) {
+      try {
+        localStorage.removeItem(`grimorio_user_${dId}_campaigns`);
+        localStorage.removeItem(`grimorio_user_${dId}_characters`);
+        localStorage.removeItem(`grimorio_user_${dId}_active_camp`);
+      } catch {}
+    }
+
+    // Purge legacy storage keys
+    try {
+      localStorage.removeItem('grimorio_accounts_v3');
+      localStorage.removeItem('grimorio_current_user_id_v3');
+    } catch {}
+
+    // Retain only Mestre Katsumi
+    localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify([katsumi]));
+
+    // Check device session
+    const currentId = localStorage.getItem(CURRENT_USER_ID_KEY);
+    if (!currentId || deletedIds.includes(currentId)) {
+      localStorage.setItem(CURRENT_USER_ID_KEY, katsumi.id);
+    }
+
+    // Only Mestre Katsumi is known on this device initially
+    localStorage.setItem(DEVICE_KNOWN_USERS_KEY, JSON.stringify([katsumi.id]));
+
+    localStorage.setItem(PURGE_MIGRATION_FLAG, 'true');
+  } catch (err) {
+    console.warn('Erro na purga de usuários legados:', err);
+  }
+}
+
+// Execute migration
+runPurgeAndEnforceDevicePrivacy();
+
 export const authService = {
+  // Device-level known users tracker:
+  // Only accounts that have explicitly authenticated or registered ON THIS DEVICE
+  // will ever appear on this device's login screen.
+  getDeviceKnownUserIds(): string[] {
+    try {
+      const data = localStorage.getItem(DEVICE_KNOWN_USERS_KEY);
+      if (!data) return [];
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  },
+
+  recordDeviceUser(userId: string): void {
+    if (!userId) return;
+    try {
+      const current = this.getDeviceKnownUserIds();
+      if (!current.includes(userId)) {
+        current.push(userId);
+        localStorage.setItem(DEVICE_KNOWN_USERS_KEY, JSON.stringify(current));
+      }
+    } catch {}
+  },
+
+  removeDeviceUser(userId: string): void {
+    if (!userId) return;
+    try {
+      const filtered = this.getDeviceKnownUserIds().filter((id) => id !== userId);
+      localStorage.setItem(DEVICE_KNOWN_USERS_KEY, JSON.stringify(filtered));
+
+      const accounts = this.getAccounts().filter((a) => a.id !== userId);
+      this.saveAccounts(accounts);
+
+      const current = this.getCurrentUser();
+      if (current && current.id === userId) {
+        this.logout();
+      }
+    } catch {}
+  },
+
+  // Returns only accounts that have logged in at least once ON THIS DEVICE.
+  // Unknown users created on other devices will NEVER appear in this list.
+  getDeviceAccounts(): UserProfile[] {
+    const knownSet = new Set(this.getDeviceKnownUserIds());
+    const accounts = this.getAccounts();
+    return accounts.filter((a) => knownSet.has(a.id));
+  },
+
   // Initialize Cloud Sync across multiple PCs and devices
   initCloudSync(): () => void {
     if (isCloudInitialized && unsubscribeCloudUsers) {
@@ -123,84 +226,45 @@ export const authService = {
     const applyMergedUsers = (cloudUsers: UserProfile[]) => {
       if (!cloudUsers || cloudUsers.length === 0) return;
 
+      // DEVICE PRIVACY ENFORCEMENT:
+      // We ONLY update profiles of accounts that are already registered on THIS device.
+      // Unknown cloud accounts (other players/masters who haven't logged in on this machine)
+      // are NEVER added to this device's local account list or login screen!
+      const knownIds = new Set(this.getDeviceKnownUserIds());
       const localAccounts = this.getAccounts();
-      const usernameToPrimary = new Map<string, UserProfile>();
-      const redirectUserIdMap = new Map<string, string>();
+      const currentId = localStorage.getItem(CURRENT_USER_ID_KEY);
 
-      // 1. Group cloud users by normalized username and resolve duplicates
+      const cloudMap = new Map<string, UserProfile>();
       for (const cu of cloudUsers) {
-        const uname = cu.username.trim().toLowerCase();
-        const existing = usernameToPrimary.get(uname);
-        if (!existing) {
-          usernameToPrimary.set(uname, cu);
-        } else {
-          // Earlier created or more active account wins as primary
-          const primary = (cu.createdAt || Infinity) <= (existing.createdAt || Infinity) ? cu : existing;
-          const secondary = primary === cu ? existing : cu;
-          usernameToPrimary.set(uname, primary);
-          redirectUserIdMap.set(secondary.id, primary.id);
-          // Delete duplicate user from Firestore in background
-          void deleteUserFromFirestore(secondary.id);
-        }
+        cloudMap.set(cu.id, cu);
+        cloudMap.set(cu.username.toLowerCase(), cu);
       }
 
-      // 2. Check local accounts against primary cloud accounts
-      const mergedMap = new Map<string, UserProfile>();
-      for (const primary of usernameToPrimary.values()) {
-        mergedMap.set(primary.id, primary);
-      }
-
+      const updatedAccounts: UserProfile[] = [];
       for (const local of localAccounts) {
-        const uname = local.username.trim().toLowerCase();
-        const primaryForUser = usernameToPrimary.get(uname);
-
-        if (primaryForUser) {
-          if (local.id !== primaryForUser.id) {
-            redirectUserIdMap.set(local.id, primaryForUser.id);
-            // Migrate local cache keys to primary ID
-            try {
-              const oldCampKey = `grimorio_user_${local.id}_campaigns`;
-              const newCampKey = `grimorio_user_${primaryForUser.id}_campaigns`;
-              const oldCamps = localStorage.getItem(oldCampKey);
-              if (oldCamps && !localStorage.getItem(newCampKey)) {
-                localStorage.setItem(newCampKey, oldCamps);
-              }
-              const oldCharKey = `grimorio_user_${local.id}_characters`;
-              const newCharKey = `grimorio_user_${primaryForUser.id}_characters`;
-              const oldChars = localStorage.getItem(oldCharKey);
-              if (oldChars && !localStorage.getItem(newCharKey)) {
-                localStorage.setItem(newCharKey, oldChars);
-              }
-            } catch {}
-          }
-        } else {
-          // Local account not in cloud yet
-          if (!mergedMap.has(local.id)) {
-            mergedMap.set(local.id, local);
-            usernameToPrimary.set(uname, local);
-          }
+        const cloudMatch = cloudMap.get(local.id) || cloudMap.get(local.username.toLowerCase());
+        if (cloudMatch) {
+          updatedAccounts.push({
+            ...local,
+            ...cloudMatch,
+            passwordHash: cloudMatch.passwordHash || local.passwordHash,
+          });
+        } else if (local.id === 'usr_katsumicaio_mubikoqw') {
+          // Always preserve Katsumi
+          updatedAccounts.push(local);
+        } else if (knownIds.has(local.id)) {
+          updatedAccounts.push(local);
         }
       }
 
-      const merged = Array.from(mergedMap.values());
-      this.saveAccounts(merged);
+      this.saveAccounts(updatedAccounts);
 
-      // 3. Handle active user session & profile update from cloud
-      let currentId = localStorage.getItem(CURRENT_USER_ID_KEY);
-      if (currentId && redirectUserIdMap.has(currentId)) {
-        const redirected = redirectUserIdMap.get(currentId)!;
-        currentId = redirected;
-        try {
-          localStorage.setItem(CURRENT_USER_ID_KEY, redirected);
-        } catch {}
-      }
-
-      // CRITICAL SECURITY FIX FOR MULTI-DEVICE PRIVACY:
-      // If this device already has an explicitly authenticated user session, keep their profile updated.
-      // If this is a new device or the user is logged out (!currentId), DO NOT AUTO-LOGIN!
-      // The application MUST stay on the login screen so the user enters credentials.
-      if (currentId && mergedMap.has(currentId)) {
-        notifyListeners(mergedMap.get(currentId)!);
+      // If active session on this device exists, update listeners with latest cloud data
+      if (currentId) {
+        const active = updatedAccounts.find((a) => a.id === currentId);
+        if (active) {
+          notifyListeners(active);
+        }
       }
     };
 
@@ -285,6 +349,7 @@ export const authService = {
 
     target.lastLoginAt = Date.now();
     this.saveAccounts(accounts);
+    this.recordDeviceUser(target.id);
     try {
       localStorage.setItem(CURRENT_USER_ID_KEY, target.id);
       localStorage.setItem(DEVICE_SESSION_KEY, `session_${target.id}_${Date.now()}`);
@@ -373,7 +438,7 @@ export const authService = {
       if (dbStatus.status === 'not_created') {
         return {
           success: false,
-          error: `A conta "${usernameOrEmail}" não existe na memória deste navegador. O banco de dados Cloud Firestore ainda não foi criado no Firebase Console do projeto "${dbStatus.projectId}", por isso os dados criados no outro dispositivo não puderam sincronizar na nuvem. Você pode ativar o Firestore no Firebase Console ou transferir sua conta diretamente usando um Código de Transferência.`,
+          error: `A conta "${usernameOrEmail}" não existe na memória deste navegador. O banco de dados Cloud Firestore ainda não foi ativado no Firebase Console do projeto "${dbStatus.projectId}". Você pode ativar o Firestore no Firebase Console ou transferir sua conta diretamente usando um Código de Transferência.`,
         };
       }
       if (dbStatus.status === 'offline') {
@@ -413,6 +478,7 @@ export const authService = {
       updatedAccounts.push(target);
     }
     this.saveAccounts(updatedAccounts);
+    this.recordDeviceUser(target.id);
 
     this.setCurrentUser(target.id);
     return { success: true, user: target };
@@ -453,7 +519,7 @@ export const authService = {
     if (accounts.some((a) => a.username.toLowerCase() === cleanUsername)) {
       return {
         success: false,
-        error: `O login "${cleanUsername}" já está em uso por outro mestre/jogador neste aparelho.`,
+        error: `O login "${cleanUsername}" já está em uso neste aparelho.`,
       };
     }
 
@@ -488,6 +554,7 @@ export const authService = {
     // Save locally
     const updatedAccounts = [...accounts, newUser];
     this.saveAccounts(updatedAccounts);
+    this.recordDeviceUser(newUser.id);
     this.setCurrentUser(newUser.id);
 
     // Save to Firestore cloud immediately so any other PC can see it
@@ -570,6 +637,7 @@ export const authService = {
     const accounts = this.getAccounts();
     const filtered = accounts.filter((a) => a.id !== userId);
     this.saveAccounts(filtered);
+    this.removeDeviceUser(userId);
 
     // Delete from Firestore cloud
     try {
@@ -608,6 +676,7 @@ export const authService = {
 
     try {
       localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify([]));
+      localStorage.setItem(DEVICE_KNOWN_USERS_KEY, JSON.stringify([]));
       localStorage.removeItem(CURRENT_USER_ID_KEY);
       localStorage.setItem(ACCOUNTS_CLEARED_FLAG, 'true');
     } catch {}
@@ -622,6 +691,7 @@ export const authService = {
     } catch {}
 
     this.saveAccounts(DEFAULT_ACCOUNTS);
+    this.recordDeviceUser(DEFAULT_ACCOUNTS[0].id);
     for (const acc of DEFAULT_ACCOUNTS) {
       try {
         await saveUserToFirestore(acc);

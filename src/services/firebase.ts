@@ -746,7 +746,7 @@ export const subscribeToUserCampaigns = (
       const items: Campaign[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        const docUserId = data.userId || 'usr_mestre';
+        const docUserId = data.userId || 'usr_katsumicaio_mubikoqw';
         const masterId = data.masterId || docUserId;
         const members: CampaignMember[] = Array.isArray(data.members) ? data.members : [];
         const isMaster = docUserId === userId || masterId === userId;
@@ -756,7 +756,7 @@ export const subscribeToUserCampaigns = (
           !userId ||
           isMaster ||
           isMember ||
-          (userId === 'usr_mestre' && docUserId === 'shared') ||
+          (userId === 'usr_katsumicaio_mubikoqw' && docUserId === 'shared') ||
           (docUserId.startsWith('usr_') &&
             userId.startsWith('usr_') &&
             docUserId.split('_')[1] &&
@@ -840,14 +840,14 @@ export const subscribeToUserCharacters = (
       const items: CharacterSheet[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        const docUserId = data.userId || 'usr_mestre';
+        const docUserId = data.userId || 'usr_katsumicaio_mubikoqw';
         const docMasterId = data.masterId || '';
         const docCampaignId = data.campaignId || '';
 
         const isAuthor =
           !userId ||
           docUserId === userId ||
-          (userId === 'usr_mestre' && docUserId === 'shared') ||
+          (userId === 'usr_katsumicaio_mubikoqw' && docUserId === 'shared') ||
           (docUserId.startsWith('usr_') &&
             userId.startsWith('usr_') &&
             docUserId.split('_')[1] &&
@@ -857,7 +857,7 @@ export const subscribeToUserCharacters = (
         const isMaster =
           Boolean(userId && docMasterId && docMasterId === userId) ||
           Boolean(userCampaignIds && docCampaignId && userCampaignIds.includes(docCampaignId)) ||
-          userId === 'usr_mestre';
+          userId === 'usr_katsumicaio_mubikoqw';
 
         const isSharedWithPlayers = Boolean(data.sharedWithPlayers);
 

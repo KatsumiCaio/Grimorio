@@ -56,7 +56,7 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
   const [isRestoringDemo, setIsRestoringDemo] = useState(false);
   const [isCheckingCloud, setIsCheckingCloud] = useState(false);
 
-  const localAccounts = authService.getAccounts();
+  const [deviceAccounts, setDeviceAccounts] = useState<UserProfile[]>(() => authService.getDeviceAccounts());
 
   const getPasswordStrength = (pwd: string) => {
     if (!pwd) return { label: '', color: 'bg-zinc-700', width: 'w-0' };
@@ -356,36 +356,52 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
               </div>
             )}
 
-            {/* Quick Profile Select if accounts are cached on this device */}
-            {localAccounts.length > 0 && (
+            {/* Quick Profile Select ONLY if accounts have previously logged into THIS device */}
+            {deviceAccounts.length > 0 && (
               <div className="p-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80">
                 <div className="text-[11px] font-semibold text-zinc-300 mb-2 flex items-center justify-between">
                   <span>Perfis salvos neste aparelho:</span>
                   <span className="text-[10px] text-zinc-500">Toque para selecionar</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {localAccounts.map((acc) => {
+                  {deviceAccounts.map((acc) => {
                     const isSelected = loginIdentifier.toLowerCase() === acc.username.toLowerCase();
                     return (
-                      <button
-                        key={acc.id}
-                        type="button"
-                        onClick={() => {
-                          setLoginIdentifier(acc.username);
-                          setLoginError(null);
-                        }}
-                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs transition-all cursor-pointer ${
-                          isSelected
-                            ? 'border-cyan-500 bg-cyan-500/20 text-cyan-200 shadow-xs'
-                            : 'border-zinc-800 bg-zinc-900/60 text-zinc-300 hover:border-zinc-700'
-                        }`}
-                      >
-                        <UserAvatar avatarId={acc.avatarId} color={acc.color} size="xs" />
-                        <div className="text-left">
-                          <div className="font-medium text-[11px] leading-tight">{acc.displayName}</div>
-                          <div className="text-[9px] text-zinc-400 font-mono">@{acc.username}</div>
-                        </div>
-                      </button>
+                      <div key={acc.id} className="inline-flex items-center group">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLoginIdentifier(acc.username);
+                            setLoginError(null);
+                          }}
+                          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-l-lg border text-xs transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-cyan-500 bg-cyan-500/20 text-cyan-200 shadow-xs'
+                              : 'border-zinc-800 bg-zinc-900/60 text-zinc-300 hover:border-zinc-700'
+                          }`}
+                        >
+                          <UserAvatar avatarId={acc.avatarId} color={acc.color} size="xs" />
+                          <div className="text-left">
+                            <div className="font-medium text-[11px] leading-tight">{acc.displayName}</div>
+                            <div className="text-[9px] text-zinc-400 font-mono">@{acc.username}</div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            authService.removeDeviceUser(acc.id);
+                            setDeviceAccounts(authService.getDeviceAccounts());
+                            if (loginIdentifier.toLowerCase() === acc.username.toLowerCase()) {
+                              setLoginIdentifier('');
+                            }
+                          }}
+                          title="Remover perfil da lista deste aparelho"
+                          className="px-1.5 py-2 rounded-r-lg border-y border-r border-zinc-800 bg-zinc-900/40 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 text-[10px] transition-colors cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -469,7 +485,7 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
                 <input
                   type="text"
                   required
-                  placeholder="ex: Mestre Valerius"
+                  placeholder="ex: Mestre Katsumi"
                   value={regName}
                   onChange={(e) => setRegName(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-cyan-500"
@@ -693,18 +709,7 @@ export const AccountOnboarding: React.FC<AccountOnboardingProps> = ({ onUserRead
           </form>
         )}
 
-        {/* Demo / Sample Accounts Fallback */}
-        <div className="mt-6 pt-4 border-t border-zinc-800/80 text-center">
-          <button
-            type="button"
-            onClick={handleRestoreDemo}
-            disabled={isRestoringDemo}
-            className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-          >
-            <RotateCcw className={`w-3 h-3 ${isRestoringDemo ? 'animate-spin' : ''}`} />
-            <span>Deseja testar com as contas de exemplo? (Mestre Valerius)</span>
-          </button>
-        </div>
+
       </div>
     </div>
   );
