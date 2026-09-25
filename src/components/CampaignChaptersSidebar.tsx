@@ -203,7 +203,7 @@ export const CampaignChaptersSidebar: React.FC<CampaignChaptersSidebarProps> = (
       {isOpen && (
         <div
           onClick={onToggleOpen}
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-30 md:hidden"
+          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 md:hidden"
           aria-hidden="true"
         />
       )}
@@ -211,7 +211,7 @@ export const CampaignChaptersSidebar: React.FC<CampaignChaptersSidebarProps> = (
       {/* Main Sidebar Container */}
       <aside
         id="campaign-chapters-sidebar"
-        className={`fixed md:relative inset-y-0 left-0 z-30 md:z-10 flex flex-col bg-zinc-950 border-r border-zinc-800/80 transition-all duration-200 ease-in-out shrink-0 select-none ${
+        className={`fixed md:relative inset-y-0 left-0 z-50 md:z-10 flex flex-col bg-zinc-950 border-r border-zinc-800/80 transition-all duration-200 ease-in-out shrink-0 select-none ${
           isOpen
             ? 'w-[280px] sm:w-[300px] translate-x-0'
             : '-translate-x-full md:translate-x-0 md:w-0 md:opacity-0 md:pointer-events-none'
@@ -456,7 +456,7 @@ export const CampaignChaptersSidebar: React.FC<CampaignChaptersSidebarProps> = (
         </div>
 
         {/* Sidebar Footer */}
-        <div className="p-3 border-t border-zinc-800/80 bg-zinc-900/60 space-y-2 shrink-0">
+        <div className="p-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] md:pb-3 border-t border-zinc-800/80 bg-zinc-900/90 space-y-2 shrink-0">
           <button
             type="button"
             id="sidebar-add-chapter-main-btn"

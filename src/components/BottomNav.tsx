@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Users, Skull, Settings, Dices } from 'lucide-react';
+import { BookOpen, Users, Skull, Settings, Share2 } from 'lucide-react';
 import { MainTab } from '../types';
 
 interface BottomNavProps {
@@ -7,6 +7,8 @@ interface BottomNavProps {
   onTabChange: (tab: MainTab) => void;
   characterCount: number;
   onOpenSettings: () => void;
+  onOpenTableModal?: () => void;
+  sharedItemsCount?: number;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
@@ -14,6 +16,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onTabChange,
   characterCount,
   onOpenSettings,
+  onOpenTableModal,
+  sharedItemsCount = 0,
 }) => {
   return (
     <nav
@@ -86,6 +90,26 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         </div>
         <span className="text-[10px] tracking-tight mt-0.5">Bestiário</span>
       </button>
+
+      {/* Tab: Mesa & Revelações */}
+      {onOpenTableModal && (
+        <button
+          type="button"
+          id="bottom-nav-table"
+          onClick={onOpenTableModal}
+          className="flex-1 flex flex-col items-center justify-center py-1 min-h-[44px] transition-all cursor-pointer relative text-zinc-400 hover:text-amber-300 active:scale-95"
+        >
+          <div className="relative">
+            <Share2 className="w-5 h-5 text-amber-400" />
+            {sharedItemsCount > 0 && (
+              <span className="absolute -top-1 -right-2 px-1 min-w-[14px] h-3.5 flex items-center justify-center text-[9px] font-mono font-bold rounded-full bg-amber-500 text-zinc-950">
+                {sharedItemsCount}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] tracking-tight mt-0.5">Mesa</span>
+        </button>
+      )}
 
       {/* Action: Configurações & Firebase */}
       <button

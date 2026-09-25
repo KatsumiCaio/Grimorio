@@ -108,98 +108,98 @@ export const CampaignTableModal: React.FC<CampaignTableModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-      <div className="bg-zinc-900 border border-zinc-700/80 rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-5 overflow-y-auto">
+      <div className="bg-zinc-900 border border-zinc-700/80 rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[92dvh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/60">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/60 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
               <Users className="w-5 h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-zinc-100">{campaign.title}</h2>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-bold text-zinc-100 truncate">{campaign.title}</h2>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 shrink-0">
                   {campaign.system}
                 </span>
               </div>
-              <p className="text-xs text-zinc-400">
+              <p className="text-[11px] sm:text-xs text-zinc-400 truncate">
                 {isMaster ? 'Painel do Mestre: Gerencie jogadores, compartilhe pistas e fotos' : 'Mesa de Jogo e Conteúdo Compartilhado'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Invite Code Bar */}
-        <div className="px-6 py-3 bg-gradient-to-r from-amber-950/30 via-zinc-900 to-zinc-900 border-b border-zinc-800/80 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <span className="text-xs text-zinc-400 font-medium">Código de Convite da Campanha:</span>
-            <span className="font-mono text-sm font-bold px-2.5 py-1 rounded bg-zinc-800 border border-amber-500/40 text-amber-300 tracking-wider">
+        <div className="px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-amber-950/30 via-zinc-900 to-zinc-900 border-b border-zinc-800/80 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-zinc-400 font-medium">Código de Convite:</span>
+            <span className="font-mono text-xs sm:text-sm font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded bg-zinc-800 border border-amber-500/40 text-amber-300 tracking-wider">
               {inviteCode}
             </span>
             <button
               onClick={handleCopyInviteCode}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-md text-xs font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 transition-all cursor-pointer"
               title="Copiar código para enviar aos jogadores"
             >
               {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copiedCode ? 'Copiado!' : 'Copiar Convite'}</span>
             </button>
           </div>
-          <span className="text-[11px] text-zinc-400">
+          <span className="text-[11px] text-zinc-400 hidden md:inline">
             Outros jogadores usam este código no menu "Entrar em Campanha".
           </span>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-zinc-800 bg-zinc-950/40 px-6 pt-2 gap-2">
+        <div className="flex border-b border-zinc-800 bg-zinc-950/40 px-3 sm:px-6 pt-2 gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar shrink-0">
           <button
             onClick={() => setActiveTab('members')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === 'members'
                 ? 'border-amber-400 text-amber-300 bg-zinc-900/50 rounded-t-lg'
                 : 'border-transparent text-zinc-400 hover:text-zinc-200'
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Membros da Mesa ({members.length})</span>
+            <span>Membros ({members.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('shared')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === 'shared'
                 ? 'border-amber-400 text-amber-300 bg-zinc-900/50 rounded-t-lg'
                 : 'border-transparent text-zinc-400 hover:text-zinc-200'
             }`}
           >
             <Share2 className="w-4 h-4" />
-            <span>Fotos & Pistas Reveladas ({sharedItems.length})</span>
+            <span>Fotos & Pistas ({sharedItems.length})</span>
           </button>
 
           {isMaster && (
             <button
               onClick={() => setActiveTab('sheets')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === 'sheets'
                   ? 'border-amber-400 text-amber-300 bg-zinc-900/50 rounded-t-lg'
                   : 'border-transparent text-zinc-400 hover:text-zinc-200'
               }`}
             >
               <Eye className="w-4 h-4" />
-              <span>Revelar Fichas aos Jogadores ({campaignCharacters.filter((c) => c.sharedWithPlayers).length})</span>
+              <span>Revelar Fichas ({campaignCharacters.filter((c) => c.sharedWithPlayers).length})</span>
             </button>
           )}
         </div>
 
         {/* Tab Content */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="p-3.5 sm:p-6 overflow-y-auto flex-1 space-y-4 sm:space-y-6">
           {/* TAB 1: MEMBERS */}
           {activeTab === 'members' && (
             <div className="space-y-4">

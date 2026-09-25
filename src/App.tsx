@@ -857,7 +857,7 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden font-sans">
+    <div className="h-[100dvh] max-h-[100dvh] w-full flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden font-sans select-none min-h-0">
       {/* Top Header Navigation */}
       {!isFullScreenNotes && (
         <Header
@@ -926,7 +926,7 @@ export default function App() {
       )}
 
       {/* Main App Body */}
-      <main className={`flex-1 flex overflow-hidden ${!isFullScreenNotes ? 'pb-14 md:pb-0' : ''}`}>
+      <main className={`flex-1 flex overflow-hidden min-h-0 ${!isFullScreenNotes ? 'pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:pb-0' : ''}`}>
         {currentTab === 'campaign' ? (
           isMaster ? (
             <CampaignCopilotView
@@ -1016,6 +1016,8 @@ export default function App() {
           onTabChange={handleTabChange}
           characterCount={activeCampaignCharacterCount}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenTableModal={() => setIsTableModalOpen(true)}
+          sharedItemsCount={currentCampaign?.sharedItems?.length || 0}
         />
       )}
 

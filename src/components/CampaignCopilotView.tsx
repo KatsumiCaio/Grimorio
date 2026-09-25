@@ -32,6 +32,8 @@ import {
   FileText,
   PanelLeft,
   PanelLeftClose,
+  PanelRight,
+  PanelRightClose,
   ChevronRight,
   Share2,
   Users,
@@ -122,6 +124,9 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   const initialChapter = activeCampaign?.chapters?.find(
     (c) => c.id === activeCampaign.activeChapterId
   ) || activeCampaign?.chapters?.[0];
+  const activeChapter = activeCampaign?.chapters?.find(
+    (c) => c.id === activeCampaign.activeChapterId
+  ) || activeCampaign?.chapters?.[0];
 
   const [notes, setNotes] = useState(initialChapter?.content || activeCampaign?.notes || '');
   const [system, setSystem] = useState(activeCampaign?.system || 'D&D 5e');
@@ -156,6 +161,28 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
       const next = !prev;
       if (typeof window !== 'undefined') {
         localStorage.setItem('grimorio_chapters_sidebar_open', String(next));
+      }
+      return next;
+    });
+  };
+
+  // Dedicated Copilot panel toggle for wide desktop focus (persisted in localStorage)
+  const [isCopilotExpanded, setIsCopilotExpanded] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('grimorio_copilot_expanded');
+      if (saved !== null) {
+        return saved === 'true';
+      }
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
+
+  const handleToggleCopilot = () => {
+    setIsCopilotExpanded((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('grimorio_copilot_expanded', String(next));
       }
       return next;
     });
@@ -1225,65 +1252,25 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
         className={`flex-1 flex-col min-w-0 ${
           isFullScreen
             ? 'flex w-full h-full'
-            : `${mobileTab === 'notes' ? 'flex w-full h-full' : 'hidden'} md:flex md:border-r md:border-zinc-800/90 md:h-full`
+            : `${mobileTab === 'notes' ? 'flex w-full h-full' : 'hidden'} md:flex ${isCopilotExpanded ? 'md:border-r md:border-zinc-800/90' : ''} md:h-full`
         }`}
       >
-        {/* Top bar do Caderno: Seletor de Campanha + Sistema + Modo Tela Cheia */}
-        <div className="p-3 px-4 bg-zinc-900/60 border-b border-zinc-800/80 flex flex-wrap items-center justify-between gap-2">
-          {/* Campaign Selector & Focus Badge */}
-          <div className="flex items-center gap-2">
-            {isFullScreen && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded-lg text-cyan-400 text-xs font-semibold select-none">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                <span className="hidden sm:inline">Modo Foco</span>
-              </div>
-            )}
-
-            {/* Menu de Campanhas Button & Selector */}
-            {onOpenCampaignMenu && (
-              <button
-                type="button"
-                id="open-campaign-menu-top-btn"
-                onClick={onOpenCampaignMenu}
-                className="px-2.5 py-1.5 bg-zinc-950 hover:bg-zinc-850 border border-zinc-800 hover:border-cyan-500/40 text-xs font-semibold text-cyan-300 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs group"
-                title="Abrir Menu de Campanhas (Selecionar, criar ou apagar todas)"
-              >
-                <Scroll className="w-3.5 h-3.5 text-cyan-400 group-hover:rotate-6 transition-transform shrink-0" />
-                <span className="hidden sm:inline">Campanhas</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
-                  {campaigns.length}
-                </span>
-                <ChevronDown className="w-3 h-3 text-zinc-500 group-hover:text-cyan-400" />
-              </button>
-            )}
-
-            <div className="relative">
-              <select
-                id="campaign-select"
-                value={activeCampaignId}
-                onChange={(e) => onSelectCampaign(e.target.value)}
-                className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-200 rounded-lg px-2.5 py-1.5 pr-7 focus:outline-none focus:border-cyan-500/50 cursor-pointer max-w-[170px] sm:max-w-[200px] truncate"
-                title="Trocar campanha ativa"
-              >
-                {campaigns.map((camp) => (
-                  <option key={camp.id} value={camp.id}>
-                    {camp.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Dedicated Chapters Sidebar Toggle Button */}
+        {/* ========================================================================= */}
+        {/* UNIFIED WORKSPACE HEADER                                                  */}
+        {/* ========================================================================= */}
+        <div className="p-2 sm:p-2.5 px-3 sm:px-4 bg-zinc-900/70 border-b border-zinc-800/80 flex flex-wrap items-center justify-between gap-2 shrink-0">
+          {/* Left: Chapters Sidebar Toggle + Breadcrumb (Campaign / Chapter) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 sm:flex-initial">
             <button
               type="button"
               id="toggle-chapters-sidebar-top-btn"
               onClick={handleToggleChaptersSidebar}
-              className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
+              className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
                 isChaptersSidebarOpen
                   ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-[0_0_10px_rgba(6,182,212,0.15)] font-bold'
                   : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border-zinc-800 hover:border-zinc-700'
               }`}
-              title={`${isChaptersSidebarOpen ? 'Ocultar' : 'Exibir'} Barra Lateral de Capítulos da Campanha`}
+              title={`${isChaptersSidebarOpen ? 'Ocultar' : 'Exibir'} Capítulos da Campanha`}
             >
               <PanelLeft className="w-3.5 h-3.5 text-cyan-400" />
               <span className="hidden sm:inline">Capítulos</span>
@@ -1292,13 +1279,146 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               </span>
             </button>
 
-            {/* Badge de Identificação do Sistema de RPG no Topo */}
+            {/* Campaign Switcher Button */}
+            {onOpenCampaignMenu && (
+              <button
+                type="button"
+                id="open-campaign-menu-top-btn"
+                onClick={onOpenCampaignMenu}
+                className="px-2 py-1 bg-zinc-950 hover:bg-zinc-850 border border-zinc-800 hover:border-cyan-500/40 text-[11px] font-semibold text-cyan-300 rounded-lg flex items-center gap-1 transition-all cursor-pointer shadow-xs shrink-0"
+                title="Abrir Menu de Campanhas"
+              >
+                <Scroll className="w-3 h-3 text-cyan-400 shrink-0" />
+                <span className="hidden md:inline">Campanhas</span>
+                <span className="text-[10px] px-1 py-0.1 rounded bg-zinc-850 text-zinc-300 border border-zinc-700">
+                  {campaigns.length}
+                </span>
+              </button>
+            )}
+
+            {/* Accessible hidden select for tests & programmatic selection */}
+            <select
+              id="campaign-select"
+              value={activeCampaignId}
+              onChange={(e) => onSelectCampaign(e.target.value)}
+              className="sr-only"
+              aria-label="Selecionar Campanha"
+            >
+              {campaigns.map((camp) => (
+                <option key={camp.id} value={camp.id}>
+                  {camp.title}
+                </option>
+              ))}
+            </select>
+
+            {/* Breadcrumb: Campaign / Active Chapter Title (Inline Editable) */}
+            <div className="flex items-center gap-1.5 text-xs min-w-0 truncate">
+              <span className="text-zinc-500 hidden sm:inline">/</span>
+              <span className="text-cyan-400/90 font-medium truncate max-w-[100px] hidden sm:inline" title={title}>
+                {title}
+              </span>
+              <span className="text-zinc-600 hidden sm:inline">/</span>
+
+              {isEditingTitle ? (
+                <input
+                  type="text"
+                  value={activeChapter?.title || title}
+                  onChange={(e) => {
+                    const newT = e.target.value;
+                    if (activeChapter) {
+                      handleUpdateChapter(activeChapter.id, { title: newT });
+                    } else {
+                      setTitle(newT);
+                    }
+                  }}
+                  onBlur={() => setIsEditingTitle(false)}
+                  onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)}
+                  autoFocus
+                  className="bg-zinc-950 border border-cyan-500/50 text-xs font-semibold text-zinc-100 rounded px-2 py-0.5 focus:outline-none min-w-[120px]"
+                />
+              ) : (
+                <div
+                  onClick={() => setIsEditingTitle(true)}
+                  className="flex items-center gap-1 cursor-pointer group truncate"
+                  title="Clique para renomear este capítulo"
+                >
+                  <span className="font-semibold text-zinc-200 group-hover:text-cyan-300 truncate text-xs sm:text-sm">
+                    {activeChapter?.title || title}
+                  </span>
+                  <Edit3 className="w-3 h-3 text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                </div>
+              )}
+
+              {activeChapter?.sessionDate && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 font-mono border border-zinc-700/60 hidden md:inline shrink-0">
+                  {activeChapter.sessionDate}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Center: Segmented Editor Mode Switcher (Editor / Leitura / Dividido) */}
+          <div className="flex items-center p-0.5 bg-zinc-950 border border-zinc-800 rounded-lg shrink-0">
             <button
               type="button"
-              id="top-campaign-system-badge"
+              id="editor-mode-edit-btn"
+              onClick={() => setEditorMode('edit')}
+              className={`px-2.5 py-1 rounded-md text-xs transition-colors flex items-center gap-1.5 cursor-pointer ${
+                editorMode === 'edit'
+                  ? 'bg-zinc-800 text-cyan-400 font-semibold shadow-xs'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              title="Modo Editor de Texto"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Editor</span>
+            </button>
+
+            <button
+              type="button"
+              id="editor-mode-read-btn"
+              onClick={() => setEditorMode('read')}
+              className={`px-2.5 py-1 rounded-md text-xs transition-colors flex items-center gap-1.5 cursor-pointer ${
+                editorMode === 'read'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-semibold shadow-xs'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              title="Modo Leitura: visualização formatada com fichas e criaturas interativas"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Leitura</span>
+              {embeddedFichaCards.length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-cyan-500/25 text-cyan-300 font-bold border border-cyan-500/40">
+                  {embeddedFichaCards.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              id="editor-mode-split-btn"
+              onClick={() => setEditorMode('split')}
+              className={`hidden md:flex px-2.5 py-1 rounded-md text-xs transition-colors items-center gap-1.5 cursor-pointer ${
+                editorMode === 'split'
+                  ? 'bg-zinc-800 text-cyan-400 font-semibold shadow-xs'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              title="Modo Dividido: Editor à esquerda e visualização formatada à direita"
+            >
+              <Columns className="w-3.5 h-3.5" />
+              <span>Dividido</span>
+            </button>
+          </div>
+
+          {/* Right: RPG System Badge + Stats + Copilot Toggle + Fullscreen */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* System Badge */}
+            <button
+              type="button"
+              id="campaign-active-system-badge"
               onClick={() => setShowSystemRulesInfo(true)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 hover:border-cyan-500/50 text-cyan-300 text-xs font-medium transition-all cursor-pointer shadow-xs group"
-              title={`Sistema de RPG ativo: ${activeSystemKnowledge.name}\nConvenção: ${activeSystemKnowledge.diceConvention}\nClique para ver as regras`}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 hover:border-cyan-500/50 text-cyan-300 text-xs font-medium transition-all shadow-xs cursor-pointer group"
+              title={`Sistema de RPG ativo: ${activeSystemKnowledge.name}\nConvenção: ${activeSystemKnowledge.diceConvention}\nClique para ver detalhes das regras`}
             >
               <Dices className="w-3.5 h-3.5 text-cyan-400 shrink-0 group-hover:rotate-12 transition-transform" />
               <span className="font-semibold">{activeSystemKnowledge.shortName}</span>
@@ -1307,188 +1427,88 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               </span>
             </button>
 
+            {/* Hidden system select for DOM compatibility */}
+            <select
+              id="campaign-system-select"
+              value={system}
+              onChange={(e) => setSystem(e.target.value)}
+              className="sr-only"
+              aria-label="Selecionar Sistema de RPG"
+            >
+              {RPG_SYSTEMS.map((s) => (
+                <option key={s.id} value={s.shortName}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Mural & Table trigger */}
+            {onOpenTableModal && (
+              <button
+                type="button"
+                id="campaign-open-mural-btn"
+                onClick={onOpenTableModal}
+                className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-medium transition-all shadow-xs cursor-pointer"
+                title="Mural da Mesa: fotos, mapas, pistas e fichas dos jogadores"
+              >
+                <Share2 className="w-3 h-3 text-amber-400 shrink-0" />
+                <span className="hidden xl:inline">Mural</span>
+                <span className="text-[10px] font-mono text-amber-300 font-bold px-1 rounded bg-amber-500/20">
+                  {activeCampaign?.sharedItems?.length || 0}
+                </span>
+              </button>
+            )}
+
+            {/* Word & Char counter */}
+            <div className="hidden lg:flex items-center gap-2 text-[11px] text-zinc-500 font-mono px-1">
+              <span>{wordCount} pal</span>
+              <span>•</span>
+              <span>{charCount} car</span>
+            </div>
+
+            {/* Desktop Copilot Toggle Button */}
             {!isFullScreen && (
               <button
-                id="new-campaign-btn"
-                onClick={() => setIsNewCampaignOpen(true)}
-                className="p-1.5 bg-zinc-900 hover:bg-zinc-800 text-cyan-400 hover:text-cyan-300 border border-zinc-800 rounded-lg text-xs flex items-center gap-1 transition-colors"
-                title="Criar Nova Campanha"
+                type="button"
+                id="toggle-copilot-panel-btn"
+                onClick={handleToggleCopilot}
+                className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                  isCopilotExpanded
+                    ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40 shadow-xs'
+                    : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border-zinc-800 hover:border-zinc-700'
+                }`}
+                title={isCopilotExpanded ? 'Ocultar Copiloto IA (Modo Escrita Ampla)' : 'Exibir Copiloto IA'}
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span className="hidden xl:inline text-[11px]">Nova</span>
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden xl:inline">Copiloto</span>
+                <PanelRight className="w-3 h-3 text-zinc-500" />
               </button>
             )}
 
-            {!isFullScreen && campaigns.length > 1 && (
-              <button
-                onClick={() => {
-                  if (confirm(`Excluir a campanha "${title}" e todas as suas anotações?`)) {
-                    onDeleteCampaign(activeCampaignId);
-                  }
-                }}
-                className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg text-xs transition-colors"
-                title="Excluir Campanha Atual"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Sistema de RPG com Seletor de Lista Inteligente & Badge */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-zinc-400 hidden sm:inline">Sistema:</span>
-            
-            <div className="flex items-center gap-1">
-              <select
-                id="campaign-system-select"
-                value={
-                  RPG_SYSTEMS.some((s) => s.shortName === system || s.name === system || s.id === system)
-                    ? RPG_SYSTEMS.find((s) => s.shortName === system || s.name === system || s.id === system)?.id
-                    : 'custom'
-                }
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === 'custom') {
-                    setIsEditingCustomSystem(true);
-                  } else {
-                    setIsEditingCustomSystem(false);
-                    const found = RPG_SYSTEMS.find((s) => s.id === val);
-                    if (found) {
-                      setSystem(found.shortName);
-                    }
-                  }
-                }}
-                className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-lg px-2 py-1 text-xs text-cyan-300 font-medium focus:outline-none focus:border-cyan-500/50 cursor-pointer max-w-[130px] sm:max-w-[180px] truncate"
-                title={`Sistema ativo: ${activeSystemKnowledge.name}\nMecânica: ${activeSystemKnowledge.diceConvention}`}
-              >
-                {POPULAR_SYSTEM_GROUPS.map((group) => (
-                  <optgroup key={group.group} label={group.group} className="bg-zinc-900 text-zinc-400">
-                    {group.systems.map((sys) => (
-                      <option key={sys.id} value={sys.id} className="bg-zinc-950 text-zinc-200">
-                        {sys.shortName}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-                <option value="custom" className="bg-zinc-950 text-cyan-400 font-medium">
-                  Outro / Personalizado...
-                </option>
-              </select>
-
-              {(isEditingCustomSystem || !RPG_SYSTEMS.some((s) => s.shortName === system || s.name === system || s.id === system)) && (
-                <input
-                  type="text"
-                  value={system}
-                  onChange={(e) => setSystem(e.target.value)}
-                  placeholder="Nome do sistema..."
-                  className="w-24 sm:w-32 bg-zinc-950 border border-cyan-500/50 rounded-lg px-2 py-1 text-xs text-cyan-200 font-medium placeholder:text-zinc-600 focus:outline-none"
-                  title="Digite o nome personalizado do seu sistema"
-                  autoFocus
-                />
-              )}
-
-              {/* Botão de Resumo de Regras do Sistema */}
+            {/* Fullscreen Button */}
+            {!isFullScreen && onToggleFullScreen && (
               <button
                 type="button"
-                onClick={() => setShowSystemRulesInfo(true)}
-                className="p-1 px-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-cyan-400 hover:text-cyan-300 text-[10px] flex items-center gap-1 transition-colors"
-                title={`Ver modelo de regras de ${activeSystemKnowledge.shortName}`}
+                id="enter-fullscreen-notes-btn"
+                onClick={onToggleFullScreen}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800 transition-colors cursor-pointer border border-transparent hover:border-zinc-800"
+                title="Modo Foco / Tela Cheia (F11)"
               >
-                <Dices className="w-3 h-3 text-cyan-400" />
-                <span className="hidden md:inline">{activeSystemKnowledge.badge}</span>
-              </button>
-            </div>
-
-            {/* Largura do texto em Tela Cheia */}
-            {isFullScreen && (
-              <button
-                type="button"
-                onClick={() => setIsWideText((prev) => !prev)}
-                className={`hidden md:inline-flex items-center px-2 py-1 rounded-lg text-xs border transition-colors ${
-                  isWideText
-                    ? 'bg-zinc-800 text-cyan-300 border-zinc-700 font-medium'
-                    : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border-zinc-800'
-                }`}
-                title={isWideText ? 'Alternar para largura de foco confortável (centrado)' : 'Alternar para largura total (100%)'}
-              >
-                {isWideText ? 'Largura Total' : 'Centrado'}
+                <Maximize2 className="w-3.5 h-3.5" />
               </button>
             )}
 
-            {/* Mode switches (Edit / Reading / Split) */}
-            <div className="flex items-center p-0.5 bg-zinc-950 border border-zinc-800 rounded-lg ml-1">
-              <button
-                type="button"
-                onClick={() => setEditorMode('edit')}
-                className={`px-2 py-1 rounded-md text-xs transition-colors flex items-center gap-1 cursor-pointer ${
-                  editorMode === 'edit'
-                    ? 'bg-zinc-800 text-cyan-400 font-semibold'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-                title="Modo Editor de Texto"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Editor</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditorMode('read')}
-                className={`px-2.5 py-1 rounded-md text-xs transition-colors flex items-center gap-1.5 cursor-pointer ${
-                  editorMode === 'read'
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-semibold shadow-xs'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-                title="Modo Leitura: exibe o texto limpo com fichas e monstros renderizados como cartões interativos estilizados, sem códigos crus"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Leitura</span>
-                {embeddedFichaCards.length > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-cyan-500/25 text-cyan-300 font-bold border border-cyan-500/40">
-                    {embeddedFichaCards.length}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditorMode('split')}
-                className={`hidden md:flex px-2 py-1 rounded-md text-xs transition-colors items-center gap-1 cursor-pointer ${
-                  editorMode === 'split'
-                    ? 'bg-zinc-800 text-cyan-400 font-semibold'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-                title="Modo Dividido: Editor à esquerda e Modo Leitura com Fichas à direita"
-              >
-                <Columns className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline">Dividido</span>
-              </button>
-
-              {/* Botão de Tela Cheia no grupo de botões */}
-              {!isFullScreen && onToggleFullScreen && (
-                <>
-                  <span className="w-px h-3 bg-zinc-800 mx-0.5" />
-                  <button
-                    id="enter-fullscreen-notes-btn"
-                    onClick={onToggleFullScreen}
-                    className="p-1.5 rounded-md text-xs text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800 transition-colors"
-                    title="Modo Tela Cheia (Foco sem distrações) • F11"
-                  >
-                    <Maximize2 className="w-3.5 h-3.5" />
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Botão proeminente de Sair da Tela Cheia quando ativo */}
             {isFullScreen && onToggleFullScreen && (
               <button
+                type="button"
                 id="exit-fullscreen-notes-btn"
                 onClick={onToggleFullScreen}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 border border-cyan-500/30 hover:border-cyan-500/50 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-xs group"
-                title="Sair do Modo Tela Cheia (Pressione Esc ou F11)"
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 border border-cyan-500/30 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                title="Sair da Tela Cheia (Esc)"
               >
-                <Minimize2 className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
-                <span className="hidden sm:inline">Sair da Tela Cheia</span>
-                <kbd className="text-[10px] bg-zinc-950 text-cyan-400/80 border border-cyan-500/30 px-1.5 py-0.2 rounded font-mono">
+                <Minimize2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Sair</span>
+                <kbd className="text-[10px] bg-zinc-950 text-cyan-400/80 border border-cyan-500/30 px-1 py-0.2 rounded font-mono">
                   Esc
                 </kbd>
               </button>
@@ -1533,75 +1553,10 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
             </button>
           )}
 
-          {/* Main Content Area (Title Bar + Chapters Bar + Markdown Toolbar + Editor/Reader) */}
+          {/* Main Content Area (Chapters Strip + Markdown Toolbar + Editor/Reader) */}
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            {/* Campaign Title Bar (Inline editable) */}
-            <div className={`px-5 py-2 bg-zinc-950 border-b border-zinc-800/40 flex items-center justify-between ${isFullScreen && !isWideText ? 'max-w-4xl w-full mx-auto' : ''}`}>
-              <div className="flex items-center gap-2 flex-1 mr-4">
-                {isEditingTitle ? (
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    onBlur={() => setIsEditingTitle(false)}
-                    onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)}
-                    autoFocus
-                    className="bg-zinc-900 border border-cyan-500/50 text-sm font-semibold text-zinc-100 rounded px-2 py-0.5 w-full focus:outline-none"
-                  />
-                ) : (
-                  <div className="flex items-center gap-2.5 flex-wrap min-w-0">
-                    <h2
-                      onClick={() => setIsEditingTitle(true)}
-                      className="text-sm font-semibold text-zinc-200 hover:text-cyan-400 cursor-pointer flex items-center gap-1.5 transition-colors group truncate"
-                      title="Clique para renomear"
-                    >
-                      <span className="truncate">{title}</span>
-                      <Edit3 className="w-3 h-3 opacity-0 group-hover:opacity-60 text-zinc-400 shrink-0" />
-                    </h2>
-
-                    {/* Badge do Sistema de RPG Ativo */}
-                    <button
-                      type="button"
-                      id="campaign-active-system-badge"
-                      onClick={() => setShowSystemRulesInfo(true)}
-                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 hover:border-cyan-500/50 text-cyan-300 text-[11px] font-medium transition-all shadow-xs shrink-0 cursor-pointer group"
-                      title={`Sistema de RPG ativo: ${activeSystemKnowledge.name}\nConvenção de Dados: ${activeSystemKnowledge.diceConvention}\nClique para ver as regras e detalhes do sistema`}
-                    >
-                      <Dices className="w-3 h-3 text-cyan-400 shrink-0 group-hover:rotate-12 transition-transform" />
-                      <span className="font-semibold">{activeSystemKnowledge.shortName}</span>
-                      <span className="text-[10px] text-cyan-400/80 font-normal px-1 py-0.2 rounded bg-cyan-500/10 border border-cyan-500/20 hidden sm:inline">
-                        {activeSystemKnowledge.badge}
-                      </span>
-                    </button>
-
-                    {/* Botão de Acesso Rápido ao Mural do Mestre & Mesa */}
-                    {onOpenTableModal && (
-                      <button
-                        type="button"
-                        id="campaign-open-mural-btn"
-                        onClick={onOpenTableModal}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-300 text-[11px] font-medium transition-all shadow-xs shrink-0 cursor-pointer group"
-                        title="Mesa & Mural do Mestre: compartilhe fotos, mapas e cartas, e visualize o diário e fichas dos jogadores"
-                      >
-                        <Share2 className="w-3 h-3 text-amber-400 shrink-0 group-hover:scale-110 transition-transform" />
-                        <span>Mural & Jogadores</span>
-                        <span className="text-[10px] text-amber-300 font-bold px-1.5 py-0.2 rounded-full bg-amber-500/20 border border-amber-500/30">
-                          {activeCampaign?.sharedItems?.length || 0}
-                        </span>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="text-[11px] text-zinc-500 font-mono flex items-center gap-3 shrink-0">
-                <span>{wordCount} palavras</span>
-                <span>{charCount} caracteres</span>
-              </div>
-            </div>
-
-            {/* Campaign Chapters Bar */}
-            {activeCampaign && (
+            {/* Campaign Chapters Horizontal Strip (Shown when sidebar is collapsed or in fullscreen) */}
+            {activeCampaign && (!isChaptersSidebarOpen || isFullScreen) && (
               <CampaignChaptersBar
                 chapters={activeCampaign.chapters || []}
                 activeChapterId={activeCampaign.activeChapterId || activeCampaign.chapters?.[0]?.id || ''}
@@ -1620,7 +1575,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
 
         {/* Markdown Toolbar */}
         {editorMode !== 'read' && (
-          <div className={`px-4 py-1.5 bg-zinc-950/90 border-b border-zinc-800/40 flex items-center gap-1 overflow-x-auto text-xs text-zinc-400 ${isFullScreen && !isWideText ? 'max-w-4xl w-full mx-auto' : ''}`}>
+          <div className={`px-3 sm:px-4 py-1.5 bg-zinc-950/90 border-b border-zinc-800/40 flex items-center gap-1 overflow-x-auto no-scrollbar text-xs text-zinc-400 ${isFullScreen && !isWideText ? 'max-w-4xl w-full mx-auto' : ''}`}>
             <button
               type="button"
               id="toolbar-btn-h2"
@@ -2159,7 +2114,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               }
             }}
             onSendToChat={handleSendRollToChat}
-            className="bottom-16 md:bottom-4 right-3 md:right-4"
+            className={`bottom-20 md:bottom-6 right-3 md:right-6 ${mobileTab === 'copilot' ? 'hidden md:block' : ''}`}
           />
               </div>
             </div>
@@ -2171,7 +2126,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
       {/* LADO DIREITO: CHAT COM IA (COPILOTO GEMINI 2.5 FLASH)                     */}
       {/* ========================================================================= */}
       {!isFullScreen && (
-        <div className={`w-full md:w-[420px] lg:w-[480px] flex-col h-full bg-zinc-950 shrink-0 ${mobileTab === 'copilot' ? 'flex' : 'hidden'} md:flex`}>
+        <div className={`w-full md:w-[420px] lg:w-[480px] flex-col h-full bg-zinc-950 shrink-0 ${mobileTab === 'copilot' ? 'flex' : 'hidden'} ${isCopilotExpanded ? 'md:flex' : 'md:hidden'}`}>
         {/* Chat Header: Context indicator & Actions */}
         <div className="p-3 px-4 bg-zinc-900/70 border-b border-zinc-800/80 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
