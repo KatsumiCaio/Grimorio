@@ -379,7 +379,7 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
       </div>
 
       {/* Main 3-Column Player Layout */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 overflow-y-auto">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-4 overflow-y-auto">
         {/* COLUMN 1: MY CHARACTER SHEET (5 cols) */}
         <div className="lg:col-span-5 flex flex-col space-y-4">
           <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-5 shadow-xl flex-1 flex flex-col">
@@ -561,6 +561,29 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
                   </div>
                   <div className="max-h-36 overflow-y-auto text-xs text-zinc-300 bg-zinc-950 p-2.5 rounded-lg border border-zinc-800 font-mono whitespace-pre-wrap">
                     {myCharacter.notes || 'Sem anotações de equipamento.'}
+                  </div>
+                </div>
+
+                {/* Character History & Story preview */}
+                <div className="mt-3 pt-3 border-t border-zinc-800/80">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-semibold text-zinc-400 flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>História & Origem do Personagem:</span>
+                    </span>
+                    <button
+                      onClick={() => setIsEditCharModalOpen(true)}
+                      className="text-[11px] text-cyan-400 hover:underline cursor-pointer"
+                    >
+                      {myCharacter.backstory ? 'Editar História' : 'Escrever História'}
+                    </button>
+                  </div>
+                  <div className="max-h-36 overflow-y-auto text-xs text-zinc-300 bg-zinc-950 p-2.5 rounded-lg border border-zinc-800 font-sans leading-relaxed whitespace-pre-wrap">
+                    {myCharacter.backstory || (
+                      <span className="text-zinc-500 italic">
+                        Nenhuma história registrada ainda. Clique em &quot;Escrever História&quot; para registrar a origem e biografia de seu personagem.
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

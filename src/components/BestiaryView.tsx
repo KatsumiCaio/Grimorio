@@ -185,7 +185,7 @@ export const BestiaryView: React.FC<BestiaryViewProps> = ({
       {/* Main Split Body: Monster List + Monster Detail */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Monster List Column */}
-        <div className={`w-full md:w-80 lg:w-96 border-r border-zinc-800 bg-zinc-950/70 overflow-y-auto p-3 space-y-2 shrink-0 ${mobileMode === 'list' ? 'block' : 'hidden md:block'}`}>
+        <div className={`w-full md:w-80 lg:w-96 border-r border-zinc-800 bg-zinc-950/70 overflow-y-auto p-3 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-3 space-y-2 shrink-0 ${mobileMode === 'list' ? 'block' : 'hidden md:block'}`}>
           {filteredMonsters.length === 0 ? (
             <div className="py-16 text-center text-zinc-500 space-y-2">
               <Skull className="w-8 h-8 mx-auto opacity-30 text-zinc-600" />
@@ -262,7 +262,7 @@ export const BestiaryView: React.FC<BestiaryViewProps> = ({
 
         {/* Right: Detailed Monster Inspector */}
         {selectedMonster ? (
-          <div className={`flex-1 flex-col bg-zinc-950 overflow-y-auto ${mobileMode === 'detail' ? 'flex' : 'hidden md:flex'}`}>
+          <div className={`flex-1 flex-col bg-zinc-950 overflow-y-auto pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 ${mobileMode === 'detail' ? 'flex' : 'hidden md:flex'}`}>
             {/* Mobile Back to List Bar */}
             <div className="md:hidden p-2.5 px-4 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between shrink-0 sticky top-0 z-20 shadow-sm backdrop-blur-xs">
               <button

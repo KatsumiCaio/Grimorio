@@ -22,11 +22,16 @@ import {
   ArrowLeft,
   Eye,
   EyeOff,
+  BookOpen,
+  Scroll,
+  FileText,
+  CheckCircle2,
 } from 'lucide-react';
 import { CharacterSheet, CharacterType, AttributeItem, ResourceBar, AppSettings } from '../types';
 import { NewCharacterModal } from './NewCharacterModal';
 import { ApplyTemplateModal } from './ApplyTemplateModal';
 import { GeneratePortraitModal } from './GeneratePortraitModal';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface CharacterSheetsViewProps {
   characters: CharacterSheet[];
@@ -86,6 +91,9 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
   const [filterType, setFilterType] = useState<'ALL' | 'PJ' | 'NPC' | 'Monstro'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
+  const [activeSheetTab, setActiveSheetTab] = useState<'sheet' | 'history' | 'notes'>('sheet');
+  const [historyViewMode, setHistoryViewMode] = useState<'edit' | 'preview'>('edit');
+  const [historyNotice, setHistoryNotice] = useState<string | null>(null);
   const [newAttributeKey, setNewAttributeKey] = useState('');
   const [newAttributeValue, setNewAttributeValue] = useState('');
   const [isAddingAttr, setIsAddingAttr] = useState(false);
@@ -105,6 +113,60 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
       `🎲 Teste de ${attrKey}: d20 (${d20}) ${modStr} = ${total}${isCrit ? ' 🌟 Sucesso Crítico!' : isFumble ? ' 💀 Falha Crítica!' : ''}`
     );
     setTimeout(() => setRollNotification(null), 3500);
+  };
+
+  const showHistoryToast = (msg: string) => {
+    setHistoryNotice(msg);
+    setTimeout(() => setHistoryNotice(null), 3000);
+  };
+
+  // Helper to insert structured story template
+  const handleInsertHistoryTemplate = () => {
+    if (!selectedChar) return;
+    const templateText = `### 🏡 Origem & Terra Natal
+Nasceu nas terras de [Local de Origem], sob a tutela de [Família, Mentor ou Clã]. Um evento definidor em sua infância foi [acontecimento marcante].
+
+### 🎭 Personalidade & Traços
+- **Virtude Maior:** [Lealdade / Justiça / Coragem / Curiosidade insaciável]
+- **Fraqueza ou Vício:** [Orgulho / Desconfiança / Vingança / Cobiça por segredos]
+- **Maneirismo Marcante:** [Um tique, fala mansa, olhar inquisidor ou hábito de girar uma moeda]
+
+### 🎯 Motivação & Objetivos na Campanha
+Juntou-se a esta jornada em busca de [objetivo ou redenção]. Nada o fará desistir até que [condição definitiva].
+
+### 🤝 Vínculos & Conexões
+- **Aliado ou Mentor:** [Nome de alguém do passado que lhe deve lealdade]
+- **Rival ou Ameaça:** [Inimigo ou facção que o persegue nas sombras]
+- **Objeto de Valor Sentimental:** [Um amuleto, arma ancestral ou carta selada]
+
+### 👁️ Segredo Pessoal
+Guarda a sete chaves que [segredo obscuro que ninguém no grupo suspeita].
+
+### 👤 Aparência Física
+Porte altivo, olhar penetrante e uma cicatriz característica em [detalhe]. Veste-se com roupas práticas e detalhes que revelam sua origem.`;
+
+    const currentText = selectedChar.backstory?.trim() || '';
+    const updated = currentText ? `${currentText}\n\n${templateText}` : templateText;
+    onUpdateCharacter(selectedChar.id, { backstory: updated });
+    showHistoryToast('Estrutura de história inserida com sucesso!');
+  };
+
+  // Helper to append a dynamic narrative hook
+  const handleGenerateStoryHook = () => {
+    if (!selectedChar) return;
+    const hooks = [
+      `Herdeiro de uma linhagem caída em desgraça por conspiração palaciana. Viaja incógnito buscando desvendar quem financiou a ruína de seu clã.`,
+      `Sobrevivente solitário de um santuário devastado por criaturas arcanas. Carrega consigo o último fragmento de uma relíquia viva que sussurra avisos.`,
+      `Fez um pacto desesperado em seu leito de morte com uma entidade esquecida. O poder foi concedido, mas a cada lua nova uma dívida cobra seu tributo.`,
+      `Ex-inquisidor que descobriu podridão nos próprios dogmas que defendia. Agora protege aqueles que outrora fora ordenado a caçar.`,
+      `Cresceu nas sombras das metrópoles como mensageiro de segredos proibidos. Leu uma carta que não deveria e agora é procurado por nobres e guildas.`,
+      `Teve a mente tocada pelas brumas do além e despertou com memórias que não lhe pertencem. Procura desesperadamente pelo homem de seus sonhos.`,
+    ];
+    const picked = hooks[Math.floor(Math.random() * hooks.length)];
+    const currentText = selectedChar.backstory?.trim() || '';
+    const newHookSection = `\n\n> 🎲 **Gancho de Trama:** ${picked}\n`;
+    onUpdateCharacter(selectedChar.id, { backstory: currentText ? `${currentText}${newHookSection}` : picked });
+    showHistoryToast('Gancho narrativo adicionado à história!');
   };
 
   // Template Modals state
@@ -172,6 +234,11 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
       attributes: char.attributes.map((a) => ({ ...a, id: `attr-${Date.now()}-${Math.random()}` })),
       resources: char.resources.map((r) => ({ ...r, id: `res-${Date.now()}-${Math.random()}` })),
       notes: char.notes,
+      backstory: char.backstory,
+      avatarUrl: char.avatarUrl,
+      challengeRating: char.challengeRating,
+      system: char.system,
+      sharedWithPlayers: char.sharedWithPlayers,
     });
     setSelectedCharId(duplicateId);
     setCopiedNotification(true);
@@ -293,21 +360,24 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
       {/* ========================================================================= */}
       <div className={`w-full md:w-80 lg:w-96 border-r border-zinc-800/90 flex flex-col h-full bg-zinc-950/90 shrink-0 ${mobileView === 'list' ? 'flex' : 'hidden md:flex'}`}>
         {/* Sidebar Header */}
-        <div className="p-3.5 border-b border-zinc-800/80 bg-zinc-900/50 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-cyan-500" />
-              <h2 className="text-xs font-semibold text-zinc-200">Fichas da Campanha</h2>
+        <div className="p-3 sm:p-3.5 border-b border-zinc-800/80 bg-zinc-900/50 space-y-2 sm:space-y-2.5">
+          <div className="flex items-center justify-between gap-1.5 flex-wrap">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Shield className="w-4 h-4 text-cyan-500 shrink-0" />
+              <h2 className="text-xs font-semibold text-zinc-200 truncate">Fichas</h2>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-800 text-zinc-400 font-mono font-medium">
+                {campaignCharacters.length}
+              </span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 shrink-0 flex-wrap">
               <button
                 id="create-pj-btn"
                 onClick={() => handleOpenNewModal('PJ')}
-                className="px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-md text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                className="px-2 py-1 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                 title="Novo Personagem de Jogador (PJ) com campos de sistema"
               >
                 <Plus className="w-3 h-3" />
-                <span>+ PJ</span>
+                <span>PJ</span>
               </button>
               <button
                 id="create-npc-btn"
@@ -316,7 +386,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                 title="Novo NPC com campos de sistema"
               >
                 <Plus className="w-3 h-3" />
-                <span>+ NPC</span>
+                <span>NPC</span>
               </button>
               <button
                 id="create-monstro-btn"
@@ -325,7 +395,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                 title="Novo Monstro ou Criatura com campos de sistema"
               >
                 <Skull className="w-3 h-3 text-rose-400" />
-                <span>+ Monstro</span>
+                <span className="hidden xs:inline">Monstro</span>
               </button>
               <button
                 id="open-templates-btn"
@@ -396,7 +466,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
         </div>
 
         {/* Character List */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+        <div className="flex-1 overflow-y-auto p-2 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-4 space-y-1.5 min-h-0">
           {filteredList.length === 0 ? (
             <div className="text-center py-8 text-zinc-500 text-xs px-4">
               Nenhuma ficha encontrada.{' '}
@@ -511,7 +581,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
       {/* ========================================================================= */}
       {/* PAINEL PRINCIPAL: DETALHES & EDIÇÃO DA FICHA                             */}
       {/* ========================================================================= */}
-      <div className={`flex-1 flex flex-col h-full overflow-y-auto bg-zinc-950 ${mobileView === 'detail' ? 'flex' : 'hidden md:flex'}`}>
+      <div className={`flex-1 flex flex-col h-full overflow-y-auto min-h-0 bg-zinc-950 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 ${mobileView === 'detail' ? 'flex' : 'hidden md:flex'}`}>
         {/* Mobile Back to List Bar */}
         <div className="md:hidden p-2.5 px-4 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between shrink-0 sticky top-0 z-20 shadow-sm backdrop-blur-xs">
           <button
@@ -546,7 +616,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
             </button>
           </div>
         ) : (
-          <div className="p-5 md:p-8 max-w-4xl w-full mx-auto space-y-6">
+          <div className="p-3.5 sm:p-5 md:p-8 max-w-4xl w-full mx-auto space-y-4 sm:space-y-6">
             {/* Roll Toast Notification */}
             {rollNotification && (
               <div className="p-3 bg-gradient-to-r from-cyan-500/20 via-cyan-600/30 to-cyan-500/20 border-2 border-cyan-500/60 rounded-xl flex items-center justify-between text-cyan-200 text-xs sm:text-sm font-bold shadow-lg shadow-cyan-950/40 animate-fadeIn">
@@ -640,7 +710,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
                     </div>
 
                     {/* Actions & Type Switch */}
-                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                    <div className="flex items-center gap-1.5 sm:gap-2 self-end sm:self-center shrink-0 flex-wrap">
                       <button
                         type="button"
                         onClick={() => setIsPortraitModalOpen(true)}
@@ -737,8 +807,72 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
               </div>
             </div>
 
-            {/* Section 1: Barras de Recursos (HP, Mana, Sanidade, etc.) */}
-            <div className="bg-zinc-900/40 border border-zinc-800/90 rounded-2xl p-5 space-y-4">
+            {/* Character Sheet Tab Navigation */}
+            <div className="flex items-center gap-1.5 p-1 bg-zinc-900/90 border border-zinc-800 rounded-xl overflow-x-auto scrollbar-none shadow-sm shrink-0">
+              <button
+                type="button"
+                id="sheet-tab-attributes"
+                onClick={() => setActiveSheetTab('sheet')}
+                className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeSheetTab === 'sheet'
+                    ? 'bg-cyan-500 text-zinc-950 shadow-md shadow-cyan-950/40'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+                }`}
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span>Ficha & Atributos</span>
+              </button>
+
+              <button
+                type="button"
+                id="sheet-tab-history"
+                onClick={() => setActiveSheetTab('history')}
+                className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap relative ${
+                  activeSheetTab === 'history'
+                    ? 'bg-cyan-500 text-zinc-950 shadow-md shadow-cyan-950/40'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>História & Biografia</span>
+                {selectedChar.backstory?.trim() ? (
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      activeSheetTab === 'history' ? 'bg-zinc-950' : 'bg-cyan-400 animate-pulse'
+                    }`}
+                    title="História preenchida"
+                  />
+                ) : (
+                  <span
+                    className={`text-[9px] px-1 py-0.2 rounded font-mono ${
+                      activeSheetTab === 'history' ? 'bg-zinc-950/20 text-zinc-950 font-bold' : 'bg-zinc-800 text-zinc-500'
+                    }`}
+                  >
+                    novo
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                id="sheet-tab-notes"
+                onClick={() => setActiveSheetTab('notes')}
+                className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeSheetTab === 'notes'
+                    ? 'bg-cyan-500 text-zinc-950 shadow-md shadow-cyan-950/40'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+                }`}
+              >
+                <Sword className="w-3.5 h-3.5" />
+                <span>Equipamento & Magias</span>
+              </button>
+            </div>
+
+            {/* TAB 1: FICHA & ATRIBUTOS */}
+            {activeSheetTab === 'sheet' && (
+              <div className="space-y-5 animate-fadeIn">
+                {/* Section 1: Barras de Recursos (HP, Mana, Sanidade, etc.) */}
+                <div className="bg-zinc-900/40 border border-zinc-800/90 rounded-2xl p-4 sm:p-5 space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-zinc-800/60">
                 <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200">
                   <Flame className="w-4 h-4 text-cyan-500" />
@@ -967,32 +1101,276 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
               </div>
             </div>
 
-            {/* Section 3: Bloco de Anotações, Equipamentos & Habilidades */}
-            <div className="bg-zinc-900/40 border border-zinc-800/90 rounded-2xl p-5 space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-zinc-800/60">
-                <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200">
-                  <Sparkles className="w-4 h-4 text-cyan-500" />
-                  <span>Equipamento, Talentos & Anotações do Mestre</span>
+                {/* Resumo Rápido da História na Ficha */}
+                <div className="bg-gradient-to-b from-zinc-900/60 to-zinc-950 border border-zinc-800/80 rounded-2xl p-4 sm:p-5 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-zinc-800/60 flex-wrap gap-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200">
+                      <BookOpen className="w-4 h-4 text-cyan-500" />
+                      <span>História & Origem de {selectedChar.name}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveSheetTab('history')}
+                      className="text-xs text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <span>{selectedChar.backstory?.trim() ? 'Ver e Editar História Completa' : 'Escrever História'}</span>
+                      <span>→</span>
+                    </button>
+                  </div>
+                  {selectedChar.backstory?.trim() ? (
+                    <div className="text-xs text-zinc-300 bg-zinc-950/60 border border-zinc-800/60 rounded-xl p-3.5 line-clamp-4 leading-relaxed font-sans whitespace-pre-wrap">
+                      {selectedChar.backstory}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 px-3 bg-zinc-950/40 rounded-xl border border-dashed border-zinc-800/80 space-y-2">
+                      <p className="text-xs text-zinc-400">
+                        Este personagem ainda não possui história registrada.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSheetTab('history')}
+                        className="px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        Abrir Aba de História & Biografia
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsPortraitModalOpen(true)}
-                  className="flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer font-medium"
-                  title="Adicionar ou trocar retrato deste personagem"
-                >
-                  <ImageIcon className="w-3.5 h-3.5" />
-                  <span>Definir Retrato</span>
-                </button>
               </div>
+            )}
 
-              <textarea
-                value={selectedChar.notes}
-                onChange={(e) => onUpdateCharacter(selectedChar.id, { notes: e.target.value })}
-                rows={6}
-                placeholder="Insira detalhes de armas, itens mágicos, perícias, fraquezas ou segredos que o mestre preparou para este personagem..."
-                className="w-full bg-zinc-950 border border-zinc-800/80 rounded-xl p-3.5 text-xs sm:text-sm text-zinc-200 placeholder:text-zinc-700 leading-relaxed focus:outline-none focus:border-cyan-500/50 resize-y"
-              />
-            </div>
+            {/* TAB 2: HISTÓRIA & BIOGRAFIA */}
+            {activeSheetTab === 'history' && (
+              <div className="space-y-4 animate-fadeIn">
+                {/* Story Notification Toast */}
+                {historyNotice && (
+                  <div className="p-3 bg-cyan-500/15 border border-cyan-500/40 rounded-xl text-cyan-200 text-xs font-semibold flex items-center justify-between animate-fadeIn shadow-lg shadow-cyan-950/20">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                      <span>{historyNotice}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setHistoryNotice(null)}
+                      className="text-cyan-400/70 hover:text-cyan-200 text-xs p-1 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
+                {/* Story Workspace Header Card */}
+                <div className="bg-gradient-to-b from-cyan-950/20 via-zinc-900 to-zinc-950 border border-cyan-500/30 rounded-2xl p-4 sm:p-5 space-y-3 shadow-md shadow-cyan-950/10">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800/80">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+                        <BookOpen className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-sm sm:text-base text-zinc-100 flex items-center gap-2">
+                          <span>História, Origem & Biografia</span>
+                          <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
+                            {selectedChar.type}
+                          </span>
+                        </h3>
+                        <p className="text-[11px] text-zinc-400">
+                          Construa a narrativa, as origens, os laços e os segredos de {selectedChar.name}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Metrics & Save Status */}
+                    <div className="flex items-center gap-3 text-[11px] text-zinc-400 shrink-0 self-end sm:self-center font-mono">
+                      <span>
+                        <strong className="text-zinc-200">
+                          {selectedChar.backstory?.trim() ? selectedChar.backstory.trim().split(/\s+/).length : 0}
+                        </strong>{' '}
+                        palavras
+                      </span>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1 text-emerald-400">
+                        <Check className="w-3.5 h-3.5" />
+                        <span className="font-sans text-[10px]">Salvo na campanha</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Toolbar: Template Generator, Prompt Hook, Mode Toggle, Clear */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={handleInsertHistoryTemplate}
+                        className="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
+                        title="Inserir estrutura pronta com Origem, Personalidade, Motivação, Vínculos e Segredo"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Inserir Estrutura Completa</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleGenerateStoryHook}
+                        className="px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-cyan-300 border border-zinc-700/70 hover:border-cyan-500/40 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                        title="Sortear gancho narrativo e adicionar à história"
+                      >
+                        <Dices className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Sortear Gancho de Trama</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {/* Edit / Preview Toggle */}
+                      <div className="flex items-center p-0.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setHistoryViewMode('edit')}
+                          className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                            historyViewMode === 'edit'
+                              ? 'bg-cyan-500 text-zinc-950 font-bold'
+                              : 'text-zinc-400 hover:text-zinc-200'
+                          }`}
+                        >
+                          Escrever
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setHistoryViewMode('preview')}
+                          className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                            historyViewMode === 'preview'
+                              ? 'bg-cyan-500 text-zinc-950 font-bold'
+                              : 'text-zinc-400 hover:text-zinc-200'
+                          }`}
+                        >
+                          Pré-visualizar
+                        </button>
+                      </div>
+
+                      {selectedChar.backstory?.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm(`Tem certeza de que deseja limpar a história de "${selectedChar.name}"?`)) {
+                              onUpdateCharacter(selectedChar.id, { backstory: '' });
+                              showHistoryToast('História limpa com sucesso.');
+                            }
+                          }}
+                          className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-colors cursor-pointer"
+                          title="Limpar história"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Editor or Preview Pane */}
+                {historyViewMode === 'edit' ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={selectedChar.backstory || ''}
+                      onChange={(e) => onUpdateCharacter(selectedChar.id, { backstory: e.target.value })}
+                      rows={14}
+                      placeholder="Escreva a biografia e história deste personagem...&#10;&#10;Dicas de inspiração:&#10;• Onde ele nasceu e como foi sua infância?&#10;• Que evento trágico ou glorioso definiu sua vida?&#10;• Qual é a sua motivação para se aventurar na campanha?&#10;• Quem são seus aliados, mentores ou maiores inimigos?&#10;• Que segredo ou dívida ele guarda com receio de ser descoberto?&#10;&#10;Suporta formatação Markdown (### títulos, - listas, **negrito**, > citações)."
+                      className="w-full bg-zinc-950 border border-zinc-800/90 rounded-2xl p-4 sm:p-5 text-xs sm:text-sm text-zinc-100 placeholder:text-zinc-600 leading-relaxed focus:outline-none focus:border-cyan-500/60 resize-y shadow-inner font-sans selection:bg-cyan-500/30"
+                    />
+                  </div>
+                ) : (
+                  <div className="bg-zinc-950/90 border border-zinc-800/90 rounded-2xl p-5 sm:p-6 shadow-inner min-h-[300px]">
+                    {selectedChar.backstory?.trim() ? (
+                      <MarkdownRenderer
+                        content={selectedChar.backstory}
+                        className="prose-zinc max-w-none text-zinc-200 leading-relaxed text-xs sm:text-sm"
+                      />
+                    ) : (
+                      <div className="py-12 text-center text-zinc-500 space-y-2">
+                        <BookOpen className="w-8 h-8 mx-auto opacity-30 text-zinc-600" />
+                        <p className="text-xs">Nenhum texto de história escrito ainda.</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHistoryViewMode('edit');
+                            handleInsertHistoryTemplate();
+                          }}
+                          className="text-xs text-cyan-400 hover:underline font-semibold cursor-pointer"
+                        >
+                          Clique aqui para inserir o modelo inicial
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* RPG Narrative Roleplay Spark Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+                  <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl p-3 space-y-1">
+                    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1">
+                      <span>🏡</span> Origem & Passado
+                    </span>
+                    <p className="text-[11px] text-zinc-400 leading-snug">
+                      De onde veio sua família? Que tradições ou cicatrizes de sua terra natal moldam seu comportamento?
+                    </p>
+                  </div>
+
+                  <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl p-3 space-y-1">
+                    <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                      <span>🎯</span> Motivação Central
+                    </span>
+                    <p className="text-[11px] text-zinc-400 leading-snug">
+                      O que o fez deixar a segurança do lar? O que ele busca conquistar antes que seus dias terminem?
+                    </p>
+                  </div>
+
+                  <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl p-3 space-y-1">
+                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                      <span>🤝</span> Vínculos & Lealdades
+                    </span>
+                    <p className="text-[11px] text-zinc-400 leading-snug">
+                      Quem é a pessoa pela qual arriscaria a própria vida? Existe alguma organização ou templo a quem deve obediência?
+                    </p>
+                  </div>
+
+                  <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl p-3 space-y-1">
+                    <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1">
+                      <span>👁️</span> O Segredo Oculto
+                    </span>
+                    <p className="text-[11px] text-zinc-400 leading-snug">
+                      Qual pecado, dívida de sangue ou verdade oculta o personagem esconde até mesmo de seus companheiros de mesa?
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: EQUIPAMENTO & MAGIAS */}
+            {activeSheetTab === 'notes' && (
+              <div className="bg-zinc-900/40 border border-zinc-800/90 rounded-2xl p-4 sm:p-5 space-y-3 animate-fadeIn">
+                <div className="flex items-center justify-between pb-2 border-b border-zinc-800/60 flex-wrap gap-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200">
+                    <Sparkles className="w-4 h-4 text-cyan-500" />
+                    <span>Equipamento, Talentos & Anotações</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsPortraitModalOpen(true)}
+                    className="flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer font-medium"
+                    title="Adicionar ou trocar retrato deste personagem"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>Definir Retrato</span>
+                  </button>
+                </div>
+
+                <textarea
+                  value={selectedChar.notes}
+                  onChange={(e) => onUpdateCharacter(selectedChar.id, { notes: e.target.value })}
+                  rows={8}
+                  placeholder="Insira detalhes de armas, itens mágicos, perícias, fraquezas ou segredos que o mestre preparou para este personagem..."
+                  className="w-full bg-zinc-950 border border-zinc-800/80 rounded-xl p-3.5 text-xs sm:text-sm text-zinc-200 placeholder:text-zinc-700 leading-relaxed focus:outline-none focus:border-cyan-500/50 resize-y"
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

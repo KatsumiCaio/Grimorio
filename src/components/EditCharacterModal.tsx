@@ -35,6 +35,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
   const [attributes, setAttributes] = useState<AttributeItem[]>(character?.attributes ? [...character.attributes] : []);
   const [resources, setResources] = useState<ResourceBar[]>(character?.resources ? [...character.resources] : []);
   const [notes, setNotes] = useState(character?.notes || '');
+  const [backstory, setBackstory] = useState(character?.backstory || '');
   const [isPortraitModalOpen, setIsPortraitModalOpen] = useState(false);
 
   // New attribute state
@@ -55,6 +56,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
       setAttributes(character.attributes ? [...character.attributes] : []);
       setResources(character.resources ? [...character.resources] : []);
       setNotes(character.notes || '');
+      setBackstory(character.backstory || '');
       setIsPortraitModalOpen(false);
       setNewAttrKey('');
       setNewAttrVal('');
@@ -137,6 +139,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
       attributes,
       resources,
       notes,
+      backstory: backstory.trim() || undefined,
       updatedAt: Date.now(),
     });
     onClose();
@@ -433,6 +436,20 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
                   <span>Adicionar</span>
                 </button>
               </div>
+            </div>
+
+            {/* Backstory, Lore & Biography */}
+            <div>
+              <label className="block text-zinc-400 font-medium mb-1">
+                História, Origem & Biografia
+              </label>
+              <textarea
+                rows={4}
+                value={backstory}
+                onChange={(e) => setBackstory(e.target.value)}
+                placeholder="Origem do personagem, infância, terra natal, motivações, vínculos e segredos..."
+                className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-3 text-zinc-200 text-xs font-mono leading-relaxed focus:outline-none focus:border-cyan-500 mb-3"
+              />
             </div>
 
             {/* Notes, attacks and lore */}

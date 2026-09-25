@@ -27,6 +27,7 @@ export interface CharacterSheet {
   attributes: AttributeItem[];
   resources: ResourceBar[];
   notes: string; // Spells, equipment, secret GM notes, attacks
+  backstory?: string; // História, origem, vínculos, objetivos e biografia do personagem
   avatarUrl?: string;
   challengeRating?: string; // e.g. "ND 10", "Ameaça 5", "VD 40", etc.
   sharedWithPlayers?: boolean; // Se verdadeiro, o Mestre permitiu que os jogadores vejam esta ficha
