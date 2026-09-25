@@ -20,8 +20,14 @@ import {
   Layers,
   Swords,
   Compass,
+  Users,
+  Share2,
+  Shield,
+  Heart,
+  Key,
+  ExternalLink,
 } from 'lucide-react';
-import { CampaignChapter } from '../types';
+import { CampaignChapter, CampaignMember, CharacterSheet } from '../types';
 
 interface CampaignChaptersSidebarProps {
   isOpen: boolean;
@@ -37,6 +43,11 @@ interface CampaignChaptersSidebarProps {
   campaignTitle: string;
   systemName: string;
   isFullScreen?: boolean;
+  members?: CampaignMember[];
+  characters?: CharacterSheet[];
+  inviteCode?: string;
+  onOpenTableModal?: () => void;
+  onSelectCharacterToView?: (characterId: string) => void;
 }
 
 export const CampaignChaptersSidebar: React.FC<CampaignChaptersSidebarProps> = ({
@@ -53,11 +64,35 @@ export const CampaignChaptersSidebar: React.FC<CampaignChaptersSidebarProps> = (
   campaignTitle,
   systemName,
   isFullScreen = false,
+  members,
+  characters = [],
+  inviteCode,
+  onOpenTableModal,
+  onSelectCharacterToView,
 }) => {
+  const [activeSidebarTab, setActiveSidebarTab] = useState<'chapters' | 'members'>('chapters');
+  const [copiedInvite, setCopiedInvite] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [editingChapter, setEditingChapter] = useState<CampaignChapter | null>(null);
   const [deletingChapterId, setDeletingChapterId] = useState<string | null>(null);
+
+  const membersList: CampaignMember[] = members && members.length > 0 ? members : [
+    {
+      userId: 'master',
+      displayName: 'Mestre da Masmorra',
+      role: 'master',
+      joinedAt: Date.now(),
+    }
+  ];
+
+  const handleCopyInviteCode = () => {
+    if (!inviteCode) return;
+    navigator.clipboard.writeText(inviteCode);
+    setCopiedInvite(true);
+    setTimeout(() => setCopiedInvite(false), 2000);
+  };
 
   // Drag and drop state
   const [draggedChapterId, setDraggedChapterId] = useState<string | null>(null);
@@ -221,15 +256,15 @@ export const CampaignChaptersSidebar: React.FC<CampaignChaptersSidebarProps> = (
         <div className="p-3 px-3.5 border-b border-zinc-800/80 bg-zinc-900/50 flex items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
-              <Layers className="w-4 h-4" />
+              {activeSidebarTab === 'chapters' ? <Layers className="w-4 h-4" /> : <Users className="w-4 h-4" />}
             </div>
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-zinc-100 uppercase tracking-wider truncate">
-                  Capítulos
+                  {activeSidebarTab === 'chapters' ? 'Capítulos' : 'Membros da Mesa'}
                 </span>
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-800 text-cyan-300 font-mono border border-zinc-700">
-                  {chapters.length}
+                  {activeSidebarTab === 'chapters' ? chapters.length : membersList.length}
                 </span>
               </div>
               <span className="text-[10px] text-zinc-500 truncate" title={campaignTitle}>
@@ -239,25 +274,73 @@ export const CampaignChaptersSidebar: React.FC<CampaignChaptersSidebarProps> = (
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              id="sidebar-new-chapter-quick-btn"
-              onClick={handleOpenNewChapter}
-              className="p-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 border border-cyan-500/30 transition-all cursor-pointer"
-              title="Adicionar Novo Capítulo à Campanha"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
+            {activeSidebarTab === 'chapters' ? (
+              <button
+                type="button"
+                id="sidebar-new-chapter-quick-btn"
+                onClick={handleOpenNewChapter}
+                className="p-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 border border-cyan-500/30 transition-all cursor-pointer"
+                title="Adicionar Novo Capítulo à Campanha"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            ) : onOpenTableModal ? (
+              <button
+                type="button"
+                onClick={onOpenTableModal}
+                className="p-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 border border-cyan-500/30 transition-all cursor-pointer"
+                title="Abrir Painel da Mesa e Handouts"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+              </button>
+            ) : null}
             <button
               type="button"
               id="sidebar-close-toggle-btn"
               onClick={onToggleOpen}
               className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/80 transition-colors cursor-pointer"
-              title="Recolher Barra Lateral de Capítulos"
+              title="Recolher Barra Lateral"
             >
               <PanelLeftClose className="w-4 h-4" />
             </button>
           </div>
+        </div>
+
+        {/* Sidebar Segmented Tabs: Capítulos / Membros */}
+        <div className="grid grid-cols-2 p-1 bg-zinc-950 border-b border-zinc-800/80 text-xs shrink-0">
+          <button
+            type="button"
+            id="sidebar-tab-chapters-btn"
+            onClick={() => setActiveSidebarTab('chapters')}
+            className={`py-1.5 px-2 rounded-lg font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              activeSidebarTab === 'chapters'
+                ? 'bg-zinc-800/90 text-cyan-300 shadow-xs'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Capítulos</span>
+            <span className="text-[10px] px-1 py-0.2 rounded-full bg-zinc-900 font-mono text-zinc-400">
+              {chapters.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="sidebar-tab-members-btn"
+            onClick={() => setActiveSidebarTab('members')}
+            className={`py-1.5 px-2 rounded-lg font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              activeSidebarTab === 'members'
+                ? 'bg-zinc-800/90 text-cyan-300 shadow-xs'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Membros</span>
+            <span className="text-[10px] px-1 py-0.2 rounded-full bg-zinc-900 font-mono text-cyan-400 font-bold">
+              {membersList.length}
+            </span>
+          </button>
         </div>
 
         {/* Search & Filter Bar */}
