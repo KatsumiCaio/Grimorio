@@ -26,15 +26,18 @@ import {
   Scroll,
   FileText,
   CheckCircle2,
+  FolderInput,
 } from 'lucide-react';
-import { CharacterSheet, CharacterType, AttributeItem, ResourceBar, AppSettings } from '../types';
+import { CharacterSheet, CharacterType, AttributeItem, ResourceBar, AppSettings, Campaign, UserProfile } from '../types';
 import { NewCharacterModal } from './NewCharacterModal';
 import { ApplyTemplateModal } from './ApplyTemplateModal';
 import { GeneratePortraitModal } from './GeneratePortraitModal';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { PullCharacterModal } from './PullCharacterModal';
 
 interface CharacterSheetsViewProps {
   characters: CharacterSheet[];
+  campaigns?: Campaign[];
   activeCampaignId: string;
   campaignTitle: string;
   campaignSystem?: string;
@@ -47,11 +50,13 @@ interface CharacterSheetsViewProps {
   onOpenCampaignMenu?: () => void;
   onOpenSettings?: () => void;
   isMaster?: boolean;
+  currentUser?: UserProfile;
   currentUserId?: string;
 }
 
 export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
   characters,
+  campaigns = [],
   activeCampaignId,
   campaignTitle,
   campaignSystem,
@@ -64,6 +69,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
   onOpenCampaignMenu,
   onOpenSettings,
   isMaster = true,
+  currentUser,
   currentUserId,
 }) => {
   // Filter sheets belonging to active campaign (Masters see all, players see their own + shared sheets)
@@ -171,6 +177,7 @@ Porte altivo, olhar penetrante e uma cicatriz característica em [detalhe]. Vest
 
   // Template Modals state
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+  const [isPullModalOpen, setIsPullModalOpen] = useState(false);
   const [newModalType, setNewModalType] = useState<CharacterType>('PJ');
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const [isPortraitModalOpen, setIsPortraitModalOpen] = useState(false);
@@ -404,6 +411,14 @@ Porte altivo, olhar penetrante e uma cicatriz característica em [detalhe]. Vest
                 title="Escolher Template de Sistema (D&D, Tormenta 20, CoC, etc)"
               >
                 <Dices className="w-3.5 h-3.5" />
+              </button>
+              <button
+                id="pull-character-btn"
+                onClick={() => setIsPullModalOpen(true)}
+                className="p-1 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 border border-cyan-800/50 rounded-md text-[11px] transition-colors cursor-pointer"
+                title="Puxar Ficha de Outra Campanha ou Arquivo JSON"
+              >
+                <FolderInput className="w-3.5 h-3.5 text-cyan-400" />
               </button>
             </div>
           </div>
@@ -1382,8 +1397,44 @@ Porte altivo, olhar penetrante e uma cicatriz característica em [detalhe]. Vest
         campaignId={activeCampaignId}
         campaignSystem={campaignSystem}
         initialType={newModalType}
+        onOpenPullModal={() => setIsPullModalOpen(true)}
         onCreateCharacter={handleCreatedFromModal}
       />
+
+      {/* Modal para Puxar Ficha de Outra Campanha */}
+      {isPullModalOpen && (
+        <PullCharacterModal
+          isOpen={isPullModalOpen}
+          onClose={() => setIsPullModalOpen(false)}
+          targetCampaign={{
+            id: activeCampaignId,
+            title: campaignTitle || 'Campanha Ativa',
+            system: campaignSystem || 'D&D 5e',
+            notes: '',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          }}
+          currentUser={
+            currentUser ||
+            ({
+              id: currentUserId || 'usr_current',
+              displayName: isMaster ? 'Mestre' : 'Jogador',
+            } as any)
+          }
+          allCharacters={characters}
+          campaigns={campaigns}
+          existingCharacter={selectedChar}
+          onImportCharacter={(importedChar, options) => {
+            if (options?.isMove) {
+              onUpdateCharacter(importedChar.id, importedChar);
+            } else {
+              onCreateCharacter(importedChar);
+            }
+            setSelectedCharId(importedChar.id);
+            setIsPullModalOpen(false);
+          }}
+        />
+      )}
 
       {/* Modal para Reaplicar Modelo de Atributos na Ficha Selecionada */}
       {selectedChar && (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Shield,
   BookOpen,
@@ -24,10 +24,12 @@ import {
   Zap,
   Check,
   RefreshCw,
+  FolderInput,
 } from 'lucide-react';
 import { Campaign, CharacterSheet, UserProfile, CampaignSharedItem, ResourceBar } from '../types';
 import { NewCharacterModal } from './NewCharacterModal';
 import { EditCharacterModal } from './EditCharacterModal';
+import { PullCharacterModal } from './PullCharacterModal';
 import { findTemplateBySystem, createSystemCharacter } from '../data/sheetTemplates';
 import { storageService } from '../services/storage';
 
@@ -35,6 +37,7 @@ interface PlayerPortalViewProps {
   campaign: Campaign;
   currentUser: UserProfile;
   characters: CharacterSheet[];
+  campaigns?: Campaign[];
   onCreateCharacter: (char: CharacterSheet) => void;
   onUpdateCharacter: (char: CharacterSheet) => void;
   onSavePlayerNotes: (notes: string) => void;
@@ -46,6 +49,7 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
   campaign,
   currentUser,
   characters,
+  campaigns = [],
   onCreateCharacter,
   onUpdateCharacter,
   onSavePlayerNotes,
@@ -70,6 +74,8 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
   // Modals state
   const [isNewCharModalOpen, setIsNewCharModalOpen] = useState(false);
   const [isEditCharModalOpen, setIsEditCharModalOpen] = useState(false);
+  const [isPullCharModalOpen, setIsPullCharModalOpen] = useState(false);
+  const [pullNotice, setPullNotice] = useState<string | null>(null);
 
   // Quick dice rolling state
   const [recentRolls, setRecentRolls] = useState<
@@ -82,6 +88,34 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
       c.campaignId === campaign.id &&
       (c.userId === currentUser.id || c.id === memberRecord?.characterId)
   );
+
+  // Count candidate characters from other campaigns
+  const otherCampaignsCharactersCount = useMemo(() => {
+    const all = characters.concat(storageService.getAllAccessibleCharacters(currentUser.id));
+    const seen = new Set<string>();
+    let count = 0;
+    for (const c of all) {
+      if (c && c.id && !seen.has(c.id) && c.campaignId !== campaign.id) {
+        seen.add(c.id);
+        count++;
+      }
+    }
+    return count;
+  }, [characters, campaign.id, currentUser.id]);
+
+  // Handle character imported from another campaign
+  const handleImportCharacter = (
+    importedChar: CharacterSheet,
+    options?: { replaceActive?: boolean; isMove?: boolean }
+  ) => {
+    if (options?.isMove) {
+      onUpdateCharacter(importedChar);
+    } else {
+      onCreateCharacter(importedChar);
+    }
+    setPullNotice(`Ficha de "${importedChar.name}" puxada com sucesso para a mesa!`);
+    setTimeout(() => setPullNotice(null), 4000);
+  };
 
   // Shared items from master
   const sharedItems = campaign.sharedItems || [];
@@ -394,16 +428,51 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
                   <span>Sincronizado com Mestre</span>
                 </span>
                 {myCharacter && (
-                  <button
-                    onClick={() => setIsEditCharModalOpen(true)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium border border-zinc-700 cursor-pointer transition-colors"
-                  >
-                    <Edit2 className="w-3 h-3 text-cyan-400" />
-                    <span>Editar Ficha</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      id="btn-pull-character-existing"
+                      onClick={() => setIsPullCharModalOpen(true)}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 hover:text-cyan-200 text-xs font-medium border border-cyan-800/50 cursor-pointer transition-colors"
+                      title="Puxar ou trocar por uma ficha existente de outra campanha"
+                    >
+                      <FolderInput className="w-3 h-3 text-cyan-400" />
+                      <span className="hidden sm:inline">Puxar Ficha</span>
+                      <span className="sm:hidden">Puxar</span>
+                      {otherCampaignsCharactersCount > 0 && (
+                        <span className="text-[10px] px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-mono">
+                          {otherCampaignsCharactersCount}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setIsEditCharModalOpen(true)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium border border-zinc-700 cursor-pointer transition-colors"
+                    >
+                      <Edit2 className="w-3 h-3 text-cyan-400" />
+                      <span>Editar Ficha</span>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
+
+            {/* Notification Toast when a character is pulled */}
+            {pullNotice && (
+              <div className="mb-3 p-3 rounded-xl bg-cyan-500/15 border border-cyan-500/40 flex items-center justify-between text-xs text-cyan-200 font-semibold shadow-md animate-fadeIn">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span>{pullNotice}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPullNotice(null)}
+                  className="text-cyan-400/70 hover:text-cyan-200 p-0.5 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
             {myCharacter ? (
               <div className="space-y-4 flex-1 flex flex-col justify-between">
@@ -647,6 +716,39 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
                     <span>
                       O Mestre (<strong>{campaign.masterName || 'Mestre da Masmorra'}</strong>) terá acesso total e em tempo real a esta ficha assim que ela for criada.
                     </span>
+                  </div>
+                </div>
+
+                {/* Option to Pull existing character from another campaign */}
+                <div className="p-3.5 rounded-xl bg-gradient-to-r from-cyan-950/40 via-zinc-900 to-zinc-950 border-2 border-cyan-500/40 space-y-2.5 shadow-lg shadow-cyan-950/20">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 flex items-center justify-center shrink-0">
+                        <FolderInput className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs text-zinc-100 flex items-center gap-1.5">
+                          <span>Puxar Ficha de Outra Campanha</span>
+                          {otherCampaignsCharactersCount > 0 && (
+                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono font-bold">
+                              {otherCampaignsCharactersCount} disponíveis
+                            </span>
+                          )}
+                        </span>
+                        <p className="text-[11px] text-zinc-400">
+                          Importe seu herói com histórico, atributos e equipamentos de outra mesa ou arquivo JSON.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      id="btn-pull-character-start"
+                      onClick={() => setIsPullCharModalOpen(true)}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold text-xs shadow-md shadow-cyan-950/40 transition-all cursor-pointer shrink-0"
+                    >
+                      <FolderInput className="w-3.5 h-3.5" />
+                      <span>Puxar Personagem Existente</span>
+                    </button>
                   </div>
                 </div>
 
@@ -929,6 +1031,7 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
           isPlayerMode={true}
           playerName={currentUser.displayName}
           masterId={campaign.masterId || campaign.userId}
+          onOpenPullModal={() => setIsPullCharModalOpen(true)}
           onCreateCharacter={(char) => {
             onCreateCharacter({
               ...char,
@@ -960,6 +1063,20 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
             });
             setIsEditCharModalOpen(false);
           }}
+        />
+      )}
+
+      {/* Pull Character From Another Campaign Modal */}
+      {isPullCharModalOpen && (
+        <PullCharacterModal
+          isOpen={isPullCharModalOpen}
+          onClose={() => setIsPullCharModalOpen(false)}
+          targetCampaign={campaign}
+          currentUser={currentUser}
+          allCharacters={characters}
+          campaigns={campaigns}
+          existingCharacter={myCharacter}
+          onImportCharacter={handleImportCharacter}
         />
       )}
     </div>

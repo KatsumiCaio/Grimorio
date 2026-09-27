@@ -17,6 +17,7 @@ import {
   CheckSquare,
   Square,
   Wand2,
+  FolderInput,
 } from 'lucide-react';
 import { CharacterSheet, CharacterType, AttributeItem, ResourceBar } from '../types';
 import {
@@ -37,6 +38,7 @@ interface NewCharacterModalProps {
   isPlayerMode?: boolean;
   playerName?: string;
   masterId?: string;
+  onOpenPullModal?: () => void;
 }
 
 interface EditableAttributeItem {
@@ -65,6 +67,7 @@ export const NewCharacterModal: React.FC<NewCharacterModalProps> = ({
   isPlayerMode = false,
   playerName,
   masterId,
+  onOpenPullModal,
 }) => {
   const recommendedTemplate = findTemplateBySystem(campaignSystem);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(recommendedTemplate.id);
@@ -340,13 +343,29 @@ export const NewCharacterModal: React.FC<NewCharacterModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            id="close-new-character-modal"
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {onOpenPullModal && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenPullModal();
+                }}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-semibold cursor-pointer transition-colors"
+                title="Puxar uma ficha de outra campanha"
+              >
+                <FolderInput className="w-3.5 h-3.5" />
+                <span>Puxar de Outra Campanha</span>
+              </button>
+            )}
+            <button
+              id="close-new-character-modal"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Modal Scrollable Content */}

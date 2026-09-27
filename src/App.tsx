@@ -953,6 +953,7 @@ export default function App() {
               campaign={currentCampaign}
               currentUser={currentUser}
               characters={characters}
+              campaigns={campaigns}
               onCreateCharacter={handleCreateCharacter}
               onUpdateCharacter={(updated) => handleUpdateCharacter(updated.id, updated)}
               onSavePlayerNotes={handleSavePlayerNotes}
@@ -992,6 +993,7 @@ export default function App() {
         ) : (
           <CharacterSheetsView
             characters={characters}
+            campaigns={campaigns}
             activeCampaignId={activeCampaignId}
             campaignTitle={currentCampaign?.title || 'Campanha'}
             campaignSystem={currentCampaign?.system || 'D&D 5e'}
@@ -1004,6 +1006,7 @@ export default function App() {
             onOpenCampaignMenu={() => setIsCampaignMenuOpen(true)}
             onOpenSettings={() => setIsSettingsOpen(true)}
             isMaster={isMaster}
+            currentUser={currentUser}
             currentUserId={currentUser.id}
           />
         )}

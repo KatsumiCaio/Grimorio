@@ -604,6 +604,63 @@ export const storageService = {
     }
   },
 
+  getAllAccessibleCharacters(userId?: string): CharacterSheet[] {
+    const list: CharacterSheet[] = [];
+    const seenIds = new Set<string>();
+
+    const addChars = (chars: CharacterSheet[]) => {
+      if (!Array.isArray(chars)) return;
+      for (const c of chars) {
+        if (c && c.id && !seenIds.has(c.id)) {
+          seenIds.add(c.id);
+          list.push(c);
+        }
+      }
+    };
+
+    if (userId) {
+      addChars(this.getUserCharacters(userId));
+      const userCamps = this.getUserCampaigns(userId);
+      for (const camp of userCamps) {
+        if (camp && camp.id) {
+          addChars(this.getCampaignCharacters(camp.id));
+        }
+      }
+    }
+
+    // Default/legacy characters
+    try {
+      const legacy = localStorage.getItem(CHARACTERS_STORAGE_KEY);
+      if (legacy) {
+        const parsed = JSON.parse(legacy);
+        if (Array.isArray(parsed)) addChars(parsed);
+      }
+    } catch {}
+
+    // Check all grimorio_campaign_*_characters keys in localStorage
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('grimorio_campaign_') && key.endsWith('_characters')) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) addChars(parsed);
+          }
+        }
+        if (key && key.startsWith('grimorio_user_') && key.endsWith('_characters')) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) addChars(parsed);
+          }
+        }
+      }
+    } catch {}
+
+    return list;
+  },
+
   // --- USER ACTIVE CAMPAIGN ID ---
   getUserActiveCampaignId(userId: string): string {
     if (!userId) return '';
