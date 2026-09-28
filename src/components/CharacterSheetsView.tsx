@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Plus,
   Trash2,
@@ -75,27 +75,33 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
   currentUserId,
 }) => {
   // Filter sheets belonging to active campaign (Masters see all, players see their own + shared sheets)
-  const campaignCharacters = characters.filter((c) => {
-    if (c.campaignId !== activeCampaignId) return false;
-    if (isMaster) return true;
-    return c.userId === currentUserId || c.sharedWithPlayers === true;
-  });
+  const campaignCharacters = useMemo(() => {
+    return characters.filter((c) => {
+      if (c.campaignId !== activeCampaignId) return false;
+      if (isMaster) return true;
+      return c.userId === currentUserId || c.sharedWithPlayers === true;
+    });
+  }, [characters, activeCampaignId, isMaster, currentUserId]);
 
   const [selectedCharId, setSelectedCharId] = useState<string>(
     selectedCharacterId || campaignCharacters[0]?.id || ''
   );
 
-  // Sync if external selectedCharacterId changes
+  // Sync if external selectedCharacterId changes or active character becomes invalid
   useEffect(() => {
     if (selectedCharacterId && campaignCharacters.some((c) => c.id === selectedCharacterId)) {
-      setSelectedCharId(selectedCharacterId);
-    } else if (
-      (!selectedCharId || !campaignCharacters.some((c) => c.id === selectedCharId)) &&
-      campaignCharacters.length > 0
-    ) {
-      setSelectedCharId(campaignCharacters[0].id);
+      setSelectedCharId((prev) => (prev !== selectedCharacterId ? selectedCharacterId : prev));
+    } else if (campaignCharacters.length > 0) {
+      setSelectedCharId((prev) => {
+        if (prev && campaignCharacters.some((c) => c.id === prev)) {
+          return prev;
+        }
+        return campaignCharacters[0].id;
+      });
+    } else {
+      setSelectedCharId('');
     }
-  }, [selectedCharacterId, activeCampaignId, campaignCharacters]);
+  }, [selectedCharacterId, campaignCharacters]);
   const [filterType, setFilterType] = useState<'ALL' | 'Jogadores' | 'PJ' | 'NPC' | 'Monstro'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');

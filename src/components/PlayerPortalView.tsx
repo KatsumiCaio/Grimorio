@@ -150,7 +150,6 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
       !isEditingNotesRef.current &&
       !hasUnsavedNotes &&
       memberRecord?.notes !== undefined &&
-      memberRecord.notes !== playerNotes &&
       memberRecord.notes !== lastSavedNotesRef.current
     ) {
       setPlayerNotes(memberRecord.notes);

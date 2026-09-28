@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AlertTriangle, ExternalLink, X, RefreshCw } from 'lucide-react';
 import { Campaign, CharacterSheet, MainTab, AppSettings, BestiaryMonster, UserProfile, CampaignSharedItem, CampaignMember } from './types';
 import { storageService } from './services/storage';
@@ -137,15 +137,36 @@ export default function App() {
     handleUserChanged(null);
   }, [handleUserChanged]);
 
+  const currentUserRef = useRef<UserProfile | null>(currentUser);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
   // Initialize Cloud Sync for all User Accounts
   useEffect(() => {
     const unsubCloudAuth = authService.initCloudSync();
     const unsubAuthChange = authService.onAuthChange((user) => {
+      const current = currentUserRef.current;
       if (user) {
-        if (!currentUser || user.id !== currentUser.id) {
+        if (!current || user.id !== current.id) {
           handleUserChanged(user);
         } else {
-          setCurrentUser(user);
+          setCurrentUser((prev) => {
+            if (!prev) return user;
+            if (
+              prev.id === user.id &&
+              prev.displayName === user.displayName &&
+              prev.role === user.role &&
+              prev.avatarId === user.avatarId &&
+              prev.color === user.color &&
+              prev.bio === user.bio &&
+              prev.lastLoginAt === user.lastLoginAt &&
+              prev.passwordHash === user.passwordHash
+            ) {
+              return prev;
+            }
+            return user;
+          });
         }
       } else {
         handleUserChanged(null);
@@ -156,7 +177,7 @@ export default function App() {
       unsubCloudAuth();
       unsubAuthChange();
     };
-  }, [currentUser, handleUserChanged]);
+  }, [handleUserChanged]);
 
   // Initialize Realtime Database Subscriptions for the Active User
   useEffect(() => {

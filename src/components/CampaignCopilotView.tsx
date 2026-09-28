@@ -108,7 +108,10 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
 }) => {
   const rawCampaign =
     campaigns.find((c) => c.id === activeCampaignId) || campaigns[0];
-  const activeCampaign = rawCampaign ? ensureCampaignChapters(rawCampaign) : undefined;
+  const activeCampaign = useMemo(
+    () => (rawCampaign ? ensureCampaignChapters(rawCampaign) : undefined),
+    [rawCampaign]
+  );
 
   // Editor & Reader states
   const [editorMode, setEditorMode] = useState<'edit' | 'read' | 'split'>('edit');
@@ -510,7 +513,6 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
     activeCampaign?.updatedAt,
     activeCampaign?.activeChapterId,
     activeCampaign?.notes,
-    activeCampaign?.chapters,
     activeCampaign?.system,
     activeCampaign?.title,
     isEditingTitle,
