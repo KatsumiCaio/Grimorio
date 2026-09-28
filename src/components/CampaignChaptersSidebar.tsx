@@ -26,6 +26,7 @@ import {
   Heart,
   Key,
   ExternalLink,
+  UserMinus,
 } from 'lucide-react';
 import { CampaignChapter, CampaignMember, CharacterSheet } from '../types';
 
@@ -43,11 +44,13 @@ interface CampaignChaptersSidebarProps {
   campaignTitle: string;
   systemName: string;
   isFullScreen?: boolean;
+  campaignId?: string;
   members?: CampaignMember[];
   characters?: CharacterSheet[];
   inviteCode?: string;
   onOpenTableModal?: () => void;
   onSelectCharacterToView?: (characterId: string) => void;
+  onRemoveCharacterFromTable?: (campaignId: string, characterId: string, memberUserId?: string) => void;
 }
 
 export const CampaignChaptersSidebar: React.FC<CampaignChaptersSidebarProps> = ({
@@ -64,11 +67,13 @@ export const CampaignChaptersSidebar: React.FC<CampaignChaptersSidebarProps> = (
   campaignTitle,
   systemName,
   isFullScreen = false,
+  campaignId,
   members,
   characters = [],
   inviteCode,
   onOpenTableModal,
   onSelectCharacterToView,
+  onRemoveCharacterFromTable,
 }) => {
   const [activeSidebarTab, setActiveSidebarTab] = useState<'chapters' | 'members'>('chapters');
   const [copiedInvite, setCopiedInvite] = useState(false);
@@ -121,6 +126,19 @@ export const CampaignChaptersSidebar: React.FC<CampaignChaptersSidebarProps> = (
       (ch.summary && ch.summary.toLowerCase().includes(q)) ||
       ch.content.toLowerCase().includes(q)
     );
+  });
+
+  // Filtered members by search query
+  const filteredMembers = membersList.filter((m) => {
+    if (!memberSearchQuery.trim()) return true;
+    const q = memberSearchQuery.toLowerCase();
+    const matchesName = m.displayName.toLowerCase().includes(q);
+    const hasCharName = characters.some(
+      (c) =>
+        (c.id === m.characterId || (m.userId && c.userId === m.userId)) &&
+        c.name.toLowerCase().includes(q)
+    );
+    return matchesName || hasCharName;
   });
 
   // Calculate campaign total words
@@ -343,218 +361,421 @@ export const CampaignChaptersSidebar: React.FC<CampaignChaptersSidebarProps> = (
           </button>
         </div>
 
-        {/* Search & Filter Bar */}
-        <div className="p-2.5 border-b border-zinc-800/60 bg-zinc-950/70 shrink-0">
-          <div className="relative flex items-center">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 text-zinc-500 pointer-events-none" />
-            <input
-              type="text"
-              id="chapters-search-input"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por título ou sessão..."
-              className="w-full bg-zinc-900 border border-zinc-800 focus:border-cyan-500/50 rounded-lg pl-8 pr-7 py-1 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none transition-colors"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 text-zinc-500 hover:text-zinc-300 p-0.5"
-                title="Limpar busca"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-        </div>
+        {activeSidebarTab === 'chapters' ? (
+          <>
+            {/* Search & Filter Bar */}
+            <div className="p-2.5 border-b border-zinc-800/60 bg-zinc-950/70 shrink-0">
+              <div className="relative flex items-center">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 text-zinc-500 pointer-events-none" />
+                <input
+                  type="text"
+                  id="chapters-search-input"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar por título ou sessão..."
+                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-cyan-500/50 rounded-lg pl-8 pr-7 py-1 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none transition-colors"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 text-zinc-500 hover:text-zinc-300 p-0.5"
+                    title="Limpar busca"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
 
-        {/* Chapters List */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
-          {filteredChapters.length > 0 ? (
-            filteredChapters.map((chapter, index) => {
-              const isActive = chapter.id === activeChapterId;
-              const isDragging = draggedChapterId === chapter.id;
-              const isOver = dragOverChapterId === chapter.id;
-              const words = getWordCount(chapter.content);
+            {/* Chapters List */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
+              {filteredChapters.length > 0 ? (
+                filteredChapters.map((chapter, index) => {
+                  const isActive = chapter.id === activeChapterId;
+                  const isDragging = draggedChapterId === chapter.id;
+                  const isOver = dragOverChapterId === chapter.id;
+                  const words = getWordCount(chapter.content);
 
-              return (
-                <div
-                  key={chapter.id}
-                  id={`chapter-sidebar-item-${chapter.id}`}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, chapter.id)}
-                  onDragOver={(e) => handleDragOver(e, chapter.id)}
-                  onDrop={(e) => handleDrop(e, chapter.id)}
-                  onDragEnd={handleDragEnd}
-                  onClick={() => onSelectChapter(chapter.id)}
-                  className={`group relative rounded-xl p-2.5 transition-all cursor-pointer border ${
-                    isActive
-                      ? 'bg-cyan-950/30 border-cyan-500/50 shadow-xs ring-1 ring-cyan-500/20'
-                      : 'bg-zinc-900/50 hover:bg-zinc-900 border-zinc-800/70 hover:border-zinc-700'
-                  } ${isDragging ? 'opacity-40 scale-[0.98]' : 'opacity-100'} ${
-                    isOver && !isDragging ? 'border-t-2 border-t-cyan-400 bg-zinc-800/70' : ''
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    {/* Drag Handle & Order Number */}
-                    <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
-                      <span
-                        className="cursor-grab active:cursor-grabbing text-zinc-600 group-hover:text-zinc-400 transition-colors p-0.5"
-                        title="Arrastar para reordenar"
-                      >
-                        <GripVertical className="w-3.5 h-3.5" />
-                      </span>
-                      <span className="text-[10px] font-mono text-zinc-500 font-semibold">
-                        {String(index + 1).padStart(2, '0')}
-                      </span>
-                    </div>
-
-                    {/* Chapter Content Details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                        {chapter.sessionDate && (
+                  return (
+                    <div
+                      key={chapter.id}
+                      id={`chapter-sidebar-item-${chapter.id}`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, chapter.id)}
+                      onDragOver={(e) => handleDragOver(e, chapter.id)}
+                      onDrop={(e) => handleDrop(e, chapter.id)}
+                      onDragEnd={handleDragEnd}
+                      onClick={() => onSelectChapter(chapter.id)}
+                      className={`group relative rounded-xl p-2.5 transition-all cursor-pointer border ${
+                        isActive
+                          ? 'bg-cyan-950/30 border-cyan-500/50 shadow-xs ring-1 ring-cyan-500/20'
+                          : 'bg-zinc-900/50 hover:bg-zinc-900 border-zinc-800/70 hover:border-zinc-700'
+                      } ${isDragging ? 'opacity-40 scale-[0.98]' : 'opacity-100'} ${
+                        isOver && !isDragging ? 'border-t-2 border-t-cyan-400 bg-zinc-800/70' : ''
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {/* Drag Handle & Order Number */}
+                        <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
                           <span
-                            className={`text-[10px] font-medium px-1.5 py-0.2 rounded-md border flex items-center gap-1 shrink-0 ${
-                              isActive
-                                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
-                                : 'bg-zinc-800 text-zinc-400 border-zinc-700/60'
-                            }`}
+                            className="cursor-grab active:cursor-grabbing text-zinc-600 group-hover:text-zinc-400 transition-colors p-0.5"
+                            title="Arrastar para reordenar"
                           >
-                            <Calendar className="w-2.5 h-2.5" />
-                            <span className="truncate max-w-[90px]">{chapter.sessionDate}</span>
+                            <GripVertical className="w-3.5 h-3.5" />
                           </span>
-                        )}
-                        <span className="text-[10px] font-mono text-zinc-500">
-                          {words} {words === 1 ? 'palavra' : 'palavras'}
-                        </span>
+                          <span className="text-[10px] font-mono text-zinc-500 font-semibold">
+                            {String(index + 1).padStart(2, '0')}
+                          </span>
+                        </div>
+
+                        {/* Chapter Content Details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                            {chapter.sessionDate && (
+                              <span
+                                className={`text-[10px] font-medium px-1.5 py-0.2 rounded-md border flex items-center gap-1 shrink-0 ${
+                                  isActive
+                                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                                    : 'bg-zinc-800 text-zinc-400 border-zinc-700/60'
+                                }`}
+                              >
+                                <Calendar className="w-2.5 h-2.5" />
+                                <span className="truncate max-w-[90px]">{chapter.sessionDate}</span>
+                              </span>
+                            )}
+                            <span className="text-[10px] font-mono text-zinc-500">
+                              {words} {words === 1 ? 'palavra' : 'palavras'}
+                            </span>
+                          </div>
+
+                          <h4
+                            className={`text-xs font-medium leading-snug line-clamp-2 ${
+                              isActive ? 'text-cyan-200 font-semibold' : 'text-zinc-300 group-hover:text-zinc-100'
+                            }`}
+                            title={chapter.title}
+                          >
+                            {chapter.title}
+                          </h4>
+
+                          {chapter.summary && (
+                            <p className="text-[11px] text-zinc-500 line-clamp-1 mt-0.5 italic">
+                              {chapter.summary}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Actions Menu / Quick Buttons */}
+                        <div className="flex flex-col items-center gap-0.5 shrink-0 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                          {/* Move Up */}
+                          <button
+                            type="button"
+                            disabled={index === 0}
+                            onClick={(e) => handleMove(index, 'up', e)}
+                            className="p-1 rounded text-zinc-500 hover:text-cyan-300 hover:bg-zinc-800 disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-zinc-500 transition-colors"
+                            title="Mover para cima"
+                          >
+                            <ArrowUp className="w-3 h-3" />
+                          </button>
+
+                          {/* Move Down */}
+                          <button
+                            type="button"
+                            disabled={index === sortedChapters.length - 1}
+                            onClick={(e) => handleMove(index, 'down', e)}
+                            className="p-1 rounded text-zinc-500 hover:text-cyan-300 hover:bg-zinc-800 disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-zinc-500 transition-colors"
+                            title="Mover para baixo"
+                          >
+                            <ArrowDown className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
 
-                      <h4
-                        className={`text-xs font-medium leading-snug line-clamp-2 ${
-                          isActive ? 'text-cyan-200 font-semibold' : 'text-zinc-300 group-hover:text-zinc-100'
+                      {/* Secondary Chapter Actions Bar (Visible on active or hover) */}
+                      <div
+                        className={`mt-2 pt-1.5 border-t border-zinc-800/60 flex items-center justify-between text-[11px] ${
+                          isActive ? 'flex' : 'hidden group-hover:flex'
                         }`}
-                        title={chapter.title}
                       >
-                        {chapter.title}
-                      </h4>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => handleOpenEdit(chapter, e)}
+                            className="px-1.5 py-0.5 rounded text-zinc-400 hover:text-cyan-300 hover:bg-zinc-800/80 flex items-center gap-1 transition-colors"
+                            title="Renomear ou editar resumo"
+                          >
+                            <Edit3 className="w-2.5 h-2.5" />
+                            <span>Editar</span>
+                          </button>
 
-                      {chapter.summary && (
-                        <p className="text-[11px] text-zinc-500 line-clamp-1 mt-0.5 italic">
-                          {chapter.summary}
-                        </p>
-                      )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDuplicateChapter(chapter.id);
+                            }}
+                            className="px-1.5 py-0.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/80 flex items-center gap-1 transition-colors"
+                            title="Duplicar este capítulo"
+                          >
+                            <Copy className="w-2.5 h-2.5" />
+                            <span>Copiar</span>
+                          </button>
+                        </div>
+
+                        {/* Delete button (disabled if only 1 chapter) */}
+                        <button
+                          type="button"
+                          disabled={chapters.length <= 1}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeletingChapterId(chapter.id);
+                          }}
+                          className="px-1.5 py-0.5 rounded text-zinc-500 hover:text-rose-400 hover:bg-rose-950/30 disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-zinc-500 transition-colors"
+                          title={
+                            chapters.length <= 1
+                              ? 'A campanha precisa de ao menos um capítulo'
+                              : 'Excluir capítulo'
+                          }
+                        >
+                          <Trash2 className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
                     </div>
-
-                    {/* Actions Menu / Quick Buttons */}
-                    <div className="flex flex-col items-center gap-0.5 shrink-0 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                      {/* Move Up */}
-                      <button
-                        type="button"
-                        disabled={index === 0}
-                        onClick={(e) => handleMove(index, 'up', e)}
-                        className="p-1 rounded text-zinc-500 hover:text-cyan-300 hover:bg-zinc-800 disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-zinc-500 transition-colors"
-                        title="Mover para cima"
-                      >
-                        <ArrowUp className="w-3 h-3" />
-                      </button>
-
-                      {/* Move Down */}
-                      <button
-                        type="button"
-                        disabled={index === sortedChapters.length - 1}
-                        onClick={(e) => handleMove(index, 'down', e)}
-                        className="p-1 rounded text-zinc-500 hover:text-cyan-300 hover:bg-zinc-800 disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-zinc-500 transition-colors"
-                        title="Mover para baixo"
-                      >
-                        <ArrowDown className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Secondary Chapter Actions Bar (Visible on active or hover) */}
-                  <div
-                    className={`mt-2 pt-1.5 border-t border-zinc-800/60 flex items-center justify-between text-[11px] ${
-                      isActive ? 'flex' : 'hidden group-hover:flex'
-                    }`}
+                  );
+                })
+              ) : (
+                <div className="p-6 text-center text-zinc-500 text-xs space-y-2">
+                  <Search className="w-6 h-6 mx-auto text-zinc-600 opacity-60" />
+                  <p>Nenhum capítulo encontrado para "{searchQuery}".</p>
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="text-cyan-400 hover:underline text-[11px]"
                   >
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => handleOpenEdit(chapter, e)}
-                        className="px-1.5 py-0.5 rounded text-zinc-400 hover:text-cyan-300 hover:bg-zinc-800/80 flex items-center gap-1 transition-colors"
-                        title="Renomear ou editar resumo"
-                      >
-                        <Edit3 className="w-2.5 h-2.5" />
-                        <span>Editar</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDuplicateChapter(chapter.id);
-                        }}
-                        className="px-1.5 py-0.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/80 flex items-center gap-1 transition-colors"
-                        title="Duplicar este capítulo"
-                      >
-                        <Copy className="w-2.5 h-2.5" />
-                        <span>Copiar</span>
-                      </button>
-                    </div>
-
-                    {/* Delete button (disabled if only 1 chapter) */}
-                    <button
-                      type="button"
-                      disabled={chapters.length <= 1}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeletingChapterId(chapter.id);
-                      }}
-                      className="px-1.5 py-0.5 rounded text-zinc-500 hover:text-rose-400 hover:bg-rose-950/30 disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-zinc-500 transition-colors"
-                      title={
-                        chapters.length <= 1
-                          ? 'A campanha precisa de ao menos um capítulo'
-                          : 'Excluir capítulo'
-                      }
-                    >
-                      <Trash2 className="w-2.5 h-2.5" />
-                    </button>
-                  </div>
+                    Limpar busca
+                  </button>
                 </div>
-              );
-            })
-          ) : (
-            <div className="p-6 text-center text-zinc-500 text-xs space-y-2">
-              <Search className="w-6 h-6 mx-auto text-zinc-600 opacity-60" />
-              <p>Nenhum capítulo encontrado para "{searchQuery}".</p>
+              )}
+            </div>
+
+            {/* Sidebar Footer */}
+            <div className="p-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] md:pb-3 border-t border-zinc-800/80 bg-zinc-900/90 space-y-2 shrink-0">
               <button
                 type="button"
-                onClick={() => setSearchQuery('')}
-                className="text-cyan-400 hover:underline text-[11px]"
+                id="sidebar-add-chapter-main-btn"
+                onClick={handleOpenNewChapter}
+                className="w-full py-2 px-3 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 hover:border-cyan-500/50 text-cyan-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer group"
               >
-                Limpar busca
+                <Plus className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                <span>Adicionar Novo Capítulo</span>
               </button>
+
+              <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono px-1">
+                <span>{chapters.length} {chapters.length === 1 ? 'capítulo' : 'capítulos'}</span>
+                <span>Total: {totalWords.toLocaleString()} palavras</span>
+              </div>
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <>
+            {/* Invite code & Quick Action */}
+            <div className="p-2.5 border-b border-zinc-800/60 bg-zinc-950/70 space-y-2 shrink-0">
+              {inviteCode && (
+                <div className="flex items-center justify-between gap-1.5 p-2 rounded-lg bg-zinc-900/90 border border-amber-500/30">
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-zinc-400 block">Convite da Mesa:</span>
+                    <span className="font-mono text-xs font-bold text-amber-300 tracking-wider truncate block">
+                      {inviteCode}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyInviteCode}
+                    className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                    title="Copiar código de convite"
+                  >
+                    {copiedInvite ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedInvite ? 'Copiado!' : 'Copiar'}</span>
+                  </button>
+                </div>
+              )}
 
-        {/* Sidebar Footer */}
-        <div className="p-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] md:pb-3 border-t border-zinc-800/80 bg-zinc-900/90 space-y-2 shrink-0">
-          <button
-            type="button"
-            id="sidebar-add-chapter-main-btn"
-            onClick={handleOpenNewChapter}
-            className="w-full py-2 px-3 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 hover:border-cyan-500/50 text-cyan-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer group"
-          >
-            <Plus className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-            <span>Adicionar Novo Capítulo</span>
-          </button>
+              {/* Member Search */}
+              <div className="relative flex items-center">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 text-zinc-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={memberSearchQuery}
+                  onChange={(e) => setMemberSearchQuery(e.target.value)}
+                  placeholder="Filtrar jogadores ou fichas..."
+                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-cyan-500/50 rounded-lg pl-8 pr-7 py-1 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none transition-colors"
+                />
+                {memberSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setMemberSearchQuery('')}
+                    className="absolute right-2 text-zinc-500 hover:text-zinc-300 p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
 
-          <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono px-1">
-            <span>{chapters.length} {chapters.length === 1 ? 'capítulo' : 'capítulos'}</span>
-            <span>Total: {totalWords.toLocaleString()} palavras</span>
-          </div>
-        </div>
+            {/* Members & Attached Character Sheets List */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+              <div className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider px-1 flex items-center justify-between">
+                <span>Jogadores & Fichas ({membersList.length})</span>
+                <span className="text-[10px] text-zinc-500">Mestre tem controle</span>
+              </div>
+
+              {filteredMembers.map((member) => {
+                const isUserMaster = member.role === 'master';
+                const playerSheets = characters.filter(
+                  (c) =>
+                    (c.campaignId === campaignId || !c.campaignId) &&
+                    (c.id === member.characterId || (member.userId && c.userId === member.userId))
+                );
+
+                return (
+                  <div
+                    key={member.userId}
+                    className="p-2.5 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-bold text-zinc-300 overflow-hidden shrink-0">
+                          {member.avatarUrl && member.avatarUrl.startsWith('http') ? (
+                            <img src={member.avatarUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            member.displayName.charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-semibold text-xs text-zinc-200 truncate">
+                              {member.displayName}
+                            </span>
+                            {isUserMaster ? (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">
+                                👑 Mestre
+                              </span>
+                            ) : (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/15 text-blue-300 border border-blue-500/30 font-semibold">
+                                🎲 Jogador
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Attached Character Sheets */}
+                    {!isUserMaster && (
+                      <div className="pt-1.5 border-t border-zinc-800/60 space-y-1.5">
+                        {playerSheets.length > 0 ? (
+                          playerSheets.map((char) => {
+                            const hpRes = char.resources.find(
+                              (r) => r.name.toLowerCase().includes('vida') || r.name.toLowerCase().includes('pv')
+                            );
+                            const hpPercent = hpRes ? Math.round((hpRes.current / (hpRes.max || 1)) * 100) : 100;
+
+                            return (
+                              <div
+                                key={char.id}
+                                className="p-2 rounded-lg bg-zinc-950/80 border border-cyan-900/40 hover:border-cyan-700/60 transition-colors space-y-1.5"
+                              >
+                                <div className="flex items-center justify-between gap-1">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <Shield className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                                    <span className="text-xs font-semibold text-cyan-200 truncate">
+                                      {char.name}
+                                    </span>
+                                  </div>
+                                  <span className="text-[9px] px-1 rounded bg-zinc-800 text-zinc-400 font-mono shrink-0">
+                                    {char.role || 'PJ'}
+                                  </span>
+                                </div>
+
+                                {hpRes && (
+                                  <div className="space-y-0.5">
+                                    <div className="flex items-center justify-between text-[9px] text-zinc-500 font-mono">
+                                      <span>PV: {hpRes.current}/{hpRes.max}</span>
+                                      <span>{hpPercent}%</span>
+                                    </div>
+                                    <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                      <div
+                                        className={`h-full ${hpPercent > 50 ? 'bg-emerald-500' : hpPercent > 25 ? 'bg-cyan-500' : 'bg-rose-500'}`}
+                                        style={{ width: `${Math.max(0, Math.min(100, hpPercent))}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                <div className="flex items-center gap-1 pt-1">
+                                  {onSelectCharacterToView && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onSelectCharacterToView(char.id)}
+                                      className="flex-1 py-1 px-1.5 rounded bg-cyan-950/50 hover:bg-cyan-900/70 text-cyan-300 text-[10px] font-semibold border border-cyan-800/40 flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                                      title="Abrir e inspecionar ficha completa"
+                                    >
+                                      <Shield className="w-3 h-3 text-cyan-400" />
+                                      <span>Ver Ficha</span>
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (
+                                        confirm(
+                                          `Remover a ficha "${char.name}" do jogador "${member.displayName}" da mesa?\n\nA vaga na mesa será liberada para o jogador escolher ou criar outra ficha.`
+                                        )
+                                      ) {
+                                        if (onRemoveCharacterFromTable && campaignId) {
+                                          onRemoveCharacterFromTable(campaignId, char.id, member.userId);
+                                        }
+                                      }
+                                    }}
+                                    className="py-1 px-2 rounded bg-rose-950/40 hover:bg-rose-900/70 text-rose-300 hover:text-rose-100 text-[10px] font-semibold border border-rose-800/50 flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                                    title={`Remover ficha "${char.name}" da mesa`}
+                                  >
+                                    <Trash2 className="w-3 h-3 text-rose-400" />
+                                    <span>Remover da Mesa</span>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="p-2 rounded-lg bg-zinc-950/40 border border-dashed border-zinc-800 text-center">
+                            <span className="text-[10px] text-zinc-500 italic block">
+                              Vaga aberta: jogador ainda não adicionou ficha.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Members Footer: Open Table Modal */}
+            <div className="p-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] md:pb-3 border-t border-zinc-800/80 bg-zinc-900/90 space-y-2 shrink-0">
+              {onOpenTableModal && (
+                <button
+                  type="button"
+                  onClick={onOpenTableModal}
+                  className="w-full py-2 px-3 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 hover:border-amber-500/50 text-amber-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <Users className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Gerenciar Mesa & Revelar Fichas</span>
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </aside>
 
       {/* ========================================================================= */}

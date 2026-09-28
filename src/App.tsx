@@ -576,18 +576,85 @@ export default function App() {
   const handleDeleteCharacter = useCallback(
     (id: string) => {
       if (!currentUser) return;
+      const charToDelete = characters.find((c) => c.id === id);
+
       setCharacters((prev) => {
         const next = prev.filter((c) => c.id !== id);
         storageService.saveUserCharacters(currentUser.id, next);
         return next;
       });
 
+      if (charToDelete?.campaignId) {
+        storageService.deleteCampaignCharacter(charToDelete.campaignId, id);
+        const targetCamp = campaigns.find((c) => c.id === charToDelete.campaignId);
+        if (targetCamp && Array.isArray(targetCamp.members)) {
+          const hasLinked = targetCamp.members.some((m) => m.characterId === id);
+          if (hasLinked) {
+            const updatedMembers = targetCamp.members.map((m) => {
+              if (m.characterId === id) {
+                const copy = { ...m };
+                delete copy.characterId;
+                return copy;
+              }
+              return m;
+            });
+            handleUpdateCampaignById(targetCamp.id, { members: updatedMembers });
+          }
+        }
+      }
+
       // Delete from Firestore
       deleteCharacterFromFirestore(id).catch((err) => {
         console.warn('Erro ao excluir ficha no Firestore:', err);
       });
     },
-    [currentUser]
+    [currentUser, characters, campaigns, handleUpdateCampaignById]
+  );
+
+  const handleRemoveCharacterFromTable = useCallback(
+    (campaignId: string, characterId: string, memberUserId?: string) => {
+      if (!currentUser) return;
+
+      // 1. Unlink character from campaign members in state & Firestore
+      const targetCamp = campaigns.find((c) => c.id === campaignId);
+      if (targetCamp) {
+        const currentMembers = Array.isArray(targetCamp.members) ? targetCamp.members : [];
+        const updatedMembers = currentMembers.map((m) => {
+          if (m.characterId === characterId || (memberUserId && m.userId === memberUserId)) {
+            const copy = { ...m };
+            delete copy.characterId;
+            return copy;
+          }
+          return m;
+        });
+        handleUpdateCampaignById(campaignId, { members: updatedMembers });
+      }
+
+      // 2. Remove character from active characters state
+      setCharacters((prev) => {
+        const next = prev.filter((c) => c.id !== characterId);
+        storageService.saveUserCharacters(currentUser.id, next);
+        return next;
+      });
+
+      // Reset selection if this character was active
+      setSelectedCharacterId((prev) => (prev === characterId ? undefined : prev));
+
+      // 3. Remove from campaign storage cache
+      storageService.deleteCampaignCharacter(campaignId, characterId);
+      if (targetCamp?.masterId) {
+        storageService.unlinkCharacterFromCampaignMember(targetCamp.masterId, campaignId, characterId);
+      }
+      if (memberUserId) {
+        storageService.unlinkCharacterFromCampaignMember(memberUserId, campaignId, characterId);
+      }
+
+      // 4. Delete from Firestore
+      deleteCharacterFromFirestore(characterId).catch((err) => {
+        console.warn('Erro ao excluir ficha no Firestore:', err);
+      });
+    },
+    [currentUser, campaigns, handleUpdateCampaignById]
   );
 
   // Theme initialization & synchronization
@@ -941,6 +1008,12 @@ export default function App() {
               characters={characters}
               onCreateCharacter={handleCreateCharacter}
               onUpdateCharacter={(updated) => handleUpdateCharacter(updated.id, updated)}
+              onDeleteCharacter={handleDeleteCharacter}
+              onRemoveCharacterFromTable={handleRemoveCharacterFromTable}
+              onSelectCharacterToView={(charId) => {
+                setSelectedCharacterId(charId);
+                setCurrentTab('characters');
+              }}
               onOpenBestiaryTab={() => setCurrentTab('bestiary')}
               model={settings.model}
               customApiKey={settings.customApiKey}
@@ -1003,6 +1076,7 @@ export default function App() {
             onCreateCharacter={handleCreateCharacter}
             onUpdateCharacter={handleUpdateCharacter}
             onDeleteCharacter={handleDeleteCharacter}
+            onRemoveCharacterFromTable={handleRemoveCharacterFromTable}
             onOpenCampaignMenu={() => setIsCampaignMenuOpen(true)}
             onOpenSettings={() => setIsSettingsOpen(true)}
             isMaster={isMaster}
@@ -1061,6 +1135,8 @@ export default function App() {
           onAddSharedItem={handleAddSharedItem}
           onRemoveSharedItem={handleRemoveSharedItem}
           onToggleCharacterShared={handleToggleCharacterShared}
+          onRemoveCharacterFromTable={handleRemoveCharacterFromTable}
+          onDeleteCharacter={handleDeleteCharacter}
           onSelectCharacterToView={(charId) => {
             setSelectedCharacterId(charId);
             setCurrentTab('characters');

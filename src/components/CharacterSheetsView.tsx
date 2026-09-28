@@ -47,6 +47,7 @@ interface CharacterSheetsViewProps {
   onCreateCharacter: (character: Omit<CharacterSheet, 'createdAt' | 'updatedAt'> & { id?: string }) => void;
   onUpdateCharacter: (id: string, updated: Partial<CharacterSheet>) => void;
   onDeleteCharacter: (id: string) => void;
+  onRemoveCharacterFromTable?: (campaignId: string, characterId: string, memberUserId?: string) => void;
   onOpenCampaignMenu?: () => void;
   onOpenSettings?: () => void;
   isMaster?: boolean;
@@ -66,6 +67,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
   onCreateCharacter,
   onUpdateCharacter,
   onDeleteCharacter,
+  onRemoveCharacterFromTable,
   onOpenCampaignMenu,
   onOpenSettings,
   isMaster = true,
@@ -94,7 +96,7 @@ export const CharacterSheetsView: React.FC<CharacterSheetsViewProps> = ({
       setSelectedCharId(campaignCharacters[0].id);
     }
   }, [selectedCharacterId, activeCampaignId, campaignCharacters]);
-  const [filterType, setFilterType] = useState<'ALL' | 'PJ' | 'NPC' | 'Monstro'>('ALL');
+  const [filterType, setFilterType] = useState<'ALL' | 'Jogadores' | 'PJ' | 'NPC' | 'Monstro'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
   const [activeSheetTab, setActiveSheetTab] = useState<'sheet' | 'history' | 'notes'>('sheet');
@@ -186,9 +188,64 @@ Porte altivo, olhar penetrante e uma cicatriz característica em [detalhe]. Vest
   const selectedChar =
     campaignCharacters.find((c) => c.id === selectedCharId) || campaignCharacters[0];
 
+  const activeCamp = campaigns.find((c) => c.id === activeCampaignId);
+  const masterId = activeCamp?.masterId || activeCamp?.userId;
+
+  const isPlayerCharacter = (char: CharacterSheet) => {
+    if (!char) return false;
+    if (char.type !== 'PJ') return false;
+    const isLinkedToPlayerMember = Boolean(
+      activeCamp?.members?.some(
+        (m) =>
+          (m.characterId === char.id || (m.userId && m.userId === char.userId)) &&
+          m.role !== 'master'
+      )
+    );
+    const isDifferentUser = Boolean(char.userId && masterId && char.userId !== masterId);
+    const hasPlayerCreator = Boolean(
+      char.creatorName && currentUser?.displayName && char.creatorName !== currentUser.displayName
+    );
+    return isLinkedToPlayerMember || isDifferentUser || hasPlayerCreator;
+  };
+
+  const getLinkedPlayerMember = (char: CharacterSheet) => {
+    if (!char) return undefined;
+    return activeCamp?.members?.find(
+      (m) =>
+        (m.characterId === char.id || (m.userId && m.userId === char.userId)) &&
+        m.role !== 'master'
+    );
+  };
+
+  const handleRemoveFromTable = (char: CharacterSheet, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const linked = getLinkedPlayerMember(char);
+    const playerName = linked?.displayName || char.creatorName || 'o jogador';
+    if (
+      !confirm(
+        `Remover a ficha "${char.name}" do jogador "${playerName}" da mesa?\n\nA ficha será desvinculada desta campanha e a vaga do jogador ficará liberada para ele escolher ou criar outra ficha.`
+      )
+    ) {
+      return;
+    }
+
+    if (onRemoveCharacterFromTable) {
+      onRemoveCharacterFromTable(activeCampaignId, char.id, linked?.userId || char.userId);
+    } else {
+      onDeleteCharacter(char.id);
+    }
+  };
+
   // Filter list
   const filteredList = campaignCharacters.filter((c) => {
-    const matchesType = filterType === 'ALL' || c.type === filterType;
+    let matchesType = false;
+    if (filterType === 'ALL') {
+      matchesType = true;
+    } else if (filterType === 'Jogadores') {
+      matchesType = isPlayerCharacter(c);
+    } else {
+      matchesType = c.type === filterType;
+    }
     const matchesSearch =
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.role.toLowerCase().includes(searchQuery.toLowerCase());
@@ -435,8 +492,8 @@ Porte altivo, olhar penetrante e uma cicatriz característica em [detalhe]. Vest
             />
           </div>
 
-          {/* Filters: ALL | PJ | NPC | Monstro */}
-          <div className="grid grid-cols-4 gap-1 bg-zinc-950 p-0.5 rounded-lg border border-zinc-800 text-[11px]">
+          {/* Filters: ALL | Jogadores | PJ | NPC | Monstro */}
+          <div className="grid grid-cols-5 gap-1 bg-zinc-950 p-0.5 rounded-lg border border-zinc-800 text-[10px] sm:text-[11px]">
             <button
               onClick={() => setFilterType('ALL')}
               className={`py-1 rounded text-center transition-colors truncate ${
@@ -446,6 +503,17 @@ Porte altivo, olhar penetrante e uma cicatriz característica em [detalhe]. Vest
               }`}
             >
               Todos ({campaignCharacters.length})
+            </button>
+            <button
+              onClick={() => setFilterType('Jogadores')}
+              className={`py-1 rounded text-center transition-colors truncate ${
+                filterType === 'Jogadores'
+                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              title="Fichas adicionadas por jogadores nesta mesa"
+            >
+              Jogadores ({campaignCharacters.filter(isPlayerCharacter).length})
             </button>
             <button
               onClick={() => setFilterType('PJ')}
@@ -495,6 +563,8 @@ Porte altivo, olhar penetrante e uma cicatriz característica em [detalhe]. Vest
           ) : (
             filteredList.map((char) => {
               const isSelected = char.id === selectedChar?.id;
+              const isPlayer = isPlayerCharacter(char);
+              const playerMember = getLinkedPlayerMember(char);
               const hpRes = char.resources.find((r) =>
                 r.name.toLowerCase().includes('vida') || r.name.toLowerCase().includes('pv')
               );
@@ -533,6 +603,14 @@ Porte altivo, olhar penetrante e uma cicatriz característica em [detalhe]. Vest
                           {char.name}
                         </span>
                         <div className="flex items-center gap-1 shrink-0">
+                          {isPlayer && (
+                            <span
+                              className="text-[9px] px-1 py-0.2 rounded font-mono bg-blue-500/15 text-blue-300 border border-blue-500/30"
+                              title={`Ficha vinculada ao jogador ${playerMember?.displayName || char.creatorName || ''}`}
+                            >
+                              🎲 Jogador
+                            </span>
+                          )}
                           {char.sharedWithPlayers && (
                             <span className="text-[9px] px-1 py-0.2 rounded font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30" title="Revelada para jogadores">
                               Revelada
@@ -551,11 +629,23 @@ Porte altivo, olhar penetrante e uma cicatriz característica em [detalhe]. Vest
                       </div>
                       <div className="flex items-center justify-between text-[11px] text-zinc-400">
                         <span className="truncate">{char.role || 'Sem classe'}</span>
-                        {char.creatorName && (
-                          <span className="text-[10px] text-cyan-400/80 font-medium shrink-0 ml-1">
-                            {char.creatorName}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1 shrink-0 ml-1">
+                          {(playerMember?.displayName || char.creatorName) && (
+                            <span className="text-[10px] text-blue-400/90 font-medium">
+                              {playerMember?.displayName || char.creatorName}
+                            </span>
+                          )}
+                          {isMaster && isPlayer && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleRemoveFromTable(char, e)}
+                              className="p-1 rounded text-zinc-500 hover:text-rose-400 hover:bg-rose-950/40 opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
+                              title={`Remover ficha "${char.name}" do jogador da mesa`}
+                            >
+                              <Trash2 className="w-3 h-3 text-rose-400" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -645,6 +735,40 @@ Porte altivo, olhar penetrante e uma cicatriz característica em [detalhe]. Vest
                   className="text-cyan-400/70 hover:text-cyan-200 p-1 cursor-pointer"
                 >
                   ✕
+                </button>
+              </div>
+            )}
+
+            {/* Player Sheet Ownership Banner for Master */}
+            {isMaster && isPlayerCharacter(selectedChar) && (
+              <div className="p-3.5 bg-gradient-to-r from-blue-950/40 via-zinc-900 to-zinc-950 border border-blue-500/40 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-blue-950/20">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold text-base shrink-0">
+                    🎲
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs sm:text-sm font-bold text-zinc-100">
+                        Ficha do Jogador: {getLinkedPlayerMember(selectedChar)?.displayName || selectedChar.creatorName || 'Jogador Conectado'}
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold">
+                        Mesa Ativa
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400">
+                      Esta ficha foi adicionada à mesa pelo jogador. Como Mestre, você tem controle total e pode remover esta ficha da mesa para liberar a vaga dele.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleRemoveFromTable(selectedChar)}
+                  className="px-3.5 py-1.5 bg-rose-950/50 hover:bg-rose-900/70 text-rose-300 hover:text-rose-100 border border-rose-800/60 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm shrink-0"
+                  title="Remover esta ficha da mesa e liberar a vaga do jogador"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Remover Ficha da Mesa</span>
                 </button>
               </div>
             )}
@@ -805,17 +929,29 @@ Porte altivo, olhar penetrante e uma cicatriz característica em [detalhe]. Vest
                         )}
                       </button>
 
-                      <button
-                        onClick={() => {
-                          if (confirm(`Excluir a ficha de "${selectedChar.name}"?`)) {
-                            onDeleteCharacter(selectedChar.id);
-                          }
-                        }}
-                        className="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-colors border border-transparent hover:border-rose-900/40"
-                        title="Excluir Ficha"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {isMaster && isPlayerCharacter(selectedChar) ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFromTable(selectedChar)}
+                          className="px-2.5 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-rose-100 rounded-lg transition-colors border border-rose-800/50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                          title="Remover ficha do jogador desta mesa/campanha"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                          <span>Remover da Mesa</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            if (confirm(`Excluir a ficha de "${selectedChar.name}"?`)) {
+                              onDeleteCharacter(selectedChar.id);
+                            }
+                          }}
+                          className="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-colors border border-transparent hover:border-rose-900/40 cursor-pointer"
+                          title="Excluir Ficha"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

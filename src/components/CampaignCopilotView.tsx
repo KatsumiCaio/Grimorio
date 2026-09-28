@@ -74,6 +74,9 @@ interface CampaignCopilotViewProps {
   onCreateCharacter?: (character: CharacterSheet) => void;
   onUpdateCharacter?: (character: CharacterSheet) => void;
   onOpenBestiaryTab?: () => void;
+  onDeleteCharacter?: (id: string) => void;
+  onRemoveCharacterFromTable?: (campaignId: string, characterId: string, memberUserId?: string) => void;
+  onSelectCharacterToView?: (characterId: string) => void;
   model?: string;
   customApiKey?: string;
   isFullScreen?: boolean;
@@ -94,6 +97,9 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   onCreateCharacter,
   onUpdateCharacter,
   onOpenBestiaryTab,
+  onDeleteCharacter,
+  onRemoveCharacterFromTable,
+  onSelectCharacterToView,
   model = 'gemini-3.8-flash',
   customApiKey = '',
   isFullScreen = false,
@@ -1534,6 +1540,13 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               campaignTitle={title}
               systemName={system}
               isFullScreen={isFullScreen}
+              campaignId={activeCampaign.id}
+              members={activeCampaign.members}
+              characters={characters}
+              inviteCode={activeCampaign.inviteCode}
+              onOpenTableModal={onOpenTableModal}
+              onSelectCharacterToView={onSelectCharacterToView}
+              onRemoveCharacterFromTable={onRemoveCharacterFromTable}
             />
           )}
 

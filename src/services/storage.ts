@@ -581,6 +581,40 @@ export const storageService = {
     }
   },
 
+  deleteCampaignCharacter(campaignId: string, characterId: string): void {
+    if (!campaignId || !characterId) return;
+    const key = `grimorio_campaign_${campaignId}_characters`;
+    try {
+      const existing = localStorage.getItem(key);
+      if (existing) {
+        const list: CharacterSheet[] = JSON.parse(existing);
+        const updated = list.filter((c) => c.id !== characterId);
+        localStorage.setItem(key, JSON.stringify(updated));
+      }
+    } catch (e) {
+      console.warn('Erro ao remover ficha da campanha:', e);
+    }
+  },
+
+  unlinkCharacterFromCampaignMember(masterId: string, campaignId: string, characterId: string): void {
+    if (!campaignId || !characterId || !masterId) return;
+    const userCampaigns = this.getUserCampaigns(masterId);
+    let changed = false;
+    const updatedCamps = userCampaigns.map((camp) => {
+      if (camp.id === campaignId && Array.isArray(camp.members)) {
+        const nextMembers = camp.members.map((m) =>
+          m.characterId === characterId ? { ...m, characterId: undefined } : m
+        );
+        changed = true;
+        return { ...camp, members: nextMembers };
+      }
+      return camp;
+    });
+    if (changed) {
+      this.saveUserCampaigns(masterId, updatedCamps);
+    }
+  },
+
   saveCharacterForMaster(masterId: string, character: CharacterSheet): void {
     if (!masterId || !character?.id) return;
     const masterKey = `grimorio_user_${masterId}_characters`;

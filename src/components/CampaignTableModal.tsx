@@ -34,6 +34,8 @@ interface CampaignTableModalProps {
   onAddSharedItem: (item: CampaignSharedItem) => void;
   onRemoveSharedItem: (itemId: string) => void;
   onToggleCharacterShared: (characterId: string, shared: boolean) => void;
+  onRemoveCharacterFromTable?: (campaignId: string, characterId: string, memberUserId?: string) => void;
+  onDeleteCharacter?: (characterId: string) => void;
   onSelectCharacterToView?: (characterId: string) => void;
 }
 
@@ -48,10 +50,13 @@ export const CampaignTableModal: React.FC<CampaignTableModalProps> = ({
   onAddSharedItem,
   onRemoveSharedItem,
   onToggleCharacterShared,
+  onRemoveCharacterFromTable,
+  onDeleteCharacter,
   onSelectCharacterToView,
 }) => {
   const [activeTab, setActiveTab] = useState<'members' | 'shared' | 'sheets'>('members');
   const [copiedCode, setCopiedCode] = useState(false);
+  const [tableNotice, setTableNotice] = useState<string | null>(null);
 
   // New shared item form
   const [isAddingItem, setIsAddingItem] = useState(false);
@@ -107,6 +112,38 @@ export const CampaignTableModal: React.FC<CampaignTableModalProps> = ({
     setIsAddingItem(false);
   };
 
+  const handleRemovePlayerSheet = (char: CharacterSheet, member?: CampaignMember) => {
+    const memberName = member?.displayName || char.creatorName || 'o jogador';
+    if (
+      !confirm(
+        `Remover a ficha "${char.name}" do jogador "${memberName}" da mesa?\n\nO jogador não perderá a ficha se tiver cópia salva, mas a vaga na mesa ficará liberada para ele escolher ou criar outra ficha.`
+      )
+    ) {
+      return;
+    }
+
+    if (onRemoveCharacterFromTable) {
+      onRemoveCharacterFromTable(campaign.id, char.id, member?.userId);
+    } else {
+      const currentMembers = Array.isArray(campaign.members) ? campaign.members : [];
+      const updatedMembers = currentMembers.map((m) => {
+        if (m.characterId === char.id || (member && m.userId === member.userId)) {
+          const copy = { ...m };
+          delete copy.characterId;
+          return copy;
+        }
+        return m;
+      });
+      onUpdateCampaign({ members: updatedMembers });
+      if (onDeleteCharacter) {
+        onDeleteCharacter(char.id);
+      }
+    }
+
+    setTableNotice(`Ficha "${char.name}" removida da mesa com sucesso.`);
+    setTimeout(() => setTableNotice(null), 4000);
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-5 overflow-y-auto">
       <div className="bg-zinc-900 border border-zinc-700/80 rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[92dvh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -135,6 +172,20 @@ export const CampaignTableModal: React.FC<CampaignTableModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Table Notification Toast */}
+        {tableNotice && (
+          <div className="px-4 sm:px-6 py-2.5 bg-emerald-500/15 border-b border-emerald-500/30 flex items-center justify-between text-xs text-emerald-300 font-semibold shrink-0 animate-fadeIn">
+            <span>{tableNotice}</span>
+            <button
+              type="button"
+              onClick={() => setTableNotice(null)}
+              className="text-emerald-400/80 hover:text-emerald-200 text-xs p-1 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Invite Code Bar */}
         <div className="px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-amber-950/30 via-zinc-900 to-zinc-900 border-b border-zinc-800/80 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
@@ -212,8 +263,8 @@ export const CampaignTableModal: React.FC<CampaignTableModalProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {members.map((member) => {
                   const isUserMaster = member.role === 'master';
-                  const playerSheet = campaignCharacters.find(
-                    (c) => c.userId === member.userId || c.id === member.characterId
+                  const playerSheets = campaignCharacters.filter(
+                    (c) => c.id === member.characterId || (member.userId && c.userId === member.userId)
                   );
 
                   return (
@@ -244,27 +295,41 @@ export const CampaignTableModal: React.FC<CampaignTableModalProps> = ({
                               )}
                             </div>
                             <span className="text-[11px] text-zinc-400">
-                              {playerSheet ? `Personagem: ${playerSheet.name} (${playerSheet.role})` : 'Ainda sem ficha vinculada'}
+                              {playerSheets.length > 0
+                                ? `${playerSheets.length === 1 ? 'Ficha vinculada' : `${playerSheets.length} fichas vinculadas`}: ${playerSheets.map((s) => s.name).join(', ')}`
+                                : isUserMaster
+                                ? 'Mestre da Campanha'
+                                : 'Ainda sem ficha vinculada'}
                             </span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Action buttons for Master inspecting player data */}
+                      {/* Action buttons for Master inspecting player data and removing sheets */}
                       {!isUserMaster && isMaster && (
-                        <div className="flex items-center gap-2 pt-2 border-t border-zinc-800/80">
-                          {playerSheet && (
-                            <button
-                              onClick={() => setInspectingCharacter(playerSheet)}
-                              className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 text-xs font-medium border border-cyan-800/50 transition-colors cursor-pointer"
-                            >
-                              <Shield className="w-3.5 h-3.5 text-cyan-400" />
-                              <span>Ver Ficha ({playerSheet.name})</span>
-                            </button>
-                          )}
+                        <div className="space-y-2 pt-2 border-t border-zinc-800/80">
+                          {playerSheets.map((sheet) => (
+                            <div key={sheet.id} className="flex items-center gap-2 flex-wrap bg-zinc-900/50 p-2 rounded-lg border border-zinc-800">
+                              <button
+                                onClick={() => setInspectingCharacter(sheet)}
+                                className="flex-1 min-w-[120px] inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 text-xs font-medium border border-cyan-800/50 transition-colors cursor-pointer"
+                              >
+                                <Shield className="w-3.5 h-3.5 text-cyan-400" />
+                                <span>Ver Ficha ({sheet.name})</span>
+                              </button>
+                              <button
+                                onClick={() => handleRemovePlayerSheet(sheet, member)}
+                                className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-rose-200 text-xs font-medium border border-rose-800/50 transition-colors cursor-pointer"
+                                title={`Remover ficha "${sheet.name}" da mesa`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                                <span>Remover da Mesa</span>
+                              </button>
+                            </div>
+                          ))}
                           <button
                             onClick={() => setInspectingPlayer(member)}
-                            className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium transition-colors cursor-pointer"
+                            className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium transition-colors cursor-pointer"
                           >
                             <BookOpen className="w-3.5 h-3.5 text-blue-400" />
                             <span>Ver Diário & Anotações</span>
@@ -275,6 +340,69 @@ export const CampaignTableModal: React.FC<CampaignTableModalProps> = ({
                   );
                 })}
               </div>
+
+              {/* Other player character sheets in this campaign not directly assigned */}
+              {isMaster &&
+                campaignCharacters.filter(
+                  (c) =>
+                    c.type === 'PJ' &&
+                    !members.some((m) => m.characterId === c.id || (m.userId && c.userId === m.userId && m.role !== 'master'))
+                ).length > 0 && (
+                  <div className="pt-4 border-t border-zinc-800/80 space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                      Outras Fichas de PJs nesta Campanha
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {campaignCharacters
+                        .filter(
+                          (c) =>
+                            c.type === 'PJ' &&
+                            !members.some(
+                              (m) =>
+                                m.characterId === c.id ||
+                                (m.userId && c.userId === m.userId && m.role !== 'master')
+                            )
+                        )
+                        .map((char) => (
+                          <div
+                            key={char.id}
+                            className="p-3 rounded-xl bg-zinc-950/40 border border-zinc-800 flex items-center justify-between gap-2"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-bold text-zinc-300">
+                                {char.name.charAt(0)}
+                              </div>
+                              <div className="min-w-0">
+                                <span className="font-semibold text-xs text-zinc-200 truncate block">
+                                  {char.name}
+                                </span>
+                                <span className="text-[10px] text-zinc-400">
+                                  {char.role} {char.creatorName ? `• por ${char.creatorName}` : ''}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={() => setInspectingCharacter(char)}
+                                className="p-1.5 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 border border-cyan-800/50 rounded-lg text-xs"
+                                title="Ver ficha"
+                              >
+                                <Shield className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleRemovePlayerSheet(char)}
+                                className="px-2 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-rose-100 border border-rose-800/50 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                                title={`Remover ficha "${char.name}" da mesa`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                                <span className="hidden sm:inline">Remover</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
 
               {/* Master Character Sheet Inspector Modal */}
               {inspectingCharacter && (
@@ -361,7 +489,21 @@ export const CampaignTableModal: React.FC<CampaignTableModalProps> = ({
                     </div>
 
                     {/* Footer */}
-                    <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-800 flex-wrap">
+                      {isMaster && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const charToRemove = inspectingCharacter;
+                            setInspectingCharacter(null);
+                            handleRemovePlayerSheet(charToRemove);
+                          }}
+                          className="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-rose-200 border border-rose-800/60 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                          <span>Remover Ficha da Mesa</span>
+                        </button>
+                      )}
                       {onSelectCharacterToView && (
                         <button
                           onClick={() => {
@@ -654,7 +796,7 @@ export const CampaignTableModal: React.FC<CampaignTableModalProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => onToggleCharacterShared(char.id, !char.sharedWithPlayers)}
                           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
@@ -675,6 +817,16 @@ export const CampaignTableModal: React.FC<CampaignTableModalProps> = ({
                             </>
                           )}
                         </button>
+                        {isMaster && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePlayerSheet(char)}
+                            className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-950/40 border border-transparent hover:border-rose-900/50 transition-colors cursor-pointer"
+                            title="Remover esta ficha da mesa"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
