@@ -74,10 +74,81 @@ async function startServer() {
   });
 
   // API Routes
+  const cleanApiKey = (raw: any): string => {
+    if (!raw || typeof raw !== "string") return "";
+    let k = raw.trim();
+    k = k.replace(/^["']|["']$/g, "").trim();
+    k = k.replace(/^(?:GEMINI_API_KEY|API_KEY|GOOGLE_API_KEY)\s*=\s*/i, "").trim();
+    k = k.replace(/^["']|["']$/g, "").trim();
+    k = k.replace(/^Bearer\s+/i, "").trim();
+    return k;
+  };
+
   app.get("/api/health", (_req, res) => {
     res.json({
       status: "ok",
       hasServerApiKey: Boolean(process.env.GEMINI_API_KEY),
+    });
+  });
+
+  // Fast key-testing endpoint
+  app.post("/api/test-key", async (req, res) => {
+    const { customApiKey, model } = req.body || {};
+    const key = cleanApiKey(customApiKey) || cleanApiKey(process.env.GEMINI_API_KEY);
+
+    if (!key || key.length < 8) {
+      return res.status(400).json({
+        ok: false,
+        error: "Chave não informada ou formato inválido. Insira sua chave Gemini obtida no Google AI Studio (aistudio.google.com).",
+      });
+    }
+
+    const testAi = new GoogleGenAI({
+      apiKey: key,
+      httpOptions: { headers: { "User-Agent": "aistudio-build" } },
+    });
+
+    const candidateTestModels = Array.from(
+      new Set([
+        model || "gemini-3-flash-preview",
+        "gemini-3-flash-preview",
+        "gemini-3.8-flash",
+        "gemini-flash-latest",
+        "gemini-3.1-flash-lite",
+      ])
+    );
+
+    let lastErr: any = null;
+    for (const testModel of candidateTestModels) {
+      try {
+        const testRes = await testAi.models.generateContent({
+          model: testModel,
+          contents: "Olá",
+        });
+        if (testRes.text) {
+          return res.json({
+            ok: true,
+            model: testModel,
+            message: `Chave validada com sucesso! Conexão ativa com o modelo ${testModel}.`,
+          });
+        }
+      } catch (err: any) {
+        lastErr = err;
+      }
+    }
+
+    let errorDetail = lastErr?.message || "Não foi possível validar a chave com os servidores do Google.";
+    if (typeof errorDetail === "string") {
+      if (errorDetail.includes("API_KEY_INVALID") || errorDetail.includes("API key not valid")) {
+        errorDetail = "Chave de API inválida. Certifique-se de copiar a chave completa gerada no Google AI Studio (aistudio.google.com).";
+      } else if (errorDetail.includes("RESOURCE_EXHAUSTED") || errorDetail.includes("quota")) {
+        errorDetail = "Limite de cota da chave atingido. Aguarde alguns instantes.";
+      }
+    }
+
+    return res.status(400).json({
+      ok: false,
+      error: errorDetail,
     });
   });
 
@@ -95,11 +166,11 @@ async function startServer() {
   app.post(["/api/chat", "/api/chat/"], async (req, res) => {
     const { messages, systemInstruction, model, customApiKey, system, campaignTitle } = req.body;
     
-    // Validate API key: prefer trimmed custom key if provided and valid, otherwise fallback to server environment key
-    const trimmedCustomKey = typeof customApiKey === "string" ? customApiKey.trim() : "";
+    // Validate API key: prefer cleaned custom key if provided and valid, otherwise fallback to server environment key
+    const trimmedCustomKey = cleanApiKey(customApiKey);
     const apiKey = (trimmedCustomKey && trimmedCustomKey !== "undefined" && trimmedCustomKey !== "null" && trimmedCustomKey.length > 8)
       ? trimmedCustomKey
-      : process.env.GEMINI_API_KEY;
+      : cleanApiKey(process.env.GEMINI_API_KEY);
 
     if (!apiKey) {
       res.status(400).json({

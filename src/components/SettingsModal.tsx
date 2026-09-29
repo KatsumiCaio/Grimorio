@@ -24,10 +24,14 @@ import {
   Sun,
   Moon,
   Monitor,
+  Eye,
+  EyeOff,
+  Loader2,
 } from 'lucide-react';
 import { AppSettings, UserProfile } from '../types';
 import { storageService } from '../services/storage';
 import { themeService, ThemeMode } from '../services/theme';
+import { cleanApiKey } from '../hooks/useGeminiChat';
 import { FlamingD20Logo } from './FlamingD20Logo';
 import { UserAvatar } from './UserAvatar';
 import {
@@ -69,6 +73,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
   const [copiedFaviconNotice, setCopiedFaviconNotice] = useState(false);
   const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [keyTestStatus, setKeyTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [keyTestMessage, setKeyTestMessage] = useState<string | null>(null);
+  const [keySavedNotice, setKeySavedNotice] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -180,11 +188,79 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onClose();
   };
 
+  const handleTestKey = async () => {
+    const rawKey = formData.customApiKey || '';
+    const cleaned = cleanApiKey(rawKey);
+    if (!cleaned) {
+      setKeyTestStatus('error');
+      setKeyTestMessage('Insira uma chave da API Gemini antes de testar.');
+      return;
+    }
+
+    setKeyTestStatus('testing');
+    setKeyTestMessage(null);
+
+    try {
+      // 1. Try server endpoint first
+      const res = await fetch('/api/test-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customApiKey: cleaned,
+          model: formData.model || 'gemini-3-flash-preview',
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setKeyTestStatus('success');
+        setKeyTestMessage(data.message || 'Chave validada com sucesso! Conexão ativa com o Gemini.');
+        return;
+      }
+
+      // 2. If endpoint returned 404 (static deployment without backend), test directly with Google API
+      if (res.status === 404 || res.status === 405) {
+        const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:streamGenerateContent?alt=sse&key=${encodeURIComponent(cleaned)}`;
+        const directRes = await fetch(directUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'oi' }] }] }),
+        });
+        if (directRes.ok) {
+          setKeyTestStatus('success');
+          setKeyTestMessage('Chave validada com sucesso via Google Gemini API!');
+          return;
+        }
+        const errJson = await directRes.json().catch(() => ({}));
+        throw new Error(errJson?.error?.message || `Erro da API Gemini (${directRes.status})`);
+      }
+
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson?.error || `Erro (${res.status}) ao validar chave.`);
+    } catch (err: any) {
+      setKeyTestStatus('error');
+      setKeyTestMessage(err.message || 'Falha ao conectar com a API Gemini.');
+    }
+  };
+
+  const handleQuickSaveKey = () => {
+    const cleaned = cleanApiKey(formData.customApiKey);
+    const updated = { ...formData, customApiKey: cleaned };
+    setFormData(updated);
+    storageService.saveSettings(updated);
+    onSaveSettings(updated);
+    setKeySavedNotice(true);
+    setTimeout(() => setKeySavedNotice(false), 3000);
+  };
+
   const handleSave = () => {
     if (formData.themeMode) {
       themeService.setThemeMode(formData.themeMode);
     }
-    onSaveSettings(formData);
+    const cleaned = cleanApiKey(formData.customApiKey);
+    const updated = { ...formData, customApiKey: cleaned };
+    storageService.saveSettings(updated);
+    onSaveSettings(updated);
     onClose();
   };
 
@@ -366,8 +442,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div>
               <label className="block text-xs font-medium text-zinc-300 mb-1 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
-                  <Key className="w-3 h-3 text-cyan-500" />
-                  Chave de API Gemini (Necessária no site publicado)
+                  <Key className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Chave de API Gemini (Google AI Studio)</span>
                 </span>
                 <a
                   href="https://aistudio.google.com/apikey"
@@ -379,18 +455,115 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <ExternalLink className="w-2.5 h-2.5" />
                 </a>
               </label>
-              <input
-                type="password"
-                placeholder="Insira sua chave AI Studio (AIzaSy...)"
-                value={formData.customApiKey}
-                onChange={(e) => setFormData({ ...formData, customApiKey: e.target.value })}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/60 font-mono"
-              />
-              <div className="mt-1.5 space-y-1">
+
+              <div className="relative flex items-center">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  placeholder="Cole sua chave aqui (ex: AIzaSy...)"
+                  value={formData.customApiKey || ''}
+                  onChange={(e) => {
+                    const cleaned = cleanApiKey(e.target.value);
+                    setFormData({ ...formData, customApiKey: cleaned });
+                    setKeyTestStatus('idle');
+                    setKeyTestMessage(null);
+                  }}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-3 pr-16 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/60 font-mono"
+                />
+                <div className="absolute right-1.5 flex items-center gap-1">
+                  {formData.customApiKey && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, customApiKey: '' });
+                        setKeyTestStatus('idle');
+                        setKeyTestMessage(null);
+                      }}
+                      className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+                      title="Limpar chave"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="p-1 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+                    title={showApiKey ? 'Ocultar chave' : 'Visualizar chave'}
+                  >
+                    {showApiKey ? (
+                      <EyeOff className="w-3.5 h-3.5 text-zinc-400" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5 text-zinc-400" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Action buttons: Test Connection & Save Key */}
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleTestKey}
+                  disabled={keyTestStatus === 'testing' || !formData.customApiKey}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-800/60 text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  title="Testar se esta chave se conecta com sucesso à API Gemini do Google"
+                >
+                  {keyTestStatus === 'testing' ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+                      <span>Testando Conexão...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Testar Conexão</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleQuickSaveKey}
+                  disabled={!formData.customApiKey}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  title="Salvar esta chave imediatamente no aplicativo"
+                >
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Salvar Chave</span>
+                </button>
+
+                {keySavedNotice && (
+                  <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1 animate-in fade-in">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Chave salva com sucesso!</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Key Test Results Feedback */}
+              {keyTestStatus === 'success' && keyTestMessage && (
+                <div className="mt-2.5 p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 text-xs flex items-start gap-2 animate-in fade-in">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="font-semibold">Sucesso:</span> {keyTestMessage}
+                  </div>
+                </div>
+              )}
+
+              {keyTestStatus === 'error' && keyTestMessage && (
+                <div className="mt-2.5 p-2.5 rounded-lg bg-rose-950/40 border border-rose-800/60 text-rose-300 text-xs flex items-start gap-2 animate-in fade-in">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="font-semibold">Falha ao testar chave:</span> {keyTestMessage}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-2 space-y-1">
                 <div className="flex items-start gap-1.5 text-[11px] text-zinc-400">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
                   <span>
-                    No ambiente de desenvolvimento a chave é injetada automaticamente. No site publicado (hospedagem externa ou estática), insira sua chave gratuita para ativar o Copiloto.
+                    No ambiente de desenvolvimento a chave é provida pelo sistema. No site publicado (hospedagens externas ou estáticas), sua chave gratuita permite que o Copiloto responda a todas as dúvidas e consultas narrativas sem limites.
                   </span>
                 </div>
               </div>

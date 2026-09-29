@@ -19,6 +19,16 @@ export interface UseGeminiChatOptions {
   onMessageComplete?: (userMsg: ChatMessage, assistantMsg: ChatMessage) => void;
 }
 
+export function cleanApiKey(raw: string | undefined | null): string {
+  if (!raw || typeof raw !== 'string') return '';
+  let k = raw.trim();
+  k = k.replace(/^["']|["']$/g, '').trim();
+  k = k.replace(/^(?:GEMINI_API_KEY|API_KEY|GOOGLE_API_KEY)\s*=\s*/i, '').trim();
+  k = k.replace(/^["']|["']$/g, '').trim();
+  k = k.replace(/^Bearer\s+/i, '').trim();
+  return k;
+}
+
 // Fallback direct streaming for static sites or when /api/chat is unavailable
 async function streamDirectGemini({
   apiKey,
@@ -35,19 +45,30 @@ async function streamDirectGemini({
   signal?: AbortSignal;
   onChunk: (accumulatedText: string) => void;
 }): Promise<string> {
+  const sanitizedKey = cleanApiKey(apiKey);
+  if (!sanitizedKey || sanitizedKey.length < 8) {
+    throw new Error('Chave de API Gemini não informada ou formato inválido. Insira sua chave nas Configurações (⚙️).');
+  }
+
   const effectiveModel =
     model && !model.includes('2.5') && !model.includes('2.0') && !model.includes('1.5')
       ? model
       : 'gemini-3.8-flash';
 
+  const candidateModels = Array.from(
+    new Set([
+      effectiveModel,
+      'gemini-3-flash-preview',
+      'gemini-3.8-flash',
+      'gemini-flash-latest',
+      'gemini-3.1-flash-lite',
+    ])
+  );
+
   const formattedContents = (messages || []).map((msg) => ({
     role: msg.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: msg.content || '' }],
   }));
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-    effectiveModel
-  )}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`;
 
   const body: any = {
     contents:
@@ -62,60 +83,87 @@ async function streamDirectGemini({
     };
   }
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal,
-  });
+  let lastDirectError: any = null;
 
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    const msg = errData?.error?.message;
-    if (res.status === 400 || res.status === 403) {
-      throw new Error(
-        `Chave da API Gemini inválida ou não autorizada. Verifique sua chave nas Configurações (⚙️): ${msg || res.statusText}`
-      );
-    }
-    throw new Error(msg || `Erro na API Gemini (${res.status}): ${res.statusText}`);
-  }
+  for (const currentModel of candidateModels) {
+    if (signal?.aborted) break;
 
-  if (!res.body) {
-    throw new Error('Corpo de resposta vazio da API Gemini.');
-  }
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+      currentModel
+    )}:streamGenerateContent?alt=sse&key=${encodeURIComponent(sanitizedKey)}`;
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder('utf-8');
-  let accumulated = '';
-  let buffer = '';
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal,
+      });
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || !trimmed.startsWith('data: ')) continue;
-      const jsonStr = trimmed.slice(6);
-      if (jsonStr === '[DONE]') break;
-      try {
-        const parsed = JSON.parse(jsonStr);
-        const chunkText = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (chunkText) {
-          accumulated += chunkText;
-          onChunk(accumulated);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const msg = errData?.error?.message;
+        if (res.status === 400 || res.status === 403) {
+          throw new Error(
+            `Chave da API Gemini inválida ou não autorizada. Verifique se copiou a chave completa no Google AI Studio: ${msg || res.statusText}`
+          );
         }
-      } catch {
-        // ignore incomplete json chunks
+        // If 503 (high demand) or 404 (model unavailable), try next model
+        if (res.status === 503 || res.status === 404) {
+          lastDirectError = new Error(msg || `Modelo ${currentModel} com alta demanda.`);
+          continue;
+        }
+        throw new Error(msg || `Erro na API Gemini (${res.status}): ${res.statusText}`);
       }
+
+      if (!res.body) {
+        throw new Error('Corpo de resposta vazio da API Gemini.');
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let accumulated = '';
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+          const jsonStr = trimmed.slice(6);
+          if (jsonStr === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const chunkText = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (chunkText) {
+              accumulated += chunkText;
+              onChunk(accumulated);
+            }
+          } catch {
+            // ignore incomplete json chunks
+          }
+        }
+      }
+
+      if (accumulated) {
+        return accumulated;
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') throw err;
+      if (err.message?.includes('inválida') || err.message?.includes('não autorizada')) {
+        throw err;
+      }
+      lastDirectError = err;
     }
   }
 
-  return accumulated;
+  throw lastDirectError || new Error('Não foi possível obter resposta dos servidores de IA.');
 }
 
 export function useGeminiChat(options: UseGeminiChatOptions = {}) {
@@ -226,10 +274,8 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
         const maxAttempts = 3;
 
         const effectiveCustomApiKey =
-          (options.customApiKey && options.customApiKey.trim().length > 8 ? options.customApiKey.trim() : '') ||
-          (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GEMINI_API_KEY
-            ? String((import.meta as any).env.VITE_GEMINI_API_KEY).trim()
-            : '');
+          cleanApiKey(options.customApiKey) ||
+          cleanApiKey(typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_GEMINI_API_KEY : '');
 
         // Resilient fetch loop: Handles dev-server warmup, proxy reload (405/502/504), and temporary spikes (503)
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
