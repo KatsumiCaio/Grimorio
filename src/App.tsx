@@ -1036,6 +1036,7 @@ export default function App() {
                 setCurrentTab('characters');
               }}
               onOpenBestiaryTab={() => setCurrentTab('bestiary')}
+              onOpenSettings={() => setIsSettingsOpen(true)}
               model={settings.model}
               customApiKey={settings.customApiKey}
               isFullScreen={isFullScreenNotes}
@@ -1050,6 +1051,8 @@ export default function App() {
               campaigns={campaigns}
               onCreateCharacter={handleCreateCharacter}
               onUpdateCharacter={(updated) => handleUpdateCharacter(updated.id, updated)}
+              onDeleteCharacter={handleDeleteCharacter}
+              onRemoveCharacterFromTable={handleRemoveCharacterFromTable}
               onSavePlayerNotes={handleSavePlayerNotes}
               onOpenTableModal={() => setIsTableModalOpen(true)}
               onOpenCampaignMenu={() => setIsCampaignMenuOpen(true)}

@@ -37,6 +37,7 @@ import {
   ChevronRight,
   Share2,
   Users,
+  Settings,
 } from 'lucide-react';
 import { FloatingDiceWidget, CampaignRollResult } from './FloatingDiceWidget';
 import { Campaign, CampaignChapter, CharacterSheet, BestiaryMonster, CharacterType } from '../types';
@@ -77,6 +78,7 @@ interface CampaignCopilotViewProps {
   onDeleteCharacter?: (id: string) => void;
   onRemoveCharacterFromTable?: (campaignId: string, characterId: string, memberUserId?: string) => void;
   onSelectCharacterToView?: (characterId: string) => void;
+  onOpenSettings?: () => void;
   model?: string;
   customApiKey?: string;
   isFullScreen?: boolean;
@@ -100,6 +102,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   onDeleteCharacter,
   onRemoveCharacterFromTable,
   onSelectCharacterToView,
+  onOpenSettings,
   model = 'gemini-3.8-flash',
   customApiKey = '',
   isFullScreen = false,
@@ -2332,22 +2335,45 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
           )}
 
           {error && (
-            <div className="p-3 bg-rose-950/40 border border-rose-800/60 rounded-xl text-rose-300 text-xs flex items-center justify-between gap-2">
-              <div className="flex items-start gap-2">
+            <div className="p-3 bg-rose-950/40 border border-rose-800/60 rounded-xl text-rose-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-2.5">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
-                <div className="flex-1">
-                  <span className="font-semibold">Erro no Copiloto:</span> {error}
+                <div className="flex-1 space-y-1">
+                  <div>
+                    <span className="font-semibold text-rose-200">Atenção no Copiloto:</span> {error}
+                  </div>
+                  {(error.toLowerCase().includes('chave') ||
+                    error.toLowerCase().includes('publicado') ||
+                    error.toLowerCase().includes('configura') ||
+                    error.toLowerCase().includes('api')) && (
+                    <div className="text-[11px] text-rose-300/80">
+                      💡 Dica: Obtenha uma chave gratuita no Google AI Studio (aistudio.google.com) e insira nas Configurações do Grimório para ativar o Copiloto em qualquer site publicado.
+                    </div>
+                  )}
                 </div>
               </div>
-              <button
-                onClick={() => handleRetryMessage()}
-                disabled={isStreaming}
-                className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-900/80 hover:bg-rose-800 text-rose-200 border border-rose-700/50 transition-colors cursor-pointer text-xs"
-                title="Tentar enviar última pergunta novamente"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Tentar novamente</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                {onOpenSettings && (
+                  <button
+                    type="button"
+                    onClick={onOpenSettings}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/50 transition-colors cursor-pointer text-xs font-semibold"
+                    title="Abrir configurações para inserir chave da API Gemini"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    <span>Configurar Chave</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => handleRetryMessage()}
+                  disabled={isStreaming}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-900/80 hover:bg-rose-800 text-rose-200 border border-rose-700/50 transition-colors cursor-pointer text-xs font-medium"
+                  title="Tentar enviar última pergunta novamente"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Tentar novamente</span>
+                </button>
+              </div>
             </div>
           )}
         </div>

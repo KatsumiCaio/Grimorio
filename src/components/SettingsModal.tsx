@@ -367,22 +367,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <label className="block text-xs font-medium text-zinc-300 mb-1 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <Key className="w-3 h-3 text-cyan-500" />
-                  Chave de API Gemini (Opcional)
+                  Chave de API Gemini (Necessária no site publicado)
                 </span>
-                <span className="text-[10px] text-zinc-500">Padrão: Injetada pelo ambiente</span>
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-cyan-400 hover:text-cyan-300 underline flex items-center gap-1"
+                >
+                  <span>Obter chave gratuita</span>
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
               </label>
               <input
                 type="password"
-                placeholder="Deixe em branco para usar a chave do servidor AI Studio"
+                placeholder="Insira sua chave AI Studio (AIzaSy...)"
                 value={formData.customApiKey}
                 onChange={(e) => setFormData({ ...formData, customApiKey: e.target.value })}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/60 font-mono"
               />
-              <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-zinc-400">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                <span>
-                  O Grimório executa as chamadas com segurança no servidor, sem expor credenciais no cliente.
-                </span>
+              <div className="mt-1.5 space-y-1">
+                <div className="flex items-start gap-1.5 text-[11px] text-zinc-400">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                  <span>
+                    No ambiente de desenvolvimento a chave é injetada automaticamente. No site publicado (hospedagem externa ou estática), insira sua chave gratuita para ativar o Copiloto.
+                  </span>
+                </div>
               </div>
             </div>
           </div>

@@ -25,6 +25,7 @@ import {
   Check,
   RefreshCw,
   FolderInput,
+  UserMinus,
 } from 'lucide-react';
 import { Campaign, CharacterSheet, UserProfile, CampaignSharedItem, ResourceBar } from '../types';
 import { NewCharacterModal } from './NewCharacterModal';
@@ -40,6 +41,8 @@ interface PlayerPortalViewProps {
   campaigns?: Campaign[];
   onCreateCharacter: (char: CharacterSheet) => void;
   onUpdateCharacter: (char: CharacterSheet) => void;
+  onDeleteCharacter?: (id: string) => void;
+  onRemoveCharacterFromTable?: (campaignId: string, characterId: string, memberUserId?: string) => void;
   onSavePlayerNotes: (notes: string) => void;
   onOpenTableModal: () => void;
   onOpenCampaignMenu: () => void;
@@ -52,6 +55,8 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
   campaigns = [],
   onCreateCharacter,
   onUpdateCharacter,
+  onDeleteCharacter,
+  onRemoveCharacterFromTable,
   onSavePlayerNotes,
   onOpenTableModal,
   onOpenCampaignMenu,
@@ -449,8 +454,27 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium border border-zinc-700 cursor-pointer transition-colors"
                     >
                       <Edit2 className="w-3 h-3 text-cyan-400" />
-                      <span>Editar Ficha</span>
+                      <span>Editar</span>
                     </button>
+                    {onRemoveCharacterFromTable && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            confirm(
+                              `Deseja desvincular a ficha "${myCharacter.name}" desta campanha? Ela continuará salva na sua conta para uso futuro.`
+                            )
+                          ) {
+                            onRemoveCharacterFromTable(campaign.id, myCharacter.id, currentUser.id);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-950/30 hover:bg-rose-900/50 text-rose-300 hover:text-rose-100 text-xs font-medium border border-rose-800/40 cursor-pointer transition-colors"
+                        title="Desvincular ficha desta mesa"
+                      >
+                        <UserMinus className="w-3 h-3 text-rose-400" />
+                        <span className="hidden sm:inline">Desvincular</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1053,6 +1077,7 @@ export const PlayerPortalView: React.FC<PlayerPortalViewProps> = ({
           isOpen={isEditCharModalOpen}
           character={myCharacter}
           onClose={() => setIsEditCharModalOpen(false)}
+          onDelete={onDeleteCharacter}
           onSave={(updated) => {
             onUpdateCharacter({
               ...updated,

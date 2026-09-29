@@ -19,6 +19,7 @@ interface EditCharacterModalProps {
   character: CharacterSheet | null;
   onClose: () => void;
   onSave: (updatedCharacter: CharacterSheet) => void;
+  onDelete?: (id: string) => void;
 }
 
 export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
@@ -26,6 +27,7 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
   character,
   onClose,
   onSave,
+  onDelete,
 }) => {
   const [name, setName] = useState(character?.name || '');
   const [role, setRole] = useState(character?.role || '');
@@ -468,22 +470,43 @@ export const EditCharacterModal: React.FC<EditCharacterModalProps> = ({
           </div>
 
           {/* Footer Actions */}
-          <div className="p-4 bg-zinc-950 border-t border-zinc-800 flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-zinc-850 hover:bg-zinc-800 text-zinc-300 text-xs font-semibold transition-colors cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-zinc-950 text-xs font-bold transition-all shadow-md cursor-pointer"
-            >
-              <Save className="w-4 h-4" />
-              <span>Salvar Alterações</span>
-            </button>
+          <div className="p-4 bg-zinc-950 border-t border-zinc-800 flex items-center justify-between gap-2.5">
+            <div>
+              {onDelete && character && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm(`Tem certeza de que deseja excluir permanentemente a ficha de "${character.name}"?`)) {
+                      onDelete(character.id);
+                      onClose();
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 text-xs font-semibold transition-colors cursor-pointer"
+                  title="Excluir ficha permanentemente"
+                >
+                  <Trash2 className="w-4 h-4 text-rose-400" />
+                  <span>Excluir Ficha</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl bg-zinc-850 hover:bg-zinc-800 text-zinc-300 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-zinc-950 text-xs font-bold transition-all shadow-md cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>Salvar Alterações</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

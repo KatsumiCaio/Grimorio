@@ -19,6 +19,105 @@ export interface UseGeminiChatOptions {
   onMessageComplete?: (userMsg: ChatMessage, assistantMsg: ChatMessage) => void;
 }
 
+// Fallback direct streaming for static sites or when /api/chat is unavailable
+async function streamDirectGemini({
+  apiKey,
+  model,
+  messages,
+  systemInstruction,
+  signal,
+  onChunk,
+}: {
+  apiKey: string;
+  model: string;
+  messages: Array<{ role: string; content: string }>;
+  systemInstruction?: string;
+  signal?: AbortSignal;
+  onChunk: (accumulatedText: string) => void;
+}): Promise<string> {
+  const effectiveModel =
+    model && !model.includes('2.5') && !model.includes('2.0') && !model.includes('1.5')
+      ? model
+      : 'gemini-3.8-flash';
+
+  const formattedContents = (messages || []).map((msg) => ({
+    role: msg.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: msg.content || '' }],
+  }));
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+    effectiveModel
+  )}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`;
+
+  const body: any = {
+    contents:
+      formattedContents.length > 0
+        ? formattedContents
+        : [{ role: 'user', parts: [{ text: 'Olá' }] }],
+  };
+
+  if (systemInstruction) {
+    body.systemInstruction = {
+      parts: [{ text: systemInstruction }],
+    };
+  }
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    const msg = errData?.error?.message;
+    if (res.status === 400 || res.status === 403) {
+      throw new Error(
+        `Chave da API Gemini inválida ou não autorizada. Verifique sua chave nas Configurações (⚙️): ${msg || res.statusText}`
+      );
+    }
+    throw new Error(msg || `Erro na API Gemini (${res.status}): ${res.statusText}`);
+  }
+
+  if (!res.body) {
+    throw new Error('Corpo de resposta vazio da API Gemini.');
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let accumulated = '';
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.startsWith('data: ')) continue;
+      const jsonStr = trimmed.slice(6);
+      if (jsonStr === '[DONE]') break;
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const chunkText = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (chunkText) {
+          accumulated += chunkText;
+          onChunk(accumulated);
+        }
+      } catch {
+        // ignore incomplete json chunks
+      }
+    }
+  }
+
+  return accumulated;
+}
+
 export function useGeminiChat(options: UseGeminiChatOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>(options.initialMessages || []);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -123,7 +222,14 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
         };
 
         let response: Response | null = null;
+        let fetchFailed = false;
         const maxAttempts = 3;
+
+        const effectiveCustomApiKey =
+          (options.customApiKey && options.customApiKey.trim().length > 8 ? options.customApiKey.trim() : '') ||
+          (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GEMINI_API_KEY
+            ? String((import.meta as any).env.VITE_GEMINI_API_KEY).trim()
+            : '');
 
         // Resilient fetch loop: Handles dev-server warmup, proxy reload (405/502/504), and temporary spikes (503)
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -154,11 +260,44 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
               await new Promise((r) => setTimeout(r, attempt * 800));
               continue;
             }
-            throw fetchErr;
+            fetchFailed = true;
+            break;
           }
         }
 
-        if (!response || !response.ok) {
+        let accumulatedText = '';
+
+        // If /api/chat failed to connect, returned 404 (static hosting), returned HTML (SPA fallback), or returned 400 (missing server key)
+        const isHtmlFallback = Boolean(response?.headers.get('content-type')?.includes('text/html'));
+        const isMissingServerKey = response?.status === 400;
+        const isStaticHostWithoutBackend = fetchFailed || response?.status === 404 || isHtmlFallback;
+
+        if (isStaticHostWithoutBackend || (isMissingServerKey && effectiveCustomApiKey)) {
+          if (effectiveCustomApiKey) {
+            // Static hosting fallback: stream directly from Google Gemini API with user's key
+            accumulatedText = await streamDirectGemini({
+              apiKey: effectiveCustomApiKey,
+              model: options.model || 'gemini-3.8-flash',
+              messages: updatedHistory.map((m) => ({ role: m.role, content: m.content })),
+              systemInstruction,
+              signal: controller.signal,
+              onChunk: (text) => {
+                accumulatedText = text;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, content: text, isStreaming: true, error: undefined }
+                      : msg
+                  )
+                );
+              },
+            });
+          } else {
+            throw new Error(
+              'No site publicado, o Copiloto precisa da chave da API Gemini. Abra as Configurações (ícone ⚙️ no menu superior) e adicione sua chave gratuita do Google AI Studio, ou configure a variável GEMINI_API_KEY no servidor.'
+            );
+          }
+        } else if (!response || !response.ok) {
           const errorData = await response?.json().catch(() => ({}));
           let friendlyError = errorData?.error;
           if (!friendlyError) {
@@ -169,56 +308,56 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
             } else if (response?.status === 429) {
               friendlyError = 'Muitas mensagens enviadas em pouco tempo. Aguarde alguns segundos.';
             } else {
-              friendlyError = `Erro na requisição (${response?.status || 'desconectado'})`;
+              friendlyError = `Erro na requisição (${response?.status || 'desconectado'}). Se este for um site publicado, configure sua chave Gemini nas Configurações (⚙️).`;
             }
           }
           throw new Error(friendlyError);
-        }
+        } else {
+          // Standard server-side SSE stream response
+          if (!response.body) {
+            throw new Error('Corpo de resposta vazio do servidor.');
+          }
 
-        if (!response.body) {
-          throw new Error('Corpo de resposta vazio do servidor.');
-        }
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+          let buffer = '';
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let accumulatedText = '';
-        let buffer = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
+            for (const line of lines) {
+              const trimmedLine = line.trim();
+              if (!trimmedLine || !trimmedLine.startsWith('data: ')) continue;
 
-          for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (!trimmedLine || !trimmedLine.startsWith('data: ')) continue;
-
-            const payload = trimmedLine.slice(6);
-            if (payload === '[DONE]') {
-              break;
-            }
-
-            try {
-              const data = JSON.parse(payload);
-              if (data.error) {
-                throw new Error(data.error);
+              const payload = trimmedLine.slice(6);
+              if (payload === '[DONE]') {
+                break;
               }
-              if (data.text) {
-                accumulatedText += data.text;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, content: accumulatedText, isStreaming: true, error: undefined }
-                      : msg
-                  )
-                );
-              }
-            } catch (jsonErr: any) {
-              if (jsonErr.message && !jsonErr.message.includes('JSON')) {
-                throw jsonErr;
+
+              try {
+                const data = JSON.parse(payload);
+                if (data.error) {
+                  throw new Error(data.error);
+                }
+                if (data.text) {
+                  accumulatedText += data.text;
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantMessageId
+                        ? { ...msg, content: accumulatedText, isStreaming: true, error: undefined }
+                        : msg
+                    )
+                  );
+                }
+              } catch (jsonErr: any) {
+                if (jsonErr.message && !jsonErr.message.includes('JSON')) {
+                  throw jsonErr;
+                }
               }
             }
           }
