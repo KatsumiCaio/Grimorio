@@ -103,7 +103,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
   onRemoveCharacterFromTable,
   onSelectCharacterToView,
   onOpenSettings,
-  model = 'gemini-3.8-flash',
+  model = 'gemini-3-flash-preview',
   customApiKey = '',
   isFullScreen = false,
   onToggleFullScreen,
@@ -2153,7 +2153,7 @@ export const CampaignCopilotView: React.FC<CampaignCopilotViewProps> = ({
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs font-semibold text-zinc-100">Copiloto do Mestre</span>
                 <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 font-mono">
-                  {model || 'gemini-3.8-flash'}
+                  {model || 'gemini-3-flash-preview'}
                 </span>
                 <button
                   onClick={() => setShowSystemRulesInfo(true)}

@@ -191,9 +191,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleTestKey = async () => {
     const rawKey = formData.customApiKey || '';
     const cleaned = cleanApiKey(rawKey);
-    if (!cleaned) {
+    if (!cleaned || cleaned.length < 8) {
       setKeyTestStatus('error');
-      setKeyTestMessage('Insira uma chave da API Gemini antes de testar.');
+      setKeyTestMessage('Insira uma chave da API Gemini válida do Google AI Studio antes de testar.');
       return;
     }
 
@@ -201,7 +201,70 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setKeyTestMessage(null);
 
     try {
-      // 1. Try server endpoint first
+      // Step 1: Direct test against Google Generative Language API first
+      // This guarantees 100% real validation against Google's servers, eliminating
+      // false positives from static hosting servers (which return 200 HTML on /api/*)
+      const directCandidates = [
+        'gemini-3-flash-preview',
+        formData.model || 'gemini-3-flash-preview',
+        'gemini-3.1-flash-lite',
+        'gemini-3.8-flash',
+      ];
+
+      let directSuccess = false;
+      let lastGoogleError = '';
+
+      for (const m of directCandidates) {
+        try {
+          const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(cleaned)}`;
+          const directRes = await fetch(directUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: 'ping' }] }],
+            }),
+          });
+
+          if (directRes.ok) {
+            const data = await directRes.json();
+            if (data?.candidates?.length) {
+              directSuccess = true;
+              break;
+            }
+          } else {
+            const errJson = await directRes.json().catch(() => ({}));
+            const errMsg = errJson?.error?.message;
+            if (directRes.status === 400 || directRes.status === 403) {
+              // Authentication error: key is definitely invalid, stop immediately
+              throw new Error(errMsg || `Chave não autorizada ou inválida no Google AI Studio (HTTP ${directRes.status}).`);
+            }
+            lastGoogleError = errMsg || `Erro ${directRes.status}`;
+          }
+        } catch (fetchErr: any) {
+          if (
+            fetchErr.message?.includes('não autorizada') ||
+            fetchErr.message?.includes('API key not valid') ||
+            fetchErr.message?.includes('Google AI Studio')
+          ) {
+            throw fetchErr;
+          }
+          lastGoogleError = fetchErr.message;
+        }
+      }
+
+      if (directSuccess) {
+        // AUTOMATICALLY SAVE AND APPLY KEY IMMEDIATELY
+        const updated = { ...formData, customApiKey: cleaned };
+        setFormData(updated);
+        storageService.saveSettings(updated);
+        onSaveSettings(updated);
+
+        setKeyTestStatus('success');
+        setKeyTestMessage('Chave validada e salva com sucesso! O Copiloto está ativo e pronto para uso.');
+        return;
+      }
+
+      // Step 2: Try server endpoint if direct Google connection failed (e.g. strict firewall / local proxy)
       const res = await fetch('/api/test-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -211,32 +274,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         }),
       });
 
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setKeyTestStatus('success');
-        setKeyTestMessage(data.message || 'Chave validada com sucesso! Conexão ativa com o Gemini.');
-        return;
-      }
+      const contentType = res.headers.get('content-type') || '';
+      // Ensure response is actually JSON and not an HTML fallback page from a static deployment
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json().catch(() => null);
+        if (data && data.ok === true) {
+          const updated = { ...formData, customApiKey: cleaned };
+          setFormData(updated);
+          storageService.saveSettings(updated);
+          onSaveSettings(updated);
 
-      // 2. If endpoint returned 404 (static deployment without backend), test directly with Google API
-      if (res.status === 404 || res.status === 405) {
-        const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:streamGenerateContent?alt=sse&key=${encodeURIComponent(cleaned)}`;
-        const directRes = await fetch(directUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'oi' }] }] }),
-        });
-        if (directRes.ok) {
           setKeyTestStatus('success');
-          setKeyTestMessage('Chave validada com sucesso via Google Gemini API!');
+          setKeyTestMessage(data.message || 'Chave validada e salva com sucesso!');
           return;
         }
-        const errJson = await directRes.json().catch(() => ({}));
-        throw new Error(errJson?.error?.message || `Erro da API Gemini (${directRes.status})`);
+        if (data && data.error) {
+          throw new Error(data.error);
+        }
       }
 
-      const errJson = await res.json().catch(() => ({}));
-      throw new Error(errJson?.error || `Erro (${res.status}) ao validar chave.`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson?.error || `Erro (${res.status}) ao validar chave no servidor.`);
+      }
+
+      throw new Error(lastGoogleError || 'Falha ao validar chave. Verifique se copiou a chave completa no Google AI Studio (aistudio.google.com).');
     } catch (err: any) {
       setKeyTestStatus('error');
       setKeyTestMessage(err.message || 'Falha ao conectar com a API Gemini.');
@@ -259,6 +321,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
     const cleaned = cleanApiKey(formData.customApiKey);
     const updated = { ...formData, customApiKey: cleaned };
+    setFormData(updated);
     storageService.saveSettings(updated);
     onSaveSettings(updated);
     onClose();
@@ -421,17 +484,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <select
                 value={
                   formData.model === 'gemini-2.5-flash' || formData.model === 'gemini-2.5-flash-lite'
-                    ? 'gemini-3.8-flash'
-                    : formData.model || 'gemini-3.8-flash'
+                    ? 'gemini-3-flash-preview'
+                    : formData.model || 'gemini-3-flash-preview'
                 }
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500/60"
               >
-                <option value="gemini-3.8-flash">gemini-3.8-flash (Recomendado - Alta Precisão & Narrativa)</option>
-                <option value="gemini-3-flash-preview">gemini-3-flash-preview (Alta Disponibilidade & Rápido)</option>
-                <option value="gemini-flash-lite-latest">gemini-flash-lite-latest (Ultraleve & Econômico)</option>
-                <option value="gemini-3.6-flash">gemini-3.6-flash (Equilibrado)</option>
-                <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Rápido)</option>
+                <option value="gemini-3-flash-preview">gemini-3-flash-preview (Recomendado - Alta Disponibilidade & Respostas Rápidas)</option>
+                <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Ultraleve & Econômico)</option>
+                <option value="gemini-3.8-flash">gemini-3.8-flash (Alta Precisão Textual)</option>
                 <option value="gemini-flash-latest">gemini-flash-latest (Versão Mais Recente)</option>
               </select>
               <p className="text-[11px] text-zinc-500 mt-1">

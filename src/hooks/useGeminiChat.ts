@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { ChatMessage } from '../types';
 import { getSystemKnowledge } from '../data/rpgSystems';
+import { storageService } from '../services/storage';
 
 export interface ChatContext {
   system: string;
@@ -22,10 +23,15 @@ export interface UseGeminiChatOptions {
 export function cleanApiKey(raw: string | undefined | null): string {
   if (!raw || typeof raw !== 'string') return '';
   let k = raw.trim();
-  k = k.replace(/^["']|["']$/g, '').trim();
-  k = k.replace(/^(?:GEMINI_API_KEY|API_KEY|GOOGLE_API_KEY)\s*=\s*/i, '').trim();
-  k = k.replace(/^["']|["']$/g, '').trim();
+  // Remove zero-width spaces, BOM, non-breaking spaces
+  k = k.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').trim();
+  // Remove wrapping quotes and backticks
+  k = k.replace(/^["'`]|["'`]$/g, '').trim();
+  // Remove common variable prefixes (e.g., GEMINI_API_KEY=, API_KEY=, key=, export GEMINI_API_KEY=)
+  k = k.replace(/^(?:export\s+)?(?:GEMINI_API_KEY|GOOGLE_API_KEY|API_KEY|key)\s*[:=]\s*/i, '').trim();
+  k = k.replace(/^["'`]|["'`]$/g, '').trim();
   k = k.replace(/^Bearer\s+/i, '').trim();
+  k = k.replace(/[;,]$/g, '').trim();
   return k;
 }
 
@@ -53,22 +59,24 @@ async function streamDirectGemini({
   const effectiveModel =
     model && !model.includes('2.5') && !model.includes('2.0') && !model.includes('1.5')
       ? model
-      : 'gemini-3.8-flash';
+      : 'gemini-3-flash-preview';
 
   const candidateModels = Array.from(
     new Set([
-      effectiveModel,
       'gemini-3-flash-preview',
+      effectiveModel,
+      'gemini-3.1-flash-lite',
       'gemini-3.8-flash',
       'gemini-flash-latest',
-      'gemini-3.1-flash-lite',
     ])
   );
 
-  const formattedContents = (messages || []).map((msg) => ({
-    role: msg.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: msg.content || '' }],
-  }));
+  const formattedContents = (messages || [])
+    .filter((msg) => msg && typeof msg.content === 'string' && msg.content.trim().length > 0)
+    .map((msg) => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content.trim() }],
+    }));
 
   const body: any = {
     contents:
@@ -88,12 +96,12 @@ async function streamDirectGemini({
   for (const currentModel of candidateModels) {
     if (signal?.aborted) break;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+    const streamUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
       currentModel
     )}:streamGenerateContent?alt=sse&key=${encodeURIComponent(sanitizedKey)}`;
 
     try {
-      const res = await fetch(url, {
+      const res = await fetch(streamUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -110,7 +118,7 @@ async function streamDirectGemini({
         }
         // If 503 (high demand) or 404 (model unavailable), try next model
         if (res.status === 503 || res.status === 404) {
-          lastDirectError = new Error(msg || `Modelo ${currentModel} com alta demanda.`);
+          lastDirectError = new Error(msg || `Modelo ${currentModel} com alta demanda temporária.`);
           continue;
         }
         throw new Error(msg || `Erro na API Gemini (${res.status}): ${res.statusText}`);
@@ -138,12 +146,17 @@ async function streamDirectGemini({
           if (!trimmed || !trimmed.startsWith('data: ')) continue;
           const jsonStr = trimmed.slice(6);
           if (jsonStr === '[DONE]') break;
+
           try {
             const parsed = JSON.parse(jsonStr);
-            const chunkText = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (chunkText) {
-              accumulated += chunkText;
-              onChunk(accumulated);
+            const parts = parsed?.candidates?.[0]?.content?.parts;
+            if (Array.isArray(parts)) {
+              for (const part of parts) {
+                if (part.text) {
+                  accumulated += part.text;
+                  onChunk(accumulated);
+                }
+              }
             }
           } catch {
             // ignore incomplete json chunks
@@ -151,8 +164,33 @@ async function streamDirectGemini({
         }
       }
 
+      // If stream ended with content, return successfully
       if (accumulated) {
         return accumulated;
+      }
+
+      // Fallback: Non-streaming request on same model if streaming returned empty
+      const nonStreamUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+        currentModel
+      )}:generateContent?key=${encodeURIComponent(sanitizedKey)}`;
+
+      const nonStreamRes = await fetch(nonStreamUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal,
+      });
+
+      if (nonStreamRes.ok) {
+        const data = await nonStreamRes.json();
+        const parts = data?.candidates?.[0]?.content?.parts;
+        if (Array.isArray(parts)) {
+          const fullText = parts.map((p: any) => p.text || '').join('');
+          if (fullText) {
+            onChunk(fullText);
+            return fullText;
+          }
+        }
       }
     } catch (err: any) {
       if (err.name === 'AbortError') throw err;
@@ -265,7 +303,7 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
           systemInstruction,
           system: context?.system || 'D&D 5e',
           campaignTitle: context?.campaignTitle || 'Campanha Principal',
-          model: options.model && options.model !== 'gemini-2.5-flash' && options.model !== 'gemini-2.5-flash-lite' ? options.model : 'gemini-3.8-flash',
+          model: options.model && options.model !== 'gemini-2.5-flash' && options.model !== 'gemini-2.5-flash-lite' ? options.model : 'gemini-3-flash-preview',
           customApiKey: options.customApiKey || undefined,
         };
 
@@ -275,6 +313,7 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
 
         const effectiveCustomApiKey =
           cleanApiKey(options.customApiKey) ||
+          cleanApiKey(storageService.getSettings().customApiKey) ||
           cleanApiKey(typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_GEMINI_API_KEY : '');
 
         // Resilient fetch loop: Handles dev-server warmup, proxy reload (405/502/504), and temporary spikes (503)
@@ -314,7 +353,9 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
         let accumulatedText = '';
 
         // If /api/chat failed to connect, returned 404 (static hosting), returned HTML (SPA fallback), or returned 400 (missing server key)
-        const isHtmlFallback = Boolean(response?.headers.get('content-type')?.includes('text/html'));
+        const contentType = response?.headers.get('content-type') || '';
+        const isEventStream = contentType.includes('text/event-stream');
+        const isHtmlFallback = contentType.includes('text/html') || (!isEventStream && response?.ok);
         const isMissingServerKey = response?.status === 400;
         const isStaticHostWithoutBackend = fetchFailed || response?.status === 404 || isHtmlFallback;
 
@@ -323,7 +364,7 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
             // Static hosting fallback: stream directly from Google Gemini API with user's key
             accumulatedText = await streamDirectGemini({
               apiKey: effectiveCustomApiKey,
-              model: options.model || 'gemini-3.8-flash',
+              model: options.model || 'gemini-3-flash-preview',
               messages: updatedHistory.map((m) => ({ role: m.role, content: m.content })),
               systemInstruction,
               signal: controller.signal,
@@ -344,20 +385,41 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
             );
           }
         } else if (!response || !response.ok) {
-          const errorData = await response?.json().catch(() => ({}));
-          let friendlyError = errorData?.error;
-          if (!friendlyError) {
-            if (response?.status === 405) {
-              friendlyError = 'O servidor do Copiloto está finalizando a inicialização. Tente reenviar em alguns instantes.';
-            } else if (response?.status === 503) {
-              friendlyError = 'Os servidores de IA estão com alta demanda temporária. Clique em Tentar novamente.';
-            } else if (response?.status === 429) {
-              friendlyError = 'Muitas mensagens enviadas em pouco tempo. Aguarde alguns segundos.';
-            } else {
-              friendlyError = `Erro na requisição (${response?.status || 'desconectado'}). Se este for um site publicado, configure sua chave Gemini nas Configurações (⚙️).`;
+          // If server failed and user provided a key, fallback to direct streaming
+          if (effectiveCustomApiKey) {
+            accumulatedText = await streamDirectGemini({
+              apiKey: effectiveCustomApiKey,
+              model: options.model || 'gemini-3-flash-preview',
+              messages: updatedHistory.map((m) => ({ role: m.role, content: m.content })),
+              systemInstruction,
+              signal: controller.signal,
+              onChunk: (text) => {
+                accumulatedText = text;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, content: text, isStreaming: true, error: undefined }
+                      : msg
+                  )
+                );
+              },
+            });
+          } else {
+            const errorData = await response?.json().catch(() => ({}));
+            let friendlyError = errorData?.error;
+            if (!friendlyError) {
+              if (response?.status === 405) {
+                friendlyError = 'O servidor do Copiloto está finalizando a inicialização. Tente reenviar em alguns instantes.';
+              } else if (response?.status === 503) {
+                friendlyError = 'Os servidores de IA estão com alta demanda temporária. Clique em Tentar novamente.';
+              } else if (response?.status === 429) {
+                friendlyError = 'Muitas mensagens enviadas em pouco tempo. Aguarde alguns segundos.';
+              } else {
+                friendlyError = `Erro na requisição (${response?.status || 'desconectado'}). Se este for um site publicado, configure sua chave Gemini nas Configurações (⚙️).`;
+              }
             }
+            throw new Error(friendlyError);
           }
-          throw new Error(friendlyError);
         } else {
           // Standard server-side SSE stream response
           if (!response.body) {
@@ -406,6 +468,27 @@ DIRETRIZES DE RESPOSTA AO MESTRE:
                 }
               }
             }
+          }
+
+          // If stream ended with no text and user has custom key, attempt direct fallback
+          if (!accumulatedText && effectiveCustomApiKey) {
+            accumulatedText = await streamDirectGemini({
+              apiKey: effectiveCustomApiKey,
+              model: options.model || 'gemini-3-flash-preview',
+              messages: updatedHistory.map((m) => ({ role: m.role, content: m.content })),
+              systemInstruction,
+              signal: controller.signal,
+              onChunk: (text) => {
+                accumulatedText = text;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, content: text, isStreaming: true, error: undefined }
+                      : msg
+                  )
+                );
+              },
+            });
           }
         }
 

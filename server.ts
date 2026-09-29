@@ -77,10 +77,15 @@ async function startServer() {
   const cleanApiKey = (raw: any): string => {
     if (!raw || typeof raw !== "string") return "";
     let k = raw.trim();
-    k = k.replace(/^["']|["']$/g, "").trim();
-    k = k.replace(/^(?:GEMINI_API_KEY|API_KEY|GOOGLE_API_KEY)\s*=\s*/i, "").trim();
-    k = k.replace(/^["']|["']$/g, "").trim();
+    // Remove zero-width spaces, BOM, non-breaking spaces
+    k = k.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, "").trim();
+    // Remove wrapping quotes
+    k = k.replace(/^["'`]|["'`]$/g, "").trim();
+    // Remove common variable prefixes (e.g., GEMINI_API_KEY=, API_KEY=, key=, export GEMINI_API_KEY=)
+    k = k.replace(/^(?:export\s+)?(?:GEMINI_API_KEY|GOOGLE_API_KEY|API_KEY|key)\s*[:=]\s*/i, "").trim();
+    k = k.replace(/^["'`]|["'`]$/g, "").trim();
     k = k.replace(/^Bearer\s+/i, "").trim();
+    k = k.replace(/[;,]$/g, "").trim();
     return k;
   };
 
@@ -94,7 +99,8 @@ async function startServer() {
   // Fast key-testing endpoint
   app.post("/api/test-key", async (req, res) => {
     const { customApiKey, model } = req.body || {};
-    const key = cleanApiKey(customApiKey) || cleanApiKey(process.env.GEMINI_API_KEY);
+    // CRITICAL: If customApiKey is supplied, test ONLY that key! Never fall back to process.env.GEMINI_API_KEY when user is testing their key!
+    const key = customApiKey !== undefined ? cleanApiKey(customApiKey) : cleanApiKey(process.env.GEMINI_API_KEY);
 
     if (!key || key.length < 8) {
       return res.status(400).json({
@@ -110,11 +116,11 @@ async function startServer() {
 
     const candidateTestModels = Array.from(
       new Set([
-        model || "gemini-3-flash-preview",
         "gemini-3-flash-preview",
+        model || "gemini-3-flash-preview",
+        "gemini-3.1-flash-lite",
         "gemini-3.8-flash",
         "gemini-flash-latest",
-        "gemini-3.1-flash-lite",
       ])
     );
 
@@ -134,6 +140,19 @@ async function startServer() {
         }
       } catch (err: any) {
         lastErr = err;
+        const msg = err?.message || "";
+        // If API key is invalid or permission denied, stop testing immediately - don't retry other models
+        if (
+          msg.includes("API key not valid") ||
+          msg.includes("PERMISSION_DENIED") ||
+          msg.includes("API_KEY_INVALID") ||
+          msg.includes("not found")
+        ) {
+          return res.status(400).json({
+            ok: false,
+            error: "Chave de API Gemini inválida. Certifique-se de copiar a chave completa gerada no Google AI Studio (aistudio.google.com).",
+          });
+        }
       }
     }
 
@@ -142,7 +161,7 @@ async function startServer() {
       if (errorDetail.includes("API_KEY_INVALID") || errorDetail.includes("API key not valid")) {
         errorDetail = "Chave de API inválida. Certifique-se de copiar a chave completa gerada no Google AI Studio (aistudio.google.com).";
       } else if (errorDetail.includes("RESOURCE_EXHAUSTED") || errorDetail.includes("quota")) {
-        errorDetail = "Limite de cota da chave atingido. Aguarde alguns instantes.";
+        errorDetail = "Limite de cota da chave atingido temporariamente. Aguarde alguns instantes.";
       }
     }
 
@@ -292,10 +311,13 @@ async function startServer() {
           }
         } catch (streamErr: any) {
           lastError = streamErr;
-          console.warn(`[Grimório Copilot] Streaming no modelo ${currentModel} falhou (${streamErr?.status || streamErr?.message || streamErr}). Testando modo direto...`);
+          console.warn(`[Grimório Copilot] Streaming no modelo ${currentModel} falhou (${streamErr?.status || streamErr?.message || streamErr}).`);
 
-          // Step 2: Fallback to non-streaming generateContent on the same model if streaming timed out or had a socket issue
-          if (!isAborted && !res.writableEnded) {
+          // If error is 503 (high demand) or UNAVAILABLE or quota exhausted, skip immediately to next model
+          const isDemandSpike = String(streamErr?.status) === "503" || String(streamErr?.message).includes("503") || String(streamErr?.message).includes("UNAVAILABLE");
+
+          // Step 2: Fallback to non-streaming generateContent on the same model only if it was not a 503 demand spike
+          if (!isDemandSpike && !isAborted && !res.writableEnded) {
             try {
               const nonStreamRes = await ai.models.generateContent({
                 model: currentModel,
